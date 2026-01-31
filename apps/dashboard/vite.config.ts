@@ -8,6 +8,13 @@ export default defineConfig({
       '/health': 'http://localhost:3000',
     },
   },
+  preview: {
+    port: 4173,
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/health': 'http://localhost:3000',
+    },
+  },
   build: {
     target: 'esnext',
   },

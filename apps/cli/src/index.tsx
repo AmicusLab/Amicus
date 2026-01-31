@@ -2,10 +2,17 @@
 import React from 'react';
 import { render } from 'ink';
 import { App } from './App.js';
-import { getStatus, getTokenomics, getTasks } from './api.js';
+import { getStatus, getTokenomics, getTasks, waitForDaemon } from './api.js';
 
 async function runNonInteractive() {
   console.log('Amicus CLI (non-interactive mode)\n');
+  
+  // Wait for daemon to be ready
+  const isReady = await waitForDaemon(30, 1000);
+  if (!isReady) {
+    console.error('Failed to connect to daemon. Is it running?');
+    process.exit(1);
+  }
   
   try {
     const [status, tasks, tokenomics] = await Promise.all([
@@ -28,7 +35,7 @@ async function runNonInteractive() {
       console.log(`\nCost: $${tokenomics.data.totalCost.usd.toFixed(4)}`);
     }
   } catch (e) {
-    console.error('Failed to connect to daemon. Is it running?');
+    console.error('Failed to fetch data from daemon.');
     process.exit(1);
   }
 }

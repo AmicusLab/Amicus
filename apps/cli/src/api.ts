@@ -34,3 +34,13 @@ export async function healthCheck(): Promise<boolean> {
     return false;
   }
 }
+
+export async function waitForDaemon(maxRetries = 30, interval = 1000): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    if (await healthCheck()) {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, interval));
+  }
+  return false;
+}
