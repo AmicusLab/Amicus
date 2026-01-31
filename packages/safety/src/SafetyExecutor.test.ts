@@ -11,6 +11,10 @@ describe("SafetyExecutor", () => {
     const git = simpleGit({ baseDir: repoRoot });
 
     await git.init();
+    // CI environments often don't have git author identity configured,
+    // and this test creates commits in a temp repository.
+    await git.addConfig("user.name", "Amicus CI");
+    await git.addConfig("user.email", "ci@amicus.local");
 
     const filePath = join(repoRoot, "hello.txt");
     await writeFile(filePath, "v1\n", "utf8");
