@@ -7,7 +7,7 @@ import {
   type Task,
   type TaskResult,
 } from "@amicus/types/core";
-import type { Tool } from "@amicus/mcp-client";
+import type { Tool } from "@amicus/types/mcp";
 
 // Mock OperationExecutor
 class MockOperationExecutor {

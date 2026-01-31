@@ -1,4 +1,4 @@
-import type { Tool } from "@amicus/mcp-client";
+import type { Tool } from "@amicus/types/mcp";
 
 /**
  * Interface for the tool registry

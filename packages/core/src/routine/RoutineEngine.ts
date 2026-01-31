@@ -14,12 +14,25 @@ import {
   type Task,
   type TaskResult,
 } from "@amicus/types/core";
-import type { ContextManager } from "@amicus/memory";
-import { MCPClient, type Tool } from "@amicus/mcp-client";
+import type { Tool } from "@amicus/types/mcp";
 import { ToolRegistry } from "../tools/index.js";
 
 export interface OperationExecutor {
   execute<T>(taskDescription: string, operationFunction: () => Promise<T>): Promise<T>;
+}
+
+export interface ContextManagerLike {
+  loadContext(): Promise<string>;
+  updateShortTerm(content: string): Promise<void>;
+  consolidate(): Promise<void>;
+}
+
+export interface MCPClientLike {
+  discoverTools(): Promise<Tool[]>;
+  invokeTool(
+    name: string,
+    params: Record<string, unknown>
+  ): Promise<{ content: string; isError?: boolean }>;
 }
 
 /**
@@ -50,8 +63,8 @@ type RoutineMachineEvent =
 interface ExecuteTaskInput {
   task: Task;
   operationExecutor: OperationExecutor;
-  contextManager: ContextManager;
-  mcpClient: MCPClient | undefined;
+  contextManager: ContextManagerLike;
+  mcpClient: MCPClientLike | undefined;
   toolRegistry: ToolRegistry | undefined;
   emitStatusChange: (task: Task, status: TaskStatus) => void;
 }
@@ -61,9 +74,9 @@ interface ExecuteTaskInput {
  */
 export const createRoutineMachine = (
   operationExecutor: OperationExecutor,
-  contextManager: ContextManager,
+  contextManager: ContextManagerLike,
   emitStatusChange: (task: Task, status: TaskStatus) => void,
-  mcpClient?: MCPClient,
+  mcpClient?: MCPClientLike,
   toolRegistry?: ToolRegistry
 ) => {
   return setup({
@@ -312,8 +325,8 @@ export type RoutineMachine = ReturnType<typeof createRoutineMachine>;
  */
 export interface RoutineEngineOptions {
   operationExecutor?: OperationExecutor;
-  contextManager: ContextManager;
-  mcpClient?: MCPClient;
+  contextManager: ContextManagerLike;
+  mcpClient?: MCPClientLike;
 }
 
 /**
@@ -331,8 +344,8 @@ interface ScheduledRoutine {
  */
 export class RoutineEngine extends EventEmitter {
   private readonly operationExecutor: OperationExecutor;
-  private readonly contextManager: ContextManager;
-  private readonly mcpClient: MCPClient | undefined;
+  private readonly contextManager: ContextManagerLike;
+  private readonly mcpClient: MCPClientLike | undefined;
   private readonly toolRegistry: ToolRegistry;
   private readonly scheduledRoutines: Map<string, ScheduledRoutine> = new Map();
   private readonly runningMachines: Map<string, AnyActorRef> = new Map();
