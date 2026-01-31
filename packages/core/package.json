@@ -17,8 +17,6 @@
   },
   "dependencies": {
     "@amicus/types": "workspace:*",
-    "@amicus/memory": "workspace:*",
-    "@amicus/mcp-client": "workspace:*",
     "xstate": "^5.0.0",
     "ai": "^3.0.0",
     "@ai-sdk/gateway": "^1.0.0",

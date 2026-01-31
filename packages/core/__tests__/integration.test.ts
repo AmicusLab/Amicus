@@ -8,8 +8,6 @@ import {
   type Task,
   type TaskResult,
 } from "@amicus/types/core";
-import { ContextManager } from "@amicus/memory";
-import { MCPClient } from "@amicus/mcp-client";
 
 class MockOperationExecutor {
   async execute<T>(_: string, operation: () => Promise<T>): Promise<T> {
@@ -17,22 +15,28 @@ class MockOperationExecutor {
   }
 }
 
+class MockContextManager {
+  async loadContext(): Promise<string> {
+    // Keep the same keywords the tests expect.
+    return "## Current Context (NOW.md)\n...\n\n## Long-Term Memory (MEMORY.md)\n...";
+  }
+
+  async updateShortTerm(_content: string): Promise<void> {
+    // no-op for integration
+  }
+
+  async consolidate(): Promise<void> {
+    // no-op for integration
+  }
+}
+
 // Mock implementations for integration testing
-class MockMCPClient extends MCPClient {
+class MockMCPClient {
   private mockTools = [
     { name: "search-web", description: "Search the web", inputSchema: {} },
     { name: "read-file", description: "Read a file", inputSchema: {} },
     { name: "write-file", description: "Write a file", inputSchema: {} },
   ];
-
-  constructor() {
-    super({
-      name: "test-client",
-      version: "1.0.0",
-      transport: "stdio",
-      command: "echo",
-    });
-  }
 
   async connect(): Promise<void> {
     // Mock connection - does nothing
@@ -51,10 +55,6 @@ class MockMCPClient extends MCPClient {
       content: `Mock result for ${name} with params: ${JSON.stringify(params)}`,
       isError: false,
     };
-  }
-
-  isConnected(): boolean {
-    return true;
   }
 }
 
@@ -135,7 +135,7 @@ function createTestTask(
 
 describe("End-to-End Integration", () => {
   let operationExecutor: MockOperationExecutor;
-  let contextManager: ContextManager;
+  let contextManager: MockContextManager;
   let economist: MockEconomist;
   let mcpClient: MockMCPClient;
   let planner: Planner;
@@ -148,7 +148,7 @@ describe("End-to-End Integration", () => {
     // Initialize all components
     operationExecutor = new MockOperationExecutor();
 
-    contextManager = new ContextManager();
+    contextManager = new MockContextManager();
 
     economist = new MockEconomist();
 
@@ -490,7 +490,7 @@ describe("Component Interactions", () => {
   it("should demonstrate complete system integration", async () => {
     // Setup all components
     const testExecutor = new MockOperationExecutor();
-    const testMemory = new ContextManager();
+    const testMemory = new MockContextManager();
     const econ = new MockEconomist();
     const mcp = new MockMCPClient();
     const plan = new Planner({ economist: econ });
