@@ -9,8 +9,8 @@ import {
 } from "@amicus/types/core";
 import type { Tool } from "@amicus/mcp-client";
 
-// Mock SafetyExecutor
-class MockSafetyExecutor {
+// Mock OperationExecutor
+class MockOperationExecutor {
   shouldFail = false;
   executedTasks: string[] = [];
 
@@ -87,16 +87,16 @@ function createTestTask(id: string, description: string, tool?: string, paramete
 
 describe("RoutineEngine MCP Integration", () => {
   let engine: RoutineEngine;
-  let mockSafetyExecutor: MockSafetyExecutor;
+  let mockOperationExecutor: MockOperationExecutor;
   let mockContextManager: MockContextManager;
   let mockMCPClient: MockMCPClient;
 
   beforeEach(() => {
-    mockSafetyExecutor = new MockSafetyExecutor();
+    mockOperationExecutor = new MockOperationExecutor();
     mockContextManager = new MockContextManager();
     mockMCPClient = new MockMCPClient();
     engine = new RoutineEngine({
-      safetyExecutor: mockSafetyExecutor as any,
+      operationExecutor: mockOperationExecutor as any,
       contextManager: mockContextManager as any,
       mcpClient: mockMCPClient as any,
     });
@@ -129,7 +129,7 @@ describe("RoutineEngine MCP Integration", () => {
 
     it("should handle initialize without MCP client", async () => {
       const engineWithoutMCP = new RoutineEngine({
-        safetyExecutor: mockSafetyExecutor as any,
+        operationExecutor: mockOperationExecutor as any,
         contextManager: mockContextManager as any,
       });
 
@@ -159,12 +159,12 @@ describe("RoutineEngine MCP Integration", () => {
       const result = await engine.executeTask(task);
       
       expect(result.success).toBe(true);
-      expect(mockSafetyExecutor.executedTasks.length).toBe(1);
+    expect(mockOperationExecutor.executedTasks.length).toBe(1);
     });
 
     it("should fall back to safety executor when MCP client unavailable", async () => {
       const engineWithoutMCP = new RoutineEngine({
-        safetyExecutor: mockSafetyExecutor as any,
+      operationExecutor: mockOperationExecutor as any,
         contextManager: mockContextManager as any,
       });
 
@@ -173,7 +173,7 @@ describe("RoutineEngine MCP Integration", () => {
       const result = await engineWithoutMCP.executeTask(task);
       
       expect(result.success).toBe(true);
-      expect(mockSafetyExecutor.executedTasks.length).toBe(1);
+    expect(mockOperationExecutor.executedTasks.length).toBe(1);
     });
 
     it("should handle tool execution errors", async () => {

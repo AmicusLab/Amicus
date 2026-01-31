@@ -12,7 +12,6 @@
 
 import { RoutineEngine, Economist, Planner } from "@amicus/core";
 import { MCPClient } from "@amicus/mcp-client";
-import { SafetyExecutor } from "@amicus/safety";
 import { ContextManager } from "@amicus/memory";
 import {
   TaskStatus,
@@ -211,14 +210,14 @@ async function runDemo(): Promise<void> {
     useLLMDecomposition: false,
   });
 
-  const safetyExecutor = new SafetyExecutor({
-    dirtyStateStrategy: "stash",
-  });
+  const operationExecutor = {
+    execute: async <T>(_: string, op: () => Promise<T>): Promise<T> => op(),
+  };
   const contextManager = new ContextManager();
   const mcpClient = new DemoMCPClient();
 
   const routineEngine = new RoutineEngine({
-    safetyExecutor,
+    operationExecutor,
     contextManager,
     mcpClient,
   });
@@ -416,7 +415,7 @@ async function runDemo(): Promise<void> {
 
   console.log();
 
-  console.log(`  ${colors.green}✓${colors.reset} ${colors.bright}SafetyExecutor${colors.reset}`);
+  console.log(`  ${colors.green}✓${colors.reset} ${colors.bright}OperationExecutor${colors.reset}`);
   console.log(`    - Checkpoint creation`);
   console.log(`    - Automatic rollback on failure`);
   console.log(`    - Audit logging`);

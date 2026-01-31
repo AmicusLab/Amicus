@@ -14,10 +14,13 @@ import {
   type Task,
   type TaskResult,
 } from "@amicus/types/core";
-import type { SafetyExecutor } from "@amicus/safety";
 import type { ContextManager } from "@amicus/memory";
 import { MCPClient, type Tool } from "@amicus/mcp-client";
 import { ToolRegistry } from "../tools/index.js";
+
+export interface OperationExecutor {
+  execute<T>(taskDescription: string, operationFunction: () => Promise<T>): Promise<T>;
+}
 
 /**
  * Context for the routine state machine
@@ -46,7 +49,7 @@ type RoutineMachineEvent =
  */
 interface ExecuteTaskInput {
   task: Task;
-  safetyExecutor: SafetyExecutor;
+  operationExecutor: OperationExecutor;
   contextManager: ContextManager;
   mcpClient: MCPClient | undefined;
   toolRegistry: ToolRegistry | undefined;
@@ -57,7 +60,7 @@ interface ExecuteTaskInput {
  * Create the routine state machine
  */
 export const createRoutineMachine = (
-  safetyExecutor: SafetyExecutor,
+  operationExecutor: OperationExecutor,
   contextManager: ContextManager,
   emitStatusChange: (task: Task, status: TaskStatus) => void,
   mcpClient?: MCPClient,
@@ -71,8 +74,14 @@ export const createRoutineMachine = (
     actors: {
       executeTask: fromPromise<TaskResult, ExecuteTaskInput>(
         async ({ input }) => {
-          const { task, safetyExecutor, contextManager, mcpClient, toolRegistry, emitStatusChange } =
-            input;
+          const {
+            task,
+            operationExecutor,
+            contextManager,
+            mcpClient,
+            toolRegistry,
+            emitStatusChange,
+          } = input;
 
           // Emit task started event
           emitStatusChange(task, TaskStatus.RUNNING);
@@ -110,10 +119,10 @@ export const createRoutineMachine = (
               }
             }
 
-            // Execute the task using SafetyExecutor
+            // Execute the task using the injected executor
             // Since tasks are abstract, we convert them to a description
             // and execute a placeholder operation
-            const result = await safetyExecutor.execute<TaskResult>(
+            const result = await operationExecutor.execute<TaskResult>(
               `Execute task: ${task.description}`,
               async () => {
                 // Simulate task execution
@@ -231,7 +240,7 @@ export const createRoutineMachine = (
           input: ({ context }): ExecuteTaskInput =>
             ({
               task: context.task!,
-              safetyExecutor,
+              operationExecutor,
               contextManager,
               mcpClient,
               toolRegistry: toolRegistry ?? new ToolRegistry(),
@@ -302,7 +311,7 @@ export type RoutineMachine = ReturnType<typeof createRoutineMachine>;
  * Options for creating a RoutineEngine instance
  */
 export interface RoutineEngineOptions {
-  safetyExecutor: SafetyExecutor;
+  operationExecutor?: OperationExecutor;
   contextManager: ContextManager;
   mcpClient?: MCPClient;
 }
@@ -318,10 +327,10 @@ interface ScheduledRoutine {
 
 /**
  * RoutineEngine manages scheduled tasks using XState machines and cron scheduling.
- * Integrates with SafetyExecutor for safe task execution and ContextManager for memory.
+ * Integrates with an injected executor for task execution and ContextManager for memory.
  */
 export class RoutineEngine extends EventEmitter {
-  private readonly safetyExecutor: SafetyExecutor;
+  private readonly operationExecutor: OperationExecutor;
   private readonly contextManager: ContextManager;
   private readonly mcpClient: MCPClient | undefined;
   private readonly toolRegistry: ToolRegistry;
@@ -334,7 +343,14 @@ export class RoutineEngine extends EventEmitter {
    */
   constructor(options: RoutineEngineOptions) {
     super();
-    this.safetyExecutor = options.safetyExecutor;
+    this.operationExecutor =
+      options.operationExecutor ??
+      ({
+        execute: async <T>(
+          _taskDescription: string,
+          operationFunction: () => Promise<T>
+        ): Promise<T> => operationFunction(),
+      } satisfies OperationExecutor);
     this.contextManager = options.contextManager;
     this.mcpClient = options.mcpClient;
     this.toolRegistry = new ToolRegistry();
@@ -437,7 +453,7 @@ export class RoutineEngine extends EventEmitter {
   executeTask(task: Task): Promise<TaskResult> {
     return new Promise((resolve, reject) => {
       const machine = createRoutineMachine(
-        this.safetyExecutor,
+        this.operationExecutor,
         this.contextManager,
         (t, status) => this.emitStatusChange(t, status),
         this.mcpClient,

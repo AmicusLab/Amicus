@@ -8,9 +8,14 @@ import {
   type Task,
   type TaskResult,
 } from "@amicus/types/core";
-import { SafetyExecutor } from "@amicus/safety";
 import { ContextManager } from "@amicus/memory";
 import { MCPClient } from "@amicus/mcp-client";
+
+class MockOperationExecutor {
+  async execute<T>(_: string, operation: () => Promise<T>): Promise<T> {
+    return operation();
+  }
+}
 
 // Mock implementations for integration testing
 class MockMCPClient extends MCPClient {
@@ -129,7 +134,7 @@ function createTestTask(
 }
 
 describe("End-to-End Integration", () => {
-  let safetyExecutor: SafetyExecutor;
+  let operationExecutor: MockOperationExecutor;
   let contextManager: ContextManager;
   let economist: MockEconomist;
   let mcpClient: MockMCPClient;
@@ -141,9 +146,7 @@ describe("End-to-End Integration", () => {
     testRepoRoot = process.cwd();
 
     // Initialize all components
-    safetyExecutor = new SafetyExecutor({
-      dirtyStateStrategy: "stash",
-    });
+    operationExecutor = new MockOperationExecutor();
 
     contextManager = new ContextManager();
 
@@ -159,7 +162,7 @@ describe("End-to-End Integration", () => {
     mcpClient = new MockMCPClient();
 
     routineEngine = new RoutineEngine({
-      safetyExecutor,
+      operationExecutor: operationExecutor as any,
       contextManager,
       mcpClient,
     });
@@ -234,19 +237,15 @@ describe("End-to-End Integration", () => {
       expect(context).toContain("MEMORY.md");
     });
 
-    it("should handle error recovery with SafetyExecutor", async () => {
-      // Create a failing task by mocking safety executor to fail
-      const failingSafetyExecutor = new SafetyExecutor({
-        dirtyStateStrategy: "stash",
-      });
-
-      // Override execute to simulate failure
-      failingSafetyExecutor.execute = mock(async () => {
-        throw new Error("Simulated safety failure");
+    it("should handle error recovery with executor", async () => {
+      // Create a failing executor to simulate failure
+      const failingExecutor = new MockOperationExecutor();
+      failingExecutor.execute = mock(async () => {
+        throw new Error("Simulated executor failure");
       });
 
       const failingRoutine = new RoutineEngine({
-        safetyExecutor: failingSafetyExecutor,
+        operationExecutor: failingExecutor as any,
         contextManager,
         mcpClient,
       });
@@ -258,7 +257,7 @@ describe("End-to-End Integration", () => {
         expect(false).toBe(true); // Should not reach here
       } catch (error) {
         expect(error).toBeDefined();
-        expect(error.message).toContain("Simulated safety failure");
+        expect(error.message).toContain("Simulated executor failure");
       }
 
       failingRoutine.stop();
@@ -288,7 +287,7 @@ describe("End-to-End Integration", () => {
       });
 
       const routineWithFailingMCP = new RoutineEngine({
-        safetyExecutor,
+        operationExecutor: operationExecutor as any,
         contextManager,
         mcpClient: failingMCP,
       });
@@ -490,15 +489,13 @@ describe("End-to-End Integration", () => {
 describe("Component Interactions", () => {
   it("should demonstrate complete system integration", async () => {
     // Setup all components
-    const testSafety = new SafetyExecutor({
-      dirtyStateStrategy: "stash",
-    });
+    const testExecutor = new MockOperationExecutor();
     const testMemory = new ContextManager();
     const econ = new MockEconomist();
     const mcp = new MockMCPClient();
     const plan = new Planner({ economist: econ });
     const routine = new RoutineEngine({
-      safetyExecutor: testSafety,
+      operationExecutor: testExecutor as any,
       contextManager: testMemory,
       mcpClient: mcp,
     });

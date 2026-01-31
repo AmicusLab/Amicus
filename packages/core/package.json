@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@amicus/types": "workspace:*",
-    "@amicus/safety": "workspace:*",
     "@amicus/memory": "workspace:*",
     "@amicus/mcp-client": "workspace:*",
     "xstate": "^5.0.0",

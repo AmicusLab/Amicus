@@ -7,8 +7,8 @@ import {
   type TaskResult,
 } from "@amicus/types/core";
 
-// Mock SafetyExecutor
-class MockSafetyExecutor {
+// Mock OperationExecutor
+class MockOperationExecutor {
   shouldFail = false;
   executedTasks: string[] = [];
 
@@ -52,14 +52,14 @@ function createTestTask(id: string, description: string): Task {
 
 describe("RoutineEngine", () => {
   let engine: RoutineEngine;
-  let mockSafetyExecutor: MockSafetyExecutor;
+  let mockOperationExecutor: MockOperationExecutor;
   let mockContextManager: MockContextManager;
 
   beforeEach(() => {
-    mockSafetyExecutor = new MockSafetyExecutor();
+    mockOperationExecutor = new MockOperationExecutor();
     mockContextManager = new MockContextManager();
     engine = new RoutineEngine({
-      safetyExecutor: mockSafetyExecutor as any,
+      operationExecutor: mockOperationExecutor as any,
       contextManager: mockContextManager as any,
     });
   });
@@ -105,11 +105,11 @@ describe("RoutineEngine", () => {
 
       expect(result.success).toBe(true);
       expect(result.taskId).toBe("task-1");
-      expect(mockSafetyExecutor.executedTasks.length).toBe(1);
+      expect(mockOperationExecutor.executedTasks.length).toBe(1);
     });
 
     it("should handle task execution failure", async () => {
-      mockSafetyExecutor.shouldFail = true;
+      mockOperationExecutor.shouldFail = true;
       const task = createTestTask("task-1", "Failing task");
 
       try {
@@ -131,7 +131,7 @@ describe("RoutineEngine", () => {
     });
 
     it("should update context on task failure", async () => {
-      mockSafetyExecutor.shouldFail = true;
+      mockOperationExecutor.shouldFail = true;
       const task = createTestTask("task-1", "Failing task");
 
       try {
@@ -176,7 +176,7 @@ describe("RoutineEngine", () => {
     });
 
     it("should emit taskFailed event", async () => {
-      mockSafetyExecutor.shouldFail = true;
+      mockOperationExecutor.shouldFail = true;
       const task = createTestTask("task-1", "Failing task");
       let failedTask: Task | null = null;
 
@@ -322,7 +322,7 @@ describe("RoutineEngine", () => {
     });
 
     it("should transition through idle -> running -> failed on error", async () => {
-      mockSafetyExecutor.shouldFail = true;
+      mockOperationExecutor.shouldFail = true;
       const task = createTestTask("task-1", "Failing task");
       const states: string[] = [];
 
@@ -370,12 +370,12 @@ describe("RoutineEngine", () => {
   });
 
   describe("Integration", () => {
-    it("should integrate with SafetyExecutor", async () => {
+    it("should integrate with operation executor", async () => {
       const task = createTestTask("task-1", "Integration test");
       await engine.executeTask(task);
 
-      expect(mockSafetyExecutor.executedTasks.length).toBe(1);
-      expect(mockSafetyExecutor.executedTasks[0]).toContain(
+      expect(mockOperationExecutor.executedTasks.length).toBe(1);
+      expect(mockOperationExecutor.executedTasks[0]).toContain(
         "Execute task: Integration test"
       );
     });
@@ -400,7 +400,7 @@ describe("RoutineEngine", () => {
       await engine.executeTask(task1);
       await engine.executeTask(task2);
 
-      expect(mockSafetyExecutor.executedTasks.length).toBe(2);
+      expect(mockOperationExecutor.executedTasks.length).toBe(2);
       expect(mockContextManager.updates.length).toBeGreaterThanOrEqual(4);
     });
   });
