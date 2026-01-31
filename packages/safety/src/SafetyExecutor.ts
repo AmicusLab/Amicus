@@ -46,41 +46,34 @@ export class SafetyExecutor {
         phase: "precheck",
       });
 
-      if (!status.isClean()) {
-        if (this.dirtyStateStrategy === "stash") {
-          await this.git.stash(["push", "-m", "amicus/safety-autostash"]);
-        } else {
-          throw new DirtyWorkingTreeError(
-            "Working tree is not clean. Commit or stash your changes before running SafetyExecutor."
-          );
-        }
-      }
-
-      // Create a checkpoint commit marker. This is intentionally allow-empty so
-      // it works even in a clean repo.
-      const checkpointMessage = "amicus/safety-checkpoint";
-      await this.git.commit(checkpointMessage, undefined, { "--allow-empty": null });
-
-      const checkpointCommit = (await this.git.revparse(["HEAD"])).trim();
+      // NOTE: safety-checkpoint git commits are intentionally disabled.
+      // Rollback is performed via a working tree reset on failure.
       await this.audit.append({
         taskDescription,
         phase: "checkpoint_created",
-        checkpointCommit,
       });
 
       try {
         await this.audit.append({
           taskDescription,
           phase: "operation_started",
-          checkpointCommit,
         });
+
+        if (!status.isClean()) {
+          if (this.dirtyStateStrategy === "stash") {
+            await this.git.stash(["push", "-m", "amicus/safety-autostash"]);
+          } else {
+            throw new DirtyWorkingTreeError(
+              "Working tree is not clean. Commit or stash your changes before running SafetyExecutor."
+            );
+          }
+        }
 
         const result = await operationFunction();
 
         await this.audit.append({
           taskDescription,
           phase: "operation_succeeded",
-          checkpointCommit,
         });
 
         return result;
@@ -88,29 +81,25 @@ export class SafetyExecutor {
         await this.audit.append({
           taskDescription,
           phase: "operation_failed",
-          checkpointCommit,
           error: this.toErrorShape(err),
         });
 
         await this.audit.append({
           taskDescription,
           phase: "rollback_started",
-          checkpointCommit,
         });
 
         try {
-          // Rollback as specified (discard the checkpoint commit + any changes).
-          await this.git.reset(ResetMode.HARD, ["HEAD^"]);
+          // Rollback: Discard working tree changes (no checkpoint commits).
+          await this.git.reset(ResetMode.HARD);
           await this.audit.append({
             taskDescription,
             phase: "rollback_succeeded",
-            checkpointCommit,
           });
         } catch (rollbackErr) {
           await this.audit.append({
             taskDescription,
             phase: "rollback_failed",
-            checkpointCommit,
             error: this.toErrorShape(rollbackErr),
           });
           throw new RollbackFailedError(
