@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "bun run src/index.tsx",
     "start": "bun run src/index.tsx",
-    "build": "tsc -b"
+    "build": "tsc -b",
+    "test": "bun test __tests__/"
   },
   "dependencies": {
     "@amicus/types": "workspace:*",

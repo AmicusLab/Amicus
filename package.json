@@ -9,7 +9,10 @@
     "typecheck": "tsc -b",
     "build": "tsc -b",
     "test": "bun test",
-    "verify": "bun run typecheck && bun run build && bun run test",
+    "test:interface": "bun test apps/daemon/__tests__/ apps/cli/__tests__/",
+    "test:e2e": "cd apps/dashboard && bun run test:e2e",
+    "test:all": "bun run test && bun run test:interface",
+    "verify": "bun run typecheck && bun run build && bun run test:all",
     "report": "bash scripts/task-report.sh",
     "demo": "bun run scripts/demo.ts"
   },
