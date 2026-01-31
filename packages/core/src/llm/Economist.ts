@@ -1,4 +1,4 @@
-import { generateText, experimental_createProviderRegistry } from 'ai';
+import { generateText, streamText, experimental_createProviderRegistry, type LanguageModelUsage } from 'ai';
 import type { Task } from '@amicus/types/core';
 
 export interface EconomistOptions {
@@ -28,6 +28,12 @@ export interface CostStats {
   requests: number;
   averageCost: number;
   remaining: number;
+}
+
+export interface StreamingResult {
+  textStream: AsyncIterable<string>;
+  fullTextPromise: Promise<string>;
+  usage: Promise<LanguageModelUsage>;
 }
 
 interface ModelConfig {
@@ -318,6 +324,45 @@ export class Economist {
       const result = await generateText({ model, prompt });
       this.trackCost(routing, prompt.length, result.text.length);
       return result.text;
+    } catch (error) {
+      this.trackCost(routing, prompt.length, 0, true);
+      throw error;
+    }
+  }
+
+  async generateTextStream(task: Task, prompt: string): Promise<StreamingResult> {
+    if (!this.providerRegistry) {
+      await this.initializeProviderRegistry();
+    }
+
+    if (!this.providerRegistry) {
+      throw new Error('No AI providers available. Please install @ai-sdk/anthropic, @ai-sdk/openai, or @ai-sdk/google');
+    }
+
+    const routing = this.route(task);
+
+    if (!this.checkBudget(routing.estimatedCost)) {
+      throw new Error(
+        `Budget exceeded: Cannot afford estimated cost $${routing.estimatedCost.toFixed(6)}`
+      );
+    }
+
+    try {
+      const model = this.providerRegistry.languageModel(routing.model);
+      const result = await streamText({ model, prompt });
+
+      // Track cost after streaming completes
+      result.text.then((fullText) => {
+        this.trackCost(routing, prompt.length, fullText.length);
+      }).catch(() => {
+        this.trackCost(routing, prompt.length, 0, true);
+      });
+
+      return {
+        textStream: result.textStream,
+        fullTextPromise: result.text,
+        usage: result.usage,
+      };
     } catch (error) {
       this.trackCost(routing, prompt.length, 0, true);
       throw error;

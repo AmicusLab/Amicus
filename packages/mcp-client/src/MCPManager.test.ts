@@ -50,8 +50,8 @@ describe('MCPManager', () => {
       
       const configs = manager.getAllServerConfigs();
       expect(configs).toHaveLength(2);
-      expect(configs[0].name).toBe('test-server-1');
-      expect(configs[1].name).toBe('test-server-2');
+      expect(configs[0]?.name).toBe('test-server-1');
+      expect(configs[1]?.name).toBe('test-server-2');
     });
 
     it('should throw error when config file does not exist', async () => {
@@ -128,7 +128,7 @@ describe('MCPManager', () => {
       
       const configs = manager.getEnabledServerConfigs();
       expect(configs).toHaveLength(1);
-      expect(configs[0].name).toBe('test-server-1');
+      expect(configs[0]?.name).toBe('test-server-1');
     });
   });
 });

@@ -117,7 +117,7 @@ describe("RoutineEngine", () => {
         expect(false).toBe(true); // Should not reach here
       } catch (error) {
         expect(error).toBeDefined();
-        expect(error.message).toContain("Task execution failed");
+        expect((error as Error)?.message).toContain("Task execution failed");
       }
     });
 
@@ -158,7 +158,7 @@ describe("RoutineEngine", () => {
       await engine.executeTask(task);
 
       expect(startedTask).not.toBeNull();
-      expect(startedTask?.id).toBe("task-1");
+      expect((startedTask as any)?.id).toBe("task-1");
     });
 
     it("should emit taskCompleted event", async () => {
@@ -172,7 +172,7 @@ describe("RoutineEngine", () => {
       await engine.executeTask(task);
 
       expect(completedTask).not.toBeNull();
-      expect(completedTask?.id).toBe("task-1");
+      expect((completedTask as any)?.id).toBe("task-1");
     });
 
     it("should emit taskFailed event", async () => {
@@ -191,7 +191,7 @@ describe("RoutineEngine", () => {
       }
 
       expect(failedTask).not.toBeNull();
-      expect(failedTask?.id).toBe("task-1");
+      expect((failedTask as any)?.id).toBe("task-1");
     });
 
     it("should emit taskStatusChanged event", async () => {
@@ -205,8 +205,8 @@ describe("RoutineEngine", () => {
       await engine.executeTask(task);
 
       expect(statusChanges.length).toBeGreaterThanOrEqual(2);
-      expect(statusChanges[0].status).toBe(TaskStatus.RUNNING);
-      expect(statusChanges[1].status).toBe(TaskStatus.COMPLETED);
+      expect(statusChanges[0]?.status).toBe(TaskStatus.RUNNING);
+      expect(statusChanges[1]?.status).toBe(TaskStatus.COMPLETED);
     });
   });
 
@@ -217,7 +217,7 @@ describe("RoutineEngine", () => {
 
       expect(result).toBe(true);
       expect(engine.getScheduledRoutines().length).toBe(1);
-      expect(engine.getScheduledRoutines()[0].taskId).toBe("scheduled-1");
+      expect(engine.getScheduledRoutines()[0]?.taskId).toBe("scheduled-1");
     });
 
     it("should reject invalid cron expression", () => {
@@ -263,7 +263,7 @@ describe("RoutineEngine", () => {
       const result = engine.schedule("0 12 * * *", task);
       expect(result).toBe(true);
       expect(engine.getScheduledRoutines().length).toBe(1);
-      expect(engine.getScheduledRoutines()[0].cronExpression).toBe("0 12 * * *");
+      expect(engine.getScheduledRoutines()[0]?.cronExpression).toBe("0 12 * * *");
     });
   });
 

@@ -100,7 +100,11 @@ export class MCPClient {
       } catch (error) {
         lastError = error as Error;
         console.error(`Failed to connect to server ${serverId} (attempt ${attempt}/${MCPClient.retryAttempts}):`, error);
+        
         if (attempt < MCPClient.retryAttempts) {
+          try {
+            await client.disconnect();
+          } catch {}
           await new Promise(resolve => setTimeout(resolve, MCPClient.retryDelay));
         }
       }

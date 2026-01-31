@@ -317,10 +317,10 @@ describe("Economist", () => {
     it("should return available models", () => {
       const models = economist.getAvailableModels();
       expect(models.length).toBeGreaterThan(0);
-      expect(models[0].id).toBeDefined();
-      expect(models[0].provider).toBeDefined();
-      expect(models[0].inputCostPer1K).toBeDefined();
-      expect(models[0].outputCostPer1K).toBeDefined();
+      expect(models[0]?.id).toBeDefined();
+      expect(models[0]?.provider).toBeDefined();
+      expect(models[0]?.inputCostPer1K).toBeDefined();
+      expect(models[0]?.outputCostPer1K).toBeDefined();
     });
 
     it("should include all expected providers", () => {
@@ -353,7 +353,7 @@ describe("Economist", () => {
     });
 
     it("should handle task with no metadata", () => {
-      const task = createTestTask("t1", "Simple task", { metadata: undefined });
+      const task = createTestTask("t1", "Simple task", {});
       const complexity = economist.analyzeComplexity(task);
       expect(complexity.scope).toBe(30);
     });

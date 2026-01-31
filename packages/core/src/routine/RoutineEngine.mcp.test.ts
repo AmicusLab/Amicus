@@ -73,16 +73,17 @@ class MockMCPClient {
 
 // Helper to create a test task
 function createTestTask(id: string, description: string, tool?: string, parameters?: Record<string, unknown>): Task {
-  return {
+  const task: Task = {
     id,
     description,
     status: TaskStatus.PENDING,
     priority: TaskPriority.MEDIUM,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    tool,
-    parameters,
   };
+  if (tool) task.tool = tool;
+  if (parameters) task.parameters = parameters;
+  return task;
 }
 
 describe("RoutineEngine MCP Integration", () => {

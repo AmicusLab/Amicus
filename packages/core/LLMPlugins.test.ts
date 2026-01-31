@@ -2,14 +2,14 @@ import { describe, it, expect } from 'bun:test';
 
 describe('LLM Plugins - Basic Functionality', () => {
   describe('Anthropic Plugin', () => {
-    it('should have correct provider name and id', () => {
+    it('should have correct provider name and id', async () => {
       const plugin = new (await import('./src/llm/plugins/anthropic.js')).AnthropicPlugin({}, 'ANTHROPIC_API_KEY');
       
       expect(plugin.name).toBe('Anthropic');
       expect(plugin.id).toBe('anthropic');
     });
     
-    it('should return correct models', () => {
+    it('should return correct models', async () => {
       const plugin = new (await import('./src/llm/plugins/anthropic.js')).AnthropicPlugin({}, 'ANTHROPIC_API_KEY');
       const models = plugin.getModels();
       
@@ -17,7 +17,7 @@ describe('LLM Plugins - Basic Functionality', () => {
       expect(models[0].id).toBe('claude-3-5-sonnet-20241022');
     });
     
-    it('should calculate cost correctly', () => {
+    it('should calculate cost correctly', async () => {
       const plugin = new (await import('./src/llm/plugins/anthropic.js')).AnthropicPlugin({}, 'ANTHROPIC_API_KEY');
       const cost = plugin.calculateCost('claude-3-5-sonnet-20241022', 1000, 500);
       
@@ -27,14 +27,14 @@ describe('LLM Plugins - Basic Functionality', () => {
   });
 
   describe('OpenAI Plugin', () => {
-    it('should have correct provider name and id', () => {
+    it('should have correct provider name and id', async () => {
       const plugin = new (await import('./src/llm/plugins/openai.js')).OpenAIPlugin({}, 'OPENAI_API_KEY');
       
       expect(plugin.name).toBe('OpenAI');
       expect(plugin.id).toBe('openai');
     });
     
-    it('should return correct models', () => {
+    it('should return correct models', async () => {
       const plugin = new (await import('./src/llm/plugins/openai.js')).OpenAIPlugin({}, 'OPENAI_API_KEY');
       const models = plugin.getModels();
       
@@ -44,14 +44,14 @@ describe('LLM Plugins - Basic Functionality', () => {
   });
 
   describe('Google Plugin', () => {
-    it('should have correct provider name and id', () => {
+    it('should have correct provider name and id', async () => {
       const plugin = new (await import('./src/llm/plugins/google.js')).GooglePlugin({}, 'GOOGLE_API_KEY');
       
       expect(plugin.name).toBe('Google');
       expect(plugin.id).toBe('google');
     });
     
-    it('should return correct models', () => {
+    it('should return correct models', async () => {
       const plugin = new (await import('./src/llm/plugins/google.js')).GooglePlugin({}, 'GOOGLE_API_KEY');
       const models = plugin.getModels();
       
