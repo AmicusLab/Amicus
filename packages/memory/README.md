@@ -1,19 +1,20 @@
 # @amicus/memory
 
-**Context Management & Memory System for Amicus AI**
+Amicus의 “메모리/컨텍스트” 레이어입니다.
 
-This package provides short-term and long-term memory management using structured markdown files (`NOW.md` and `MEMORY.md`). The AI assistant uses this to maintain context across sessions and make informed decisions based on past experiences.
+이 패키지는 `NOW.md`(단기)와 `MEMORY.md`(장기)라는 사람이 읽을 수 있는 마크다운 파일을 사용해,
+세션을 넘어 컨텍스트를 유지하고 “왜(Why)” 중심의 기록을 남기도록 돕습니다.
 
-## Features
+## 기능
 
-### Core Functionality
+### 핵심 기능
 
-- **Context Loading**: `ContextManager.loadContext()` reads both memory files and returns formatted text for LLM prompt injection
-- **Short-Term Updates**: `ContextManager.updateShortTerm(content)` updates the active session context (`NOW.md`) with timestamp and session ID
-- **Memory Consolidation**: `ContextManager.consolidate()` archives important content from `NOW.md` to long-term memory (`MEMORY.md`) and resets short-term memory
-- **Error Handling**: Custom error classes for file operations and validation
+- **컨텍스트 로딩**: `ContextManager.loadContext()`가 두 파일을 읽어 LLM 프롬프트에 넣기 좋은 형식의 문자열을 반환
+- **단기 메모리 업데이트**: `ContextManager.updateShortTerm(content)`가 `NOW.md`를 갱신
+- **메모리 통합(아카이빙)**: `ContextManager.consolidate()`가 `NOW.md`의 내용을 `MEMORY.md`로 옮기고 `NOW.md`를 초기화
+- **에러 처리**: 파일 읽기/쓰기 실패 등 상황을 위한 커스텀 에러 클래스 제공
 
-### File Structure
+### 파일 구조
 
 ```
 data/
@@ -21,17 +22,17 @@ data/
 └── MEMORY.md       # Long-term memory (user preferences, past decisions, lessons learned)
 ```
 
-## Installation
+## 설치
 
-This package is part of the Amicus monorepo. It should be installed automatically as a workspace dependency:
+모노레포 내부 워크스페이스 의존성으로 사용됩니다.
 
 ```bash
 bun install
 ```
 
-## Usage
+## 사용법
 
-### Basic Setup
+### 기본 사용
 
 ```typescript
 import { ContextManager } from '@amicus/memory';
@@ -40,46 +41,46 @@ const contextManager = new ContextManager({
   repoRoot: process.cwd(),  // Optional: defaults to process.cwd()
 });
 
-// Load context for LLM prompt
+// LLM 프롬프트용 컨텍스트 로딩
 const context = await contextManager.loadContext();
 
-// Update short-term memory
+// 단기 메모리 업데이트
 await contextManager.updateShortTerm("Working on Phase 2 implementation");
 
-// Consolidate (archive to long-term and clear short-term)
+// 통합(장기 메모리에 아카이빙 + 단기 메모리 초기화)
 await contextManager.consolidate();
 ```
 
-### API Reference
+### API 레퍼런스
 
 #### `ContextManagerOptions`
 
 ```typescript
 interface ContextManagerOptions {
-  repoRoot?: string;  // Root directory for memory files (defaults to process.cwd())
+  repoRoot?: string; // 메모리 파일 기준 루트 (기본값: process.cwd())
 }
 ```
 
-#### `ContextManager` Class
+#### `ContextManager` 클래스
 
 ```typescript
 class ContextManager {
   constructor(opts: ContextManagerOptions);
 
-  // Load both NOW.md and MEMORY.md, return formatted context string
+  // NOW.md와 MEMORY.md를 읽어서 포맷된 컨텍스트 문자열 반환
   async loadContext(): Promise<string>;
 
-  // Update NOW.md with content, timestamp, and session ID
+  // NOW.md를 content로 갱신
   async updateShortTerm(content: string): Promise<void>;
 
-  // Archive NOW.md to MEMORY.md, reset NOW.md to empty template
+  // NOW.md를 MEMORY.md로 아카이빙하고 NOW.md를 초기 템플릿으로 리셋
   async consolidate(): Promise<void>;
 }
 ```
 
-### Memory File Formats
+### 메모리 파일 포맷
 
-#### `NOW.md` (Short-Term Memory)
+#### `NOW.md` (단기 메모리)
 
 ```markdown
 # NOW.md - Active Context
@@ -100,7 +101,7 @@ Session ID: {uuid}
 {notes}
 ```
 
-#### `MEMORY.md` (Long-Term Memory)
+#### `MEMORY.md` (장기 메모리)
 
 ```markdown
 # MEMORY.md - Long-Term Memory
@@ -115,35 +116,36 @@ Session ID: {uuid}
 {lessonsLearned}
 ```
 
-## Error Classes
+## 에러 클래스
 
-- **`MemoryManagerError`**: Base error class for all memory-related errors
-- **`FileReadError`**: Thrown when reading markdown files fails
-- **`FileWriteError`**: Thrown when writing markdown files fails
-- **`InvalidMarkdownError`**: Reserved for future markdown validation
+- **`MemoryManagerError`**: 메모리 관련 에러의 베이스 클래스
+- **`FileReadError`**: 파일 읽기 실패
+- **`FileWriteError`**: 파일 쓰기 실패
+- **`InvalidMarkdownError`**: 향후 마크다운 검증용(예약)
 
-## Testing
+## 테스트
 
-The package includes a comprehensive test suite covering:
+테스트는 아래 시나리오를 포함합니다:
 
-- Default template creation when files don't exist
-- Loading existing content from both files
-- Updating short-term memory with timestamps
-- Consolidating (archiving) and clearing
-- Error handling for file operations
-- Independence from SafetyExecutor (no git operations)
+- 파일이 없을 때 기본 템플릿 생성
+- 두 파일의 기존 내용을 로딩
+- 단기 메모리 업데이트
+- 아카이빙(consolidate) 및 초기화
+- 파일 I/O 에러 처리
+- Git/SafetyExecutor 없이 동작(현재 리포지토리에서는 Safety 패키지가 제거됨)
 
-Run tests with:
+테스트 실행:
 
 ```bash
-bun test --filter @amicus/memory
+cd packages/memory
+bun test
 ```
 
-## Integration with Amicus System
+## Amicus 시스템에서의 역할
 
 ### How It Fits
 
-`packages/memory` provides the **Persistence & Capability Layer** defined in the Amicus system architecture:
+`packages/memory`는 아키텍처에서 말하는 “컨텍스트/지속성 레이어”를 담당합니다.
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -161,23 +163,21 @@ bun test --filter @amicus/memory
            └─────────────┘
 ```
 
-**Flow**:
-1. **Routine Engine** calls `loadContext()` to get current state
-2. Engine performs work and makes decisions
-3. Engine calls `updateShortTerm()` to record progress/decisions
-4. On session end, Engine calls `consolidate()` to archive important learnings
-5. **Memory** persists to `data/` directory (human-readable markdown files)
+동작 흐름:
+1. 루틴 엔진이 `loadContext()`로 현재 상태를 가져옴
+2. 작업 수행/의사결정
+3. 진행 상황/결정을 `updateShortTerm()`로 기록
+4. 세션 종료 또는 특정 시점에 `consolidate()`로 장기 메모리에 아카이빙
+5. 모든 데이터는 `data/` 디렉토리에 마크다운으로 저장(사람이 읽고 수정 가능)
 
-### Key Principles
+### 핵심 원칙
 
-- **Trust-First**: All memory is stored in markdown files that can be version controlled
-- **Decision-Centric Memory**: Records not just what happened, but **why** (reasoning behind decisions)
-- **Human-Readable**: Markdown format allows developers to inspect and edit memory directly
-- **Local-First**: All data is stored locally, no external dependencies or cloud services
+- **Local-First**: 모든 데이터는 로컬에 저장
+- **Human-Readable**: 마크다운으로 사람이 직접 확인/수정 가능
+- **Decision-Centric**: 무엇을 했는지보다 “왜 그렇게 했는지”를 남기기 쉬움
 
-## Notes
+## 참고
 
-- This package is independent of `packages/safety` and does not use git operations directly
-- Uses Bun's native file I/O for performance
-- Implements atomic write pattern to prevent data corruption
-- Creates default templates automatically if files don't exist
+- 이 패키지는 Git 작업을 수행하지 않습니다.
+- Bun의 file I/O를 사용하며, 원자적 쓰기(atomic write) 패턴을 사용합니다.
+- 파일이 없으면 기본 템플릿을 자동 생성합니다.
