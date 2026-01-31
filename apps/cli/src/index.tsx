@@ -7,8 +7,11 @@ import { getStatus, getTokenomics, getTasks, waitForDaemon } from './api.js';
 async function runNonInteractive() {
   console.log('Amicus CLI (non-interactive mode)\n');
   
-  // Wait for daemon to be ready
-  const isReady = await waitForDaemon(30, 1000);
+  const isCI = process.env.CI === 'true';
+  const maxRetries = isCI ? 3 : 30;
+  const interval = isCI ? 500 : 1000;
+  
+  const isReady = await waitForDaemon(maxRetries, interval);
   if (!isReady) {
     console.error('Failed to connect to daemon. Is it running?');
     process.exit(1);
