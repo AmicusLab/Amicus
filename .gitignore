@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+
+# Bun
+bun.lock
+bun.lockb
+
+# Build outputs
+dist/
+
+# Runtime data
+data/
+
+# Sisyphus session data
+.sisyphus/
