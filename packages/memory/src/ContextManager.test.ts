@@ -68,10 +68,12 @@ describe("ContextManager", () => {
       const content = await Bun.file(join(testDir, "data/NOW.md")).text();
 
       expect(content).toContain("Test objective");
-      expect(content).toMatch(/Last Updated: \d{4}-\d{2}-[.\d{2}]*T?\d{2}:\d{2}(?:[.\d{3}]Z)?Z/);
-      expect(content).toMatch(/Session ID: [0-9a-f]{36}/i);
-      expect(memoryContent).toMatch(/## Session Archived: \d{4}.*Z/);
-      expect(memoryContent).toContain("---");
+      expect(content).toMatch(
+        /Last Updated: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/
+      );
+      expect(content).toMatch(
+        /Session ID: [0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+      );
     });
 
     it("clears NOW.md after consolidation", async () => {

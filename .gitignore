@@ -8,6 +8,9 @@ bun.lockb
 # Build outputs
 dist/
 
+# TypeScript build artifacts
+*.tsbuildinfo
+
 # Runtime data
 data/
 

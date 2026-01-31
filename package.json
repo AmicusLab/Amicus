@@ -8,7 +8,9 @@
   "scripts": {
     "typecheck": "tsc -b",
     "build": "tsc -b",
-    "test": "bun test"
+    "test": "bun test --cwd packages/safety && bun test --cwd packages/memory",
+    "verify": "bun run typecheck && bun run build && bun run test",
+    "report": "bash scripts/task-report.sh"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
