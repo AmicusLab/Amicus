@@ -37,6 +37,8 @@ export class SafetyExecutor {
     taskDescription: string,
     operationFunction: () => Promise<T>
   ): Promise<T> {
+    let stashed = false;
+
     return this.withLock(async () => {
       await this.ensureRepo(taskDescription);
 
@@ -62,6 +64,7 @@ export class SafetyExecutor {
         if (!status.isClean()) {
           if (this.dirtyStateStrategy === "stash") {
             await this.git.stash(["push", "-m", "amicus/safety-autostash"]);
+            stashed = true;
           } else {
             throw new DirtyWorkingTreeError(
               "Working tree is not clean. Commit or stash your changes before running SafetyExecutor."
@@ -92,6 +95,11 @@ export class SafetyExecutor {
         try {
           // Rollback: Discard working tree changes (no checkpoint commits).
           await this.git.reset(ResetMode.HARD);
+
+          if (stashed) {
+            await this.git.stash(["pop"]);
+          }
+
           await this.audit.append({
             taskDescription,
             phase: "rollback_succeeded",
