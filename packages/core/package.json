@@ -24,5 +24,8 @@
     "@ai-sdk/openai": "^1.0.0",
     "@ai-sdk/google": "^1.0.0",
     "node-cron": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node-cron": "^3.0.11"
   }
 }
