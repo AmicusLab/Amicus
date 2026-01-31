@@ -1,5 +1,5 @@
 {
-  "name": "@amicus/safety",
+  "name": "@amicus/mcp-client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,6 +16,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "simple-git": "^3.30.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@amicus/types": "workspace:*"
   }
 }
