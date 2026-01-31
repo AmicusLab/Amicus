@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "paths": {
+      "@amicus/types/*": ["../../packages/types/dist/*"],
+      "@amicus/core": ["../../packages/core/dist/index.js"],
+      "@amicus/memory": ["../../packages/memory/dist/index.js"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist"]
+}

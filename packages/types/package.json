@@ -29,6 +29,10 @@
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
+    },
+    "./dashboard": {
+      "types": "./dist/dashboard.d.ts",
+      "default": "./dist/dashboard.js"
     }
   },
   "scripts": {

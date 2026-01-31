@@ -1,0 +1,20 @@
+{
+  "name": "@amicus/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@amicus/types": "workspace:*",
+    "@preact/signals-core": "^1.8.0",
+    "lit": "^3.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vite": "^6.0.0"
+  }
+}
