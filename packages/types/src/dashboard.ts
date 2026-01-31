@@ -264,7 +264,6 @@ export interface AgentStateChangePayload {
 export type ConfigCategory = 
   | 'llm'
   | 'routing'
-  | 'safety'
   | 'notifications'
   | 'appearance';
 

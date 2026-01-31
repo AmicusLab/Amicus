@@ -134,24 +134,3 @@ export class NetworkError extends AmicusError {
     Object.setPrototypeOf(this, NetworkError.prototype);
   }
 }
-
-/**
- * Error class for safety violations
- */
-export class SafetyViolationError extends AmicusError {
-  constructor(
-    message: string,
-    options?: { code?: string; violationType?: string; metadata?: Record<string, unknown> }
-  ) {
-    super(message, {
-      code: options?.code || 'SAFETY_VIOLATION',
-      severity: 'error',
-      metadata: {
-        ...options?.metadata,
-        violationType: options?.violationType,
-      },
-    });
-    this.name = 'SafetyViolationError';
-    Object.setPrototypeOf(this, SafetyViolationError.prototype);
-  }
-}
