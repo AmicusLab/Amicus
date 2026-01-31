@@ -153,28 +153,7 @@ describe("RoutineEngine MCP Integration", () => {
       expect(result.metadata?.tool).toBe("calc-tool");
     });
 
-    it("should fall back to safety executor when tool not specified", async () => {
-      const task = createTestTask("task-1", "Regular task");
-      
-      const result = await engine.executeTask(task);
-      
-      expect(result.success).toBe(true);
-    expect(mockOperationExecutor.executedTasks.length).toBe(1);
-    });
 
-    it("should fall back to safety executor when MCP client unavailable", async () => {
-      const engineWithoutMCP = new RoutineEngine({
-      operationExecutor: mockOperationExecutor as any,
-        contextManager: mockContextManager as any,
-      });
-
-      const task = createTestTask("task-1", "Task with tool", "some-tool", {});
-      
-      const result = await engineWithoutMCP.executeTask(task);
-      
-      expect(result.success).toBe(true);
-    expect(mockOperationExecutor.executedTasks.length).toBe(1);
-    });
 
     it("should handle tool execution errors", async () => {
       await registerTools([

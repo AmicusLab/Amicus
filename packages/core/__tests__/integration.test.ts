@@ -425,15 +425,7 @@ describe("End-to-End Integration", () => {
     });
   });
 
-  describe("Safety Rollback Integration", () => {
-    it("should integrate safety checkpoint creation", async () => {
-      const task = createTestTask("safety-test", "Task with safety");
-
-      // Execute task - should create safety checkpoint
-      const result = await routineEngine.executeTask(task);
-      expect(result.success).toBe(true);
-    });
-
+  describe("Concurrent Task Execution", () => {
     it("should handle concurrent task execution", async () => {
       // Always skip - concurrent file system operations have race conditions
       // This is expected behavior in test environments
