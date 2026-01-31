@@ -149,8 +149,8 @@
 3. Reasoning
    └─ Core가 목표 달성을 위한 최적의 도구와 모델 결정
 
-4. Safety Check
-   └─ 위험한 작업 시 CLI를 통해 사용자 승인 요청
+ 4. Approval Check
+    └─ 위험한 작업 시 CLI를 통해 사용자 승인 요청
 
 5. Execution
    └─ MCP 또는 파일 조작 수행

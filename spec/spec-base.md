@@ -17,12 +17,11 @@ Amicus는 사용자의 로컬 환경에서 실행되는 **신뢰 기반 자율�
 
 ## 3. 시스템 아키텍처 및 모듈 구조
 
-```
+ ```
 packages/
 ├── core/           # 핵심 추론 루프 및 상태 관리 (RoutineEngine 포함)
 ├── acp-server/     # IDE와의 통신 규격 구현
 ├── mcp-engine/     # 외부 도구(GitHub, Slack 등) 호출 관리
-├── safety/         # Git 기반 롤백 및 단계별 권한 제어 (SafetyExecutor)
 └── ui-cli/          # React-Ink 기반 터미널 대시보드
 data/
 ├── NOW.md          # 현재 작업 스냅샷 및 단기 목표
@@ -34,7 +33,7 @@ data/
 
 ### [Phase 1] 기반 인프라 및 신뢰 레이어
 
-**프롬프트:** "Node.js와 TypeScript를 사용하여 Amicus AI 프로젝트의 모노레포 구조를 초기화해줘. 특히 `packages/safety`에 `SafetyExecutor` 클래스를 구현해야 해. 이 클래스는 파일 수정 도구 실행 직전에 `simple-git`을 사용하여 임시 커밋을 생성하고, 작업 실패 시 `git reset --hard`로 즉시 롤백하는 기능을 가져야 해. 모든 기록은 `data/audit.log`에 암호화된 서명과 함께 남겨줘." 
+ **프롬프트:** "Node.js와 TypeScript를 사용하여 Amicus AI 프로젝트의 모노레포 구조를 초기화해줘. 특히 `packages/core`에 `RoutineEngine`을 구현해야 해. 이 클래스는 작업 실패 시 `git reset --hard`로 즉시 롤백하는 기능을 가져야 해. 모든 기록은 `data/audit.log`에 암호화된 서명과 함께 남겨줘."
 
 ### [Phase 2] 지능형 메모리 시스템
 
@@ -42,7 +41,7 @@ data/
 
 ### [Phase 3] 루틴 엔진 및 MCP 통합
 
-**프롬프트:** "사용자의 반복 업무를 관리하는 `RoutineEngine`을 구축해줘. macOS `launchd` 또는 Linux `systemd` 서비스로 등록 가능한 구조여야 하며, 특정 트리거(시간, 파일 변경 등) 시 MCP 서버의 도구들을 호출해야 해. 도구 실행 전에는 반드시 `SafetyExecutor`를 거쳐 롤백 지점을 생성하고, 비용 라우팅 로직을 통해 예산 한도 내에서 모델을 선택하게 해줘." 
+ **프롬프트:** "사용자의 반복 업무를 관리하는 `RoutineEngine`을 구축해줘. macOS `launchd` 또는 Linux `systemd` 서비스로 등록 가능한 구조여야 하며, 특정 트리거(시간, 파일 변경 등) 시 MCP 서버의 도구들을 호출해야 해. 도구 실행 전에는 반드시 `OperationExecutor`를 거쳐 롤백 지점을 생성하고, 비용 라우팅 로직을 통해 예산 한도 내에서 모델을 선택하게 해줘."
 
 ### [Phase 4] 터미널 조종석 UI (Cockpit)
 

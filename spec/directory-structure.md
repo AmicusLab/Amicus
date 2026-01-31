@@ -13,10 +13,9 @@ Amicus는 모노레포(Monorepo) 구조를 채택하여 여러 애플리케이�
 │   ├── dashboard/         # (Modern) 웹 기반 실시간 상태 모니터링 (Lit + Signals)
 │   └── daemon/            # 백그라운드 뇌 & 서버 (Hono + Bun)
 │
-├── packages/              # 공유 라이브러리 및 코어 모듈
+ ├── packages/              # 공유 라이브러리 및 코어 모듈
 │   ├── core/              # 에이전트 핵심 로직 (Brain, Decision Making)
 │   ├── orchestrator/      # (신규) 다중 서브 에이전트 병렬 실행 및 스케줄링 관리 (Worker Manager)
-│   ├── safety/            # (구 safety) Git 기반 롤백 및 파일 시스템 보호 레이어
 │   ├── memory/            # (신규) NOW.md, MEMORY.md 등 컨텍스트 관리 모듈
 │   ├── mcp-client/        # (구 mcp-engine) 외부 MCP 서버와의 통신 클라이언트
 │   └── types/             # (신규) 프로젝트 전반에서 공유되는 TypeScript 타입 정의
@@ -54,4 +53,4 @@ Amicus는 모노레포(Monorepo) 구조를 채택하여 여러 애플리케이�
 - **`types` 패키지 신설:** 모노레포 내에서 인터페이스(Protocol) 일관성을 유지하기 위해 공용 타입을 중앙화합니다.
 
 ### 3.5 데이터 디렉토리 명시
-- 코드와 런타임 데이터를 명확히 분리하여, 백업 정책과 `SafetyExecutor`의 감시 대상을 설정하기 용이하게 합니다.
+ - 코드와 런타임 데이터를 명확히 분리하여, 백업 정책과 `OperationExecutor`의 감시 대상을 설정하기 용이하게 합니다.
