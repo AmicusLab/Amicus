@@ -32,3 +32,8 @@ pnpm-debug.log*
 
 # Sisyphus session data
 .sisyphus/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

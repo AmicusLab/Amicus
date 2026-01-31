@@ -9,12 +9,21 @@
     "typecheck": "tsc -b",
     "build": "tsc -b",
     "test": "bun test",
-    "verify": "bun run typecheck && bun run build && bun run test",
+    "test:interface": "bun test apps/daemon/__tests__/ apps/cli/__tests__/",
+    "test:e2e": "cd apps/dashboard && bun run test:e2e",
+    "test:all": "bun run test && bun run test:interface",
+    "verify": "bun run typecheck && bun run build && bun run test:all",
     "report": "bash scripts/task-report.sh",
-    "demo": "bun run scripts/demo.ts"
+    "demo": "bun run scripts/demo.ts",
+    "start": "concurrently \"bun run --cwd apps/daemon start\" \"bun run --cwd apps/dashboard dev\" \"sleep 3 && bun run --cwd apps/cli start\"",
+    "start:dev": "concurrently \"bun run --cwd apps/daemon dev\" \"bun run --cwd apps/dashboard dev\" \"sleep 3 && bun run --cwd apps/cli start\"",
+    "start:daemon": "bun run --cwd apps/daemon start",
+    "start:dashboard": "bun run --cwd apps/dashboard preview",
+    "start:cli": "bun run --cwd apps/cli start"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
+    "concurrently": "^9.2.1",
     "typescript": "^5.5.4"
   }
 }

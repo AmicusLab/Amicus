@@ -8,3 +8,4 @@ export * from './core';
 export * from './memory';
 export * from './safety';
 export * from './mcp';
+export * from './dashboard';

@@ -1,0 +1,24 @@
+{
+  "name": "@amicus/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "amicus": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "bun run src/index.tsx",
+    "start": "bun run src/index.tsx",
+    "build": "tsc -b",
+    "test": "bun test __tests__/"
+  },
+  "dependencies": {
+    "@amicus/types": "workspace:*",
+    "ink": "^5.1.0",
+    "react": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "typescript": "^5.5.4"
+  }
+}

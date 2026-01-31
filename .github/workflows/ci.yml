@@ -36,5 +36,14 @@ jobs:
       - name: Build
         run: bun run build
 
-      - name: Test
+      - name: Unit Tests
         run: bun run test
+
+      - name: Interface Tests
+        run: bun run test:interface
+
+      - name: Build Interface Apps
+        run: |
+          bun run --cwd apps/daemon build
+          bun run --cwd apps/dashboard build
+          bun run --cwd apps/cli build
