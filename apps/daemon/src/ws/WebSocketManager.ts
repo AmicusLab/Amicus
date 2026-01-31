@@ -1,57 +1,82 @@
-import type { ServerWebSocket } from 'bun';
+import { randomUUID } from 'node:crypto';
 import type { WSMessage, WSMessageType } from '@amicus/types/dashboard';
+import { recordHeartbeat } from '../services/SystemMonitor.js';
 
-interface WSData {
-  id: string;
+export interface WSClient {
+  send(data: string): void;
+  close(code?: number, reason?: string): void;
+  readyState: number;
 }
 
-type WSClient = ServerWebSocket<WSData>;
-type AnyWSClient = ServerWebSocket<WSData | undefined>;
-
+const WS_OPEN = 1;
 const clients = new Map<string, WSClient>();
-let clientIdCounter = 0;
+const clientIndex = new WeakMap<WSClient, string>();
+let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
-export function addClient(ws: AnyWSClient): string {
-  const id = `client-${++clientIdCounter}`;
-  (ws as WSClient).data = { id };
-  clients.set(id, ws as WSClient);
+function createMessage<T>(type: WSMessageType, payload: T): WSMessage<T> {
+  return {
+    type,
+    payload,
+    timestamp: Date.now(),
+  };
+}
+
+export function addClient(ws: WSClient): string {
+  const id = randomUUID();
+  clients.set(id, ws);
+  clientIndex.set(ws, id);
   return id;
 }
 
-export function removeClient(ws: AnyWSClient): void {
-  const data = ws.data as WSData | undefined;
-  if (data?.id) {
-    clients.delete(data.id);
+export function removeClient(ws: WSClient): string | null {
+  const id = clientIndex.get(ws);
+  if (id) {
+    clients.delete(id);
+    clientIndex.delete(ws);
   }
+  return id ?? null;
+}
+
+export function getClientId(ws: WSClient): string | null {
+  return clientIndex.get(ws) ?? null;
 }
 
 export function getClientCount(): number {
   return clients.size;
 }
 
+export function sendMessage<T>(ws: WSClient, type: WSMessageType, payload: T): void {
+  if (ws.readyState !== WS_OPEN) return;
+  ws.send(JSON.stringify(createMessage(type, payload)));
+}
+
 export function broadcast<T>(type: WSMessageType, payload: T): void {
-  const message: WSMessage<T> = {
-    type,
-    payload,
-    timestamp: Date.now(),
-  };
-  
-  const data = JSON.stringify(message);
+  const data = JSON.stringify(createMessage(type, payload));
   for (const client of clients.values()) {
-    client.send(data);
+    if (client.readyState === WS_OPEN) {
+      client.send(data);
+    }
   }
 }
 
 export function sendTo<T>(clientId: string, type: WSMessageType, payload: T): boolean {
   const client = clients.get(clientId);
-  if (!client) return false;
-  
-  const message: WSMessage<T> = {
-    type,
-    payload,
-    timestamp: Date.now(),
-  };
-  
-  client.send(JSON.stringify(message));
+  if (!client || client.readyState !== WS_OPEN) return false;
+  client.send(JSON.stringify(createMessage(type, payload)));
   return true;
+}
+
+export function startHeartbeat(intervalMs = 15000): void {
+  if (heartbeatTimer) return;
+  heartbeatTimer = setInterval(() => {
+    const timestamp = Date.now();
+    recordHeartbeat(timestamp);
+    broadcast('heartbeat', { timestamp, clients: getClientCount() });
+  }, intervalMs);
+}
+
+export function stopHeartbeat(): void {
+  if (!heartbeatTimer) return;
+  clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
 }

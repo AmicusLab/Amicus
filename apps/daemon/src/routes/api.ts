@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import type { APIResponse } from '@amicus/types/dashboard';
 import { getSystemHealth } from '../services/SystemMonitor.js';
@@ -17,7 +18,7 @@ function response<T>(data: T, success = true): APIResponse<T> {
     success,
     data,
     meta: {
-      requestId: crypto.randomUUID(),
+      requestId: randomUUID(),
       timestamp: Date.now(),
       duration: 0,
     },
@@ -29,7 +30,7 @@ function errorResponse(code: string, message: string): APIResponse {
     success: false,
     error: { code, message },
     meta: {
-      requestId: crypto.randomUUID(),
+      requestId: randomUUID(),
       timestamp: Date.now(),
       duration: 0,
     },

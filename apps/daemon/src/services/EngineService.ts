@@ -1,24 +1,28 @@
-import { RoutineEngine, type ContextManagerLike } from '@amicus/core';
+import { RoutineEngine } from '@amicus/core';
+import { ContextManager } from '@amicus/memory';
 import type { Task, TaskStatus, TaskResult } from '@amicus/types/core';
 import type { Tokenomics, ModelUsageStats } from '@amicus/types/dashboard';
 
-const mockContextManager: ContextManagerLike = {
-  async loadContext() {
-    return '## Context\nNo active context.';
-  },
-  async updateShortTerm(_content: string) {},
-  async consolidate() {},
-};
-
 let engineInstance: RoutineEngine | null = null;
+let contextManagerInstance: ContextManager | null = null;
 
 export function getEngine(): RoutineEngine {
   if (!engineInstance) {
+    if (!contextManagerInstance) {
+      contextManagerInstance = new ContextManager({ repoRoot: process.cwd() });
+    }
     engineInstance = new RoutineEngine({
-      contextManager: mockContextManager,
+      contextManager: contextManagerInstance,
+    });
+    engineInstance.initialize().catch((error: unknown) => {
+      console.error('[Daemon] RoutineEngine initialization failed', error);
     });
   }
   return engineInstance;
+}
+
+export function startEngine(): void {
+  getEngine().start();
 }
 
 export function getScheduledTasks(): Array<{ taskId: string; cronExpression: string; task: Task }> {
