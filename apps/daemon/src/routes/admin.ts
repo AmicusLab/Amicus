@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { Hono } from 'hono';
 import { setCookie, deleteCookie } from 'hono/cookie';
 import type { APIResponse } from '@amicus/types/dashboard';
@@ -17,6 +17,29 @@ import { writeAudit, readAudit } from '../services/AuditLogService.js';
 
 export const adminRoutes = new Hono();
 
+// Simple in-memory rate limiter for auth endpoints
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX = 10; // 10 requests per minute
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const record = rateLimitMap.get(ip);
+
+  if (!record || now > record.resetAt) {
+    // Reset or create new record
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+
+  record.count++;
+  return true;
+}
+
 function ok<T>(data: T): APIResponse<T> {
   return {
     success: true,
@@ -34,11 +57,11 @@ function fail(code: string, message: string): APIResponse<never> {
 }
 
 function getSessionSecret(): string {
-  return (
-    process.env.AMICUS_ADMIN_SESSION_SECRET ||
-    process.env.CONFIG_ENCRYPTION_KEY ||
-    ''
-  );
+  const secret = process.env.AMICUS_ADMIN_SESSION_SECRET;
+  if (!secret) {
+    throw new Error('AMICUS_ADMIN_SESSION_SECRET is required but not configured');
+  }
+  return secret;
 }
 
 // Initialize pairing on module load so daemon can be administered without shipping secrets.
@@ -59,6 +82,11 @@ adminRoutes.post('/pairing/renew', adminAuthMiddleware, (c) => {
 });
 
 adminRoutes.post('/pair', async (c) => {
+  const ip = c.req.header('x-forwarded-for') || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return c.json(fail('RATE_LIMITED', 'Too many attempts. Please try again later.'), 429);
+  }
+
   const body = await c.req.json().catch(() => null) as { code?: unknown } | null;
   const code = typeof body?.code === 'string' ? body.code : '';
   const res = verifyPairingCode(code);
@@ -85,6 +113,7 @@ adminRoutes.post('/pair', async (c) => {
   setCookie(c, getAdminSessionCookieName(), token, {
     httpOnly: true,
     sameSite: 'Strict',
+    secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: ttl,
   });
@@ -100,6 +129,11 @@ adminRoutes.post('/pair', async (c) => {
 });
 
 adminRoutes.post('/login', async (c) => {
+  const ip = c.req.header('x-forwarded-for') || 'unknown';
+  if (!checkRateLimit(ip)) {
+    return c.json(fail('RATE_LIMITED', 'Too many attempts. Please try again later.'), 429);
+  }
+
   const body = await c.req.json().catch(() => null) as { password?: unknown } | null;
   const password = typeof body?.password === 'string' ? body.password : '';
   if (!password) {
@@ -110,7 +144,10 @@ adminRoutes.post('/login', async (c) => {
   if (!expected) {
     return c.json(fail('ADMIN_PASSWORD_MISSING', 'Admin password not configured'), 500);
   }
-  if (password !== expected) {
+  // Timing-safe comparison to prevent timing attacks
+  const passwordBuf = Buffer.from(password, 'utf-8');
+  const expectedBuf = Buffer.from(expected, 'utf-8');
+  if (passwordBuf.length !== expectedBuf.length || !timingSafeEqual(passwordBuf, expectedBuf)) {
     writeAudit({
       timestamp: new Date().toISOString(),
       eventId: randomUUID(),
@@ -133,6 +170,7 @@ adminRoutes.post('/login', async (c) => {
   setCookie(c, getAdminSessionCookieName(), token, {
     httpOnly: true,
     sameSite: 'Strict',
+    secure: process.env.NODE_ENV === 'production',
     path: '/',
     maxAge: ttl,
   });
@@ -174,12 +212,14 @@ adminRoutes.post('/password', adminAuthMiddleware, async (c) => {
     // Also update .env file so password persists after server restart
     const repoRoot = join(process.cwd(), '..', '..');
     const envPath = join(repoRoot, '.env');
+    let envUpdated = true;
     try {
       const envContent = await readFile(envPath, 'utf-8');
       const res = upsertEnvVar({ content: envContent, key: 'AMICUS_ADMIN_PASSWORD', value: password, overwrite: true });
       await writeFile(envPath, res.next, { encoding: 'utf-8' });
     } catch (envErr) {
       console.error('[Admin] Failed to update .env file:', envErr);
+      envUpdated = false;
     }
 
     writeAudit({
@@ -190,6 +230,10 @@ adminRoutes.post('/password', adminAuthMiddleware, async (c) => {
       resource: 'password',
       result: 'success',
     });
+
+    if (!envUpdated) {
+      return c.json(ok({ message: 'Password updated in memory, but .env file update failed' }));
+    }
     return c.json(ok({ message: 'Password updated' }));
   } catch (e) {
     writeAudit({

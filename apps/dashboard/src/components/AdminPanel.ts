@@ -195,14 +195,15 @@ export class AdminPanel extends LitElement {
     try {
       await adminGetSession();
       this.authed = true;
-    } catch {
+      if (this.authed) {
+        await this.loadTabData();
+      }
+    } catch (e) {
       this.authed = false;
+      this.setMsg('error', e instanceof Error ? e.message : 'Failed to refresh');
+    } finally {
+      this.loading = false;
     }
-
-    if (this.authed) {
-      await this.loadTabData();
-    }
-    this.loading = false;
   }
 
   private async loadTabData(): Promise<void> {

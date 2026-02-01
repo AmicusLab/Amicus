@@ -106,8 +106,10 @@ async function main(): Promise<number> {
     if (res.changed) {
       created.push(key);
     }
-    // Always sync to secretStore to ensure consistency
-    await secretStore.set(key, value);
+    // Skip secretStore sync in dry-run mode
+    if (!args.dryRun) {
+      await secretStore.set(key, value);
+    }
   }
 
   if (created.length === 0) {
