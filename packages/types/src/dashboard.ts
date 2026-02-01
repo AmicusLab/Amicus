@@ -352,6 +352,27 @@ export interface LLMProviderStatus {
   modelCount: number;
   /** Error message if provider failed to load */
   error?: string;
+  /** Connection status for providers like z.ai */
+  connectionStatus?: 'connected' | 'disconnected' | 'error';
+}
+
+/**
+ * API key validation result
+ */
+export interface APIKeyValidationResult {
+  /** Whether the API key is valid */
+  valid: boolean;
+  /** Provider ID */
+  providerId: string;
+  /** Error message if validation failed */
+  error?: string;
+  /** Additional details about the validation */
+  details?: {
+    /** HTTP status code from the provider */
+    statusCode?: number;
+    /** Response message from the provider */
+    message?: string;
+  };
 }
 
 /**
