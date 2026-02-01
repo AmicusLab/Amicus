@@ -301,7 +301,7 @@ async function runDemo(): Promise<void> {
   printInfo("Task ID", result.taskId);
 
   // Scenario 2: Simple Task
-  printHeader("SCENARIO 2: Simple Bug Fix");
+  printHeader("SCENARIO 2: Simple Task");
 
   const simpleTask: Task = {
     id: "demo-task-2",
