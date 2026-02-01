@@ -65,7 +65,7 @@ describe("Economist", () => {
       });
 
       it("should increase score for complex vocabulary", () => {
-        const simpleTask = createTestTask("t1", "Fix the bug");
+        const simpleTask = createTestTask("t1", "Fix the typo");
         const complexTask = createTestTask(
           "t2",
           "Implement sophisticated algorithm architecture infrastructure"
@@ -87,7 +87,7 @@ describe("Economist", () => {
 
     describe("Semantic Analysis", () => {
       it("should score low for simple keywords", () => {
-        const task = createTestTask("t1", "Fix a simple bug quickly");
+        const task = createTestTask("t1", "Fix a simple typo quickly");
         const complexity = economist.analyzeComplexity(task);
         expect(complexity.semantic).toBeLessThan(50);
       });
@@ -347,7 +347,7 @@ describe("Economist", () => {
     });
 
     it("should handle special characters in description", () => {
-      const task = createTestTask("t1", "Fix @#$%^&*() bug!");
+      const task = createTestTask("t1", "Fix @#$%^&*() typo!");
       const complexity = economist.analyzeComplexity(task);
       expect(complexity).toBeDefined();
     });
@@ -366,7 +366,7 @@ describe("Economist", () => {
     });
 
     it("should handle case-insensitive keyword matching", () => {
-      const task1 = createTestTask("t1", "FIX the bug");
+      const task1 = createTestTask("t1", "FIX the typo");
       const task2 = createTestTask("t2", "ARCHITECT a system");
       const c1 = economist.analyzeComplexity(task1);
       const c2 = economist.analyzeComplexity(task2);

@@ -188,10 +188,11 @@ const economist = new Economist({
 ### 5.2 텍스트 생성
 
 ```typescript
+// Example: Task definition for text generation
 const task = {
   id: 'task-1',
   description: 'Create a simple REST API endpoint',
-  status: 'pending' as const,
+  status: 'pending' as const,  // Task status (pending/running/completed/failed)
   priority: 'medium' as const,
   createdAt: Date.now(),
   updatedAt: Date.now(),
@@ -210,10 +211,11 @@ try {
 ### 5.3 스트리밍 텍스트 생성
 
 ```typescript
+// Example: Task definition for streaming text generation
 const task = {
   id: 'task-2',
   description: 'Generate code for authentication system',
-  status: 'pending' as const,
+  status: 'pending' as const,  // Task status (pending/running/completed/failed)
   priority: 'high' as const,
   createdAt: Date.now(),
   updatedAt: Date.now(),
@@ -244,10 +246,11 @@ try {
 ### 5.4 작업 복잡도 분석
 
 ```typescript
+// Example: Task with metadata for complexity analysis
 const task = {
   id: 'task-3',
   description: 'Design and implement a microservice architecture with event-driven communication',
-  status: 'pending' as const,
+  status: 'pending' as const,  // Task status (pending/running/completed/failed)
   priority: 'high' as const,
   createdAt: Date.now(),
   updatedAt: Date.now(),

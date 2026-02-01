@@ -1,7 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 import { writeFile } from 'node:fs/promises';
-import { ensureEnvFile, upsertEnvVar } from './services/EnvService.js';
+import { ensureEnvFile, upsertEnvVar, loadRepoEnv } from './services/EnvService.js';
+import { secretStore } from './services/ConfigService.js';
 
 function getRepoRootFromCwd(cwd = process.cwd()): string {
   return join(cwd, '..', '..');
@@ -62,8 +63,12 @@ async function main(): Promise<number> {
   const repoRoot = getRepoRootFromCwd();
   const envPath = join(repoRoot, args.envFile);
 
+  // Ensure .env file exists (create empty if missing)
   const existing = await ensureEnvFile({ envPath, createIfMissing: !args.dryRun, modeIfCreated: 0o600 });
   let content = existing.content;
+
+  // Load existing .env values into process.env
+  await loadRepoEnv({ repoRoot });
 
   const created: string[] = [];
   const generated: Record<string, string> = {};
@@ -82,10 +87,29 @@ async function main(): Promise<number> {
     generated.AMICUS_ADMIN_PASSWORD = args.password ?? genSecret(18);
   }
 
+  // Set generated values to process.env before secretStore operations
+  for (const [key, value] of Object.entries(generated)) {
+    process.env[key] = value;
+  }
+
+  // Load secretStore, but handle decryption errors (e.g., key changed)
+  try {
+    await secretStore.load();
+  } catch (e) {
+    console.log('[init] Warning: Failed to load existing secrets (encryption key may have changed). Starting fresh.');
+    // SecretStore will start with empty secrets
+  }
+
   for (const [key, value] of Object.entries(generated)) {
     const res = upsertEnvVar({ content, key, value, overwrite: args.force });
     content = res.next;
-    if (res.changed) created.push(key);
+    if (res.changed) {
+      created.push(key);
+    }
+    // Skip secretStore sync in dry-run mode
+    if (!args.dryRun) {
+      await secretStore.set(key, value);
+    }
   }
 
   if (created.length === 0) {

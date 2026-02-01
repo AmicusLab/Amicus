@@ -4,7 +4,7 @@ import { createApp, setupWebSocket } from './server.js';
 import { setupEventBroadcasting, setupTokenomicsBroadcasting } from './ws/events.js';
 import { startEngine } from './services/EngineService.js';
 import { mcpService } from './services/MCPService.js';
-import { configManager, initializeConfig } from './services/ConfigService.js';
+import { configManager, initializeConfig, secretStore } from './services/ConfigService.js';
 import { getPairingState } from './admin/pairing.js';
 import { loadRepoEnv } from './services/EnvService.js';
 
@@ -17,6 +17,14 @@ async function main(): Promise<void> {
   await loadRepoEnv({ repoRoot });
 
   await initializeConfig();
+
+  // Sync password from .env to secretStore if needed
+  const envPassword = process.env.AMICUS_ADMIN_PASSWORD;
+  if (envPassword && !secretStore.get('AMICUS_ADMIN_PASSWORD')) {
+    await secretStore.set('AMICUS_ADMIN_PASSWORD', envPassword);
+    console.log('[Init] Synced admin password from environment to secret store');
+  }
+
   const cfg = configManager.getConfig();
   const PORT = Number(process.env.PORT) || cfg.daemon.port;
 

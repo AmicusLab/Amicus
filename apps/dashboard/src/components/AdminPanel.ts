@@ -36,6 +36,11 @@ export class AdminPanel extends LitElement {
       align-items: center;
       justify-content: space-between;
     }
+    .row-inline {
+      justify-content: flex-start;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
     .tabs {
       display: flex;
       gap: 0.5rem;
@@ -73,10 +78,11 @@ export class AdminPanel extends LitElement {
     .btn {
       border: 1px solid #333;
       border-radius: 10px;
-      padding: 0.45rem 0.75rem;
+      padding: 0.5rem 0.75rem;
       background: #111;
       color: #e6e6e6;
       cursor: pointer;
+      line-height: 1.2;
     }
     .btn.primary {
       border-color: #6aa7ff;
@@ -171,6 +177,15 @@ export class AdminPanel extends LitElement {
     void this.refresh();
   }
 
+  disconnectedCallback(): void {
+    // Clear sensitive inputs when component is removed from DOM
+    this.password = '';
+    this.pairingCode = '';
+    this.newPassword = '';
+    this.confirmPassword = '';
+    super.disconnectedCallback();
+  }
+
   private setMsg(kind: 'ok' | 'error', text: string) {
     this.message = { kind, text };
   }
@@ -180,14 +195,15 @@ export class AdminPanel extends LitElement {
     try {
       await adminGetSession();
       this.authed = true;
-    } catch {
+      if (this.authed) {
+        await this.loadTabData();
+      }
+    } catch (e) {
       this.authed = false;
+      this.setMsg('error', e instanceof Error ? e.message : 'Failed to refresh');
+    } finally {
+      this.loading = false;
     }
-
-    if (this.authed) {
-      await this.loadTabData();
-    }
-    this.loading = false;
   }
 
   private async loadTabData(): Promise<void> {
@@ -394,7 +410,7 @@ export class AdminPanel extends LitElement {
       </div>
 
       <div class="card">
-        <div class="row">
+        <div class="row row-inline">
           <div>
             <p><strong>Password login (optional)</strong></p>
             <input
@@ -403,6 +419,11 @@ export class AdminPanel extends LitElement {
               .value=${this.password}
               @input=${(e: InputEvent) => {
                 this.password = (e.target as HTMLInputElement).value;
+              }}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  void this.doLogin();
+                }
               }}
             />
           </div>
