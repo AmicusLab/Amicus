@@ -36,6 +36,11 @@ export class AdminPanel extends LitElement {
       align-items: center;
       justify-content: space-between;
     }
+    .row-inline {
+      justify-content: flex-start;
+      align-items: flex-end;
+      gap: 0.5rem;
+    }
     .tabs {
       display: flex;
       gap: 0.5rem;
@@ -73,10 +78,11 @@ export class AdminPanel extends LitElement {
     .btn {
       border: 1px solid #333;
       border-radius: 10px;
-      padding: 0.45rem 0.75rem;
+      padding: 0.5rem 0.75rem;
       background: #111;
       color: #e6e6e6;
       cursor: pointer;
+      line-height: 1.2;
     }
     .btn.primary {
       border-color: #6aa7ff;
@@ -169,6 +175,15 @@ export class AdminPanel extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     void this.refresh();
+  }
+
+  disconnectedCallback(): void {
+    // Clear sensitive inputs when component is removed from DOM
+    this.password = '';
+    this.pairingCode = '';
+    this.newPassword = '';
+    this.confirmPassword = '';
+    super.disconnectedCallback();
   }
 
   private setMsg(kind: 'ok' | 'error', text: string) {
@@ -394,7 +409,7 @@ export class AdminPanel extends LitElement {
       </div>
 
       <div class="card">
-        <div class="row">
+        <div class="row row-inline">
           <div>
             <p><strong>Password login (optional)</strong></p>
             <input
@@ -403,6 +418,11 @@ export class AdminPanel extends LitElement {
               .value=${this.password}
               @input=${(e: InputEvent) => {
                 this.password = (e.target as HTMLInputElement).value;
+              }}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  void this.doLogin();
+                }
               }}
             />
           </div>
