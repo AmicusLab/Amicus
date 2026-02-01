@@ -44,7 +44,7 @@ describe('ProviderRegistry', () => {
 
       const loadedProviders = globalRegistry.getLoadedProviders();
       expect(loadedProviders).not.toContain('groq');
-      expect(loadedProviders).not.toContain('zhipu');
+      expect(loadedProviders).not.toContain('zai');
       expect(loadedProviders).not.toContain('moonshot');
     });
   });

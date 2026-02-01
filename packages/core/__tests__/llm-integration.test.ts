@@ -16,7 +16,7 @@ import type { Task, TaskStatus, TaskPriority } from '@amicus/types/core';
  * - OPENAI_API_KEY
  * - GOOGLE_API_KEY
  * - GROQ_API_KEY
- * - ZHIPU_API_KEY
+ * - ZAI_API_KEY
  * - MOONSHOT_API_KEY
  */
 
@@ -27,7 +27,7 @@ function hasApiKey(providerId: string): boolean {
     openai: 'OPENAI_API_KEY',
     google: 'GOOGLE_API_KEY',
     groq: 'GROQ_API_KEY',
-    zhipu: 'ZHIPU_API_KEY',
+    zai: 'ZAI_API_KEY',
     moonshot: 'MOONSHOT_API_KEY',
   };
 
@@ -53,7 +53,7 @@ function hasApiKey(providerId: string): boolean {
     openai: 20,
     google: 20,
     groq: 20,
-    zhipu: 20,
+    zai: 20,
     moonshot: 20,
   };
 
@@ -205,7 +205,7 @@ describe('LLM Provider Integration', () => {
     { id: 'openai', model: 'gpt-3.5-turbo', package: '@ai-sdk/openai' },
     { id: 'google', model: 'gemini-1.5-flash', package: '@ai-sdk/google' },
     { id: 'groq', model: 'llama-3.3-70b-versatile', package: '@ai-sdk/groq' },
-    { id: 'zhipu', model: 'glm-4-flash', package: '@ai-sdk/openai' },
+    { id: 'zai', model: 'glm-4.7', package: '@ai-sdk/openai' },
     { id: 'moonshot', model: 'kimi-k2.5', package: '@ai-sdk/openai' },
   ];
 

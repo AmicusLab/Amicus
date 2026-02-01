@@ -190,18 +190,22 @@ class ProviderService {
   }
 
   /**
-   * Validate z.ai API key by making a test request
+   * Validate z.ai API key by making a test request to Tokenizer API
    */
   private async validateZaiApiKey(apiKey: string): Promise<APIKeyValidationResult> {
-    const baseURL = 'https://api.z.ai/v1';
-    
+    const baseURL = 'https://api.z.ai/api/paas/v4';
+
     try {
-      const response = await fetch(`${baseURL}/models`, {
-        method: 'GET',
+      const response = await fetch(`${baseURL}/tokenizer`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          model: 'glm-4.7',
+          messages: [{ role: 'user', content: 'test' }],
+        }),
       });
 
       if (response.status === 200) {
