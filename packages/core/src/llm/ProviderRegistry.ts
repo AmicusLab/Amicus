@@ -6,7 +6,13 @@ import type {
   ModelRoutingResult,
   ProviderRegistryState,
   ProviderLoadingError,
+  ProviderConfig,
 } from './plugins/types.js';
+import { createAnthropic } from '@ai-sdk/anthropic';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { ZhipuPlugin } from './plugins/zhipu.js';
+import { MoonshotPlugin } from './plugins/moonshot.js';
 
 /**
  * Provider 레지스트리
@@ -284,11 +290,13 @@ class AnthropicPlugin implements LLMProviderPlugin {
     private apiKeyEnv: string
   ) {}
 
-  createProvider(): never {
-    const apiKey = process.env[this.apiKeyEnv];
-    if (!apiKey) throw new Error(`${this.apiKeyEnv} not set`);
-    // 실제 구현은 Task 2에서
-    throw new Error('Not implemented');
+  createProvider(config?: ProviderConfig): unknown {
+    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
+    if (!apiKey) {
+      throw new Error(`${this.apiKeyEnv} not set`);
+    }
+    const provider = createAnthropic({ apiKey });
+    return provider('claude-3-5-sonnet-20241022');
   }
 
   isAvailable(): boolean {
@@ -339,10 +347,13 @@ class OpenAIPlugin implements LLMProviderPlugin {
     private apiKeyEnv: string
   ) {}
 
-  createProvider(): never {
-    const apiKey = process.env[this.apiKeyEnv];
-    if (!apiKey) throw new Error(`${this.apiKeyEnv} not set`);
-    throw new Error('Not implemented');
+  createProvider(config?: ProviderConfig): unknown {
+    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
+    if (!apiKey) {
+      throw new Error(`${this.apiKeyEnv} not set`);
+    }
+    const provider = createOpenAI({ apiKey });
+    return provider('gpt-4-turbo');
   }
 
   isAvailable(): boolean {
@@ -393,10 +404,13 @@ class GooglePlugin implements LLMProviderPlugin {
     private apiKeyEnv: string
   ) {}
 
-  createProvider(): never {
-    const apiKey = process.env[this.apiKeyEnv];
-    if (!apiKey) throw new Error(`${this.apiKeyEnv} not set`);
-    throw new Error('Not implemented');
+  createProvider(config?: ProviderConfig): unknown {
+    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
+    if (!apiKey) {
+      throw new Error(`${this.apiKeyEnv} not set`);
+    }
+    const provider = createGoogleGenerativeAI({ apiKey });
+    return provider('gemini-1.5-pro');
   }
 
   isAvailable(): boolean {
@@ -447,10 +461,16 @@ class GroqPlugin implements LLMProviderPlugin {
     private apiKeyEnv: string
   ) {}
 
-  createProvider(): never {
-    const apiKey = process.env[this.apiKeyEnv];
-    if (!apiKey) throw new Error(`${this.apiKeyEnv} not set`);
-    throw new Error('Not implemented');
+  createProvider(config?: ProviderConfig): unknown {
+    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
+    if (!apiKey) {
+      throw new Error(`${this.apiKeyEnv} not set`);
+    }
+    const provider = createOpenAI({
+      baseURL: 'https://api.groq.com/openai/v1',
+      apiKey,
+    });
+    return provider('llama-3.3-70b-versatile');
   }
 
   isAvailable(): boolean {
@@ -482,100 +502,4 @@ class GroqPlugin implements LLMProviderPlugin {
   }
 }
 
-class ZhipuPlugin implements LLMProviderPlugin {
-  readonly name = 'Zhipu AI';
-  readonly id = 'zhipu';
 
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(): never {
-    const apiKey = process.env[this.apiKeyEnv];
-    if (!apiKey) throw new Error(`${this.apiKeyEnv} not set`);
-    throw new Error('Not implemented');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'glm-4-plus',
-        name: 'GLM-4 Plus',
-        description: 'Complex tasks, Chinese optimized',
-        maxTokens: 8192,
-        inputCostPer1K: 0.0007,
-        outputCostPer1K: 0.0007,
-        complexityRange: { min: 70, max: 100 },
-        capabilities: ['text', 'vision', 'tools'],
-      },
-      {
-        id: 'glm-4-flash',
-        name: 'GLM-4 Flash',
-        description: 'Ultra-low cost, Chinese optimized',
-        maxTokens: 8192,
-        inputCostPer1K: 0.00007,
-        outputCostPer1K: 0.00007,
-        complexityRange: { min: 0, max: 30 },
-        capabilities: ['text', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}
-
-class MoonshotPlugin implements LLMProviderPlugin {
-  readonly name = 'Moonshot (Kimi)';
-  readonly id = 'moonshot';
-
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(): never {
-    const apiKey = process.env[this.apiKeyEnv];
-    if (!apiKey) throw new Error(`${this.apiKeyEnv} not set`);
-    throw new Error('Not implemented');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'kimi-k2.5',
-        name: 'Kimi K2.5',
-        description: 'Long context (256K), multimodal',
-        maxTokens: 256000,
-        inputCostPer1K: 0.0006,
-        outputCostPer1K: 0.003,
-        complexityRange: { min: 70, max: 100 },
-        capabilities: ['text', 'vision', 'tools', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}

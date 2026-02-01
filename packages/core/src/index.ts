@@ -13,3 +13,4 @@ export type {
 } from './llm/plugins/types.js';
 export * from './planner/Planner.js';
 export * from './tools/index.js';
+export { llmProviderConfig, getEnabledProviders, getProviderConfig } from './config/llm-providers.js';
