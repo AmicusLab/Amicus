@@ -3,10 +3,19 @@ import { MCPManager } from '../src/MCPManager.js';
 import { MCPClient, ToolResult } from '../src/MCPClient.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const MCP_CONFIG_PATH = join(__dirname, '..', '..', '..', 'data', 'mcp-servers.json');
+
+// Try multiple possible paths for the config file to support different environments
+const possibleConfigPaths = [
+  join(__dirname, '..', '..', '..', 'data', 'mcp-servers.json'),
+  join(process.cwd(), 'data', 'mcp-servers.json'),
+  join(__dirname, '..', '..', '..', '..', 'data', 'mcp-servers.json'),
+];
+
+const MCP_CONFIG_PATH = possibleConfigPaths.find(p => existsSync(p)) || possibleConfigPaths[0];
 const GITHUB_SERVER_ID = 'github';
 const FILESYSTEM_SERVER_ID = 'filesystem';
 

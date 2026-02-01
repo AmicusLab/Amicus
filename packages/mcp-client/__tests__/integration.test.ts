@@ -3,8 +3,15 @@ import { MCPClient } from '../src/MCPClient.js';
 import { MCPManager } from '../src/MCPManager.js';
 import { loadMCPConfig } from '../src/config.js';
 import { join } from 'path';
+import { existsSync } from 'fs';
 
-const MCP_CONFIG_PATH = join(process.cwd(), 'data', 'mcp-servers.json');
+// Support different working directories in CI and local
+const possiblePaths = [
+  join(process.cwd(), 'data', 'mcp-servers.json'),
+  join(__dirname, '..', '..', '..', 'data', 'mcp-servers.json'),
+];
+
+const MCP_CONFIG_PATH = possiblePaths.find(p => existsSync(p)) || possiblePaths[0];
 
 describe('MCP Integration Tests', () => {
   describe('Filesystem MCP Server', () => {
