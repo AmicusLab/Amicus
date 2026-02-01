@@ -18,7 +18,6 @@ build/
 
 # Runtime data
 data/*
-!data/mcp-servers.json
 reports/
 *.log
 npm-debug.log*
