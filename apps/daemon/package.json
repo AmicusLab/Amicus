@@ -12,6 +12,7 @@
   "dependencies": {
     "@amicus/core": "workspace:*",
     "@amicus/memory": "workspace:*",
+    "@amicus/mcp-client": "workspace:*",
     "@amicus/types": "workspace:*",
     "@hono/node-server": "^1.19.9",
     "@hono/node-ws": "^1.1.0",
