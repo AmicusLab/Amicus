@@ -1,7 +1,10 @@
 import { RoutineEngine } from '@amicus/core';
 import { ContextManager } from '@amicus/memory';
 import type { Task, TaskStatus, TaskResult } from '@amicus/types/core';
-import type { Tokenomics, ModelUsageStats } from '@amicus/types/dashboard';
+import type { Tokenomics } from '@amicus/types/dashboard';
+import { mcpService } from './MCPService.js';
+import { tokenomicsService } from './TokenomicsService.js';
+import { providerService } from './ProviderService.js';
 
 let engineInstance: RoutineEngine | null = null;
 let contextManagerInstance: ContextManager | null = null;
@@ -11,8 +14,10 @@ export function getEngine(): RoutineEngine {
     if (!contextManagerInstance) {
       contextManagerInstance = new ContextManager({ repoRoot: process.cwd() });
     }
+    const mcpClient = mcpService.getClient();
     engineInstance = new RoutineEngine({
       contextManager: contextManagerInstance,
+      ...(mcpClient && { mcpClient }),
     });
     engineInstance.initialize().catch((error: unknown) => {
       console.error('[Daemon] RoutineEngine initialization failed', error);
@@ -21,7 +26,9 @@ export function getEngine(): RoutineEngine {
   return engineInstance;
 }
 
-export function startEngine(): void {
+export async function startEngine(): Promise<void> {
+  await providerService.initialize();
+  await mcpService.initialize();
   getEngine().start();
 }
 
@@ -57,21 +64,5 @@ export function onTaskEvent(
 }
 
 export function getTokenomics(): Tokenomics {
-  const mockStats: ModelUsageStats = {
-    model: 'claude-3-5-sonnet',
-    provider: 'anthropic',
-    tokens: { input: 1000, output: 500, total: 1500 },
-    cost: { usd: 0.015, inputRate: 0.003, outputRate: 0.015 },
-    callCount: 5,
-    avgLatency: 1200,
-    errorCount: 0,
-  };
-
-  return {
-    byModel: [mockStats],
-    totalTokens: mockStats.tokens,
-    totalCost: mockStats.cost,
-    periodStart: Date.now() - 3600000,
-    periodEnd: Date.now(),
-  };
+  return tokenomicsService.getTokenomics();
 }

@@ -1,9 +1,20 @@
 {
   "files": [],
   "references": [
-    { "path": "./packages/types" },
-    { "path": "./packages/memory" },
-    { "path": "./packages/mcp-client" },
-    { "path": "./packages/core" }
+    {
+      "path": "./packages/types"
+    },
+    {
+      "path": "./packages/memory"
+    },
+    {
+      "path": "./packages/mcp-client"
+    },
+    {
+      "path": "./packages/mcp-client/tsconfig.test.json"
+    },
+    {
+      "path": "./packages/core"
+    }
   ]
 }

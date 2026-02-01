@@ -264,7 +264,6 @@ export interface AgentStateChangePayload {
 export type ConfigCategory = 
   | 'llm'
   | 'routing'
-  | 'safety'
   | 'notifications'
   | 'appearance';
 
@@ -331,6 +330,46 @@ export interface ApprovalRequest {
   timeout?: number;
   /** Current status */
   status: 'pending' | 'approved' | 'rejected' | 'expired';
+}
+
+// ============================================================================
+// Provider and Server Status Types
+// ============================================================================
+
+/**
+ * LLM provider status for dashboard display
+ */
+export interface LLMProviderStatus {
+  /** Provider identifier (e.g., 'anthropic', 'openai') */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Whether provider is enabled in config */
+  enabled: boolean;
+  /** Whether provider is available (has API key and loaded) */
+  available: boolean;
+  /** Number of models available */
+  modelCount: number;
+  /** Error message if provider failed to load */
+  error?: string;
+}
+
+/**
+ * MCP server status for dashboard display
+ */
+export interface MCPServerStatus {
+  /** Server identifier (e.g., 'filesystem', 'github') */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Whether server is enabled in config */
+  enabled: boolean;
+  /** Whether server is currently connected */
+  connected: boolean;
+  /** Number of tools provided by this server */
+  toolCount: number;
+  /** Error message if server failed to connect */
+  error?: string;
 }
 
 // ============================================================================

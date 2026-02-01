@@ -17,7 +17,7 @@ build/
 *.tsbuildinfo
 
 # Runtime data
-data/
+data/*
 reports/
 *.log
 npm-debug.log*

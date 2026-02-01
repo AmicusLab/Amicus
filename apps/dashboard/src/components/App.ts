@@ -1,6 +1,8 @@
 import { LitElement, html, css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import './StatusBoard.js';
+import './ProviderStatus.js';
+import './MCPServerStatus.js';
 import './ThoughtStream.js';
 import './ControlCenter.js';
 
@@ -46,6 +48,9 @@ export class AmicusApp extends LitElement {
       </div>
       
       <status-board></status-board>
+      
+      <provider-status></provider-status>
+      <mcp-server-status></mcp-server-status>
       
       <div class="grid">
         <thought-stream></thought-stream>

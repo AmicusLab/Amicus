@@ -11,8 +11,8 @@ Amicus는 **"Local-First, Trust-Based Autonomous OS Layer"**입니다.
 
 1.  **Trust-First (신뢰 우선):**
     *   모든 파일 변경은 되돌릴 수 있어야 합니다(Undoable).
-    *   `SafetyExecutor`를 통해서만 파일 시스템에 접근합니다.
-    *   실패 시 자동으로 이전 Git 상태로 롤백합니다.
+    *   Git 기반 버전 관리를 통해 변경 이력을 추적합니다.
+    *   중요 작업은 사용자 승인을 거칩니다.
 2.  **Protocol-First (표준 준수):**
     *   Tool 사용은 **MCP**(Model Context Protocol)를 따릅니다.
     *   IDE/Client 통신은 **ACP**(Agent Client Protocol)를 지향합니다.
@@ -32,25 +32,20 @@ Amicus는 **"Local-First, Trust-Based Autonomous OS Layer"**입니다.
     *   `daemon`: 백그라운드 서비스. Cron 작업, 이벤트 리스너, HTTP 서버.
 *   **packages/**
     *   `core`: RoutineEngine, Planner, 의사결정 로직.
-    *   `safety`: Git 기반 스냅샷 및 롤백, 파일 시스템 접근 제어.
     *   `memory`: ContextManager (NOW.md, MEMORY.md 파싱 및 업데이트).
     *   `mcp-client`: 외부 도구 연결 및 실행기.
     *   `types`: 공용 타입 정의.
 
 ## 4. 단계별 구현 명세 (Implementation Phases)
 
-### Phase 1: Safety & Infrastructure (신뢰 레이어 구축)
+### Phase 1: Infrastructure (기반 구축)
 가장 비파괴적이고 안전한 기반을 먼저 만듭니다.
 
-*   **목표:** "망가지면 되돌린다."
-*   **패키지:** `packages/safety`
-*   **핵심 기능 (`SafetyExecutor`):**
-    *   `execute(taskDescription, operationFunction)` 형태의 메서드 제공.
-    *   실행 전 `git status` 확인 (Clean 상태여야 함, 혹은 Stash).
-    *   실행 직전 임시 커밋 생성 (`amicus/safety-checkpoint`).
-    *   `operationFunction` 실행.
-    *   성공 시 커밋 확정, 실패(예외 발생) 시 `git reset --hard HEAD^` 수행.
-    *   모든 행위는 `data/audit.log`에 타임스탬프와 함께 기록.
+*   **목표:** "안정적인 기반을 만든다."
+*   **패키지:** `packages/types`, `packages/memory`
+*   **핵심 기능:**
+    *   공용 타입 정의 및 검증.
+    *   마크다운 기반 컨텍스트 관리 시스템.
 
 ### Phase 2: Memory & Context (기억 시스템)
 에이전트가 "현재 상태"와 "과거의 배움"을 알게 합니다.
@@ -109,7 +104,7 @@ Amicus는 **"Local-First, Trust-Based Autonomous OS Layer"**입니다.
 
 ## 6. 개발 로드맵 요약
 
-1.  모노레포 설정 및 `packages/safety` 구현 (가장 중요).
-2.  `packages/memory`로 마크다운 연동 구현.
-3.  `packages/core`에서 간단한 "Hello World" 루틴 실행 (Safety 적용 확인).
-4.  `apps/cli`로 시각화.
+1.  모노레포 설정 및 `packages/types`, `packages/memory` 구현.
+2.  `packages/core`에서 간단한 "Hello World" 루틴 실행.
+3.  `apps/cli`로 시각화.
+4.  `apps/dashboard`로 웹 인터페이스 구현.

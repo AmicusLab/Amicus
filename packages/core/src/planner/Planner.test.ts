@@ -157,7 +157,7 @@ describe("Planner", () => {
       const result = await planner.decompose(task);
 
       expect(result.subtasks.length).toBe(1);
-      expect(result.subtasks[0].id).toBe("t1");
+      expect(result.subtasks[0]?.id).toBe("t1");
     });
 
     it("should decompose complex tasks with rules", async () => {
@@ -230,7 +230,7 @@ describe("Planner", () => {
 
       // With maxDecompositionDepth: 1, should get exactly the LLM subtasks
       expect(result.subtasks.length).toBe(3);
-      expect(result.subtasks[0].id).toBe("subtask-1");
+      expect(result.subtasks[0]?.id).toBe("subtask-1");
     });
 
     it("should fallback to rule-based when LLM fails", async () => {
@@ -271,7 +271,7 @@ describe("Planner", () => {
       const results = await planner.executePlan(plan, mockExecuteFn);
       
       expect(results.length).toBeGreaterThan(0);
-      expect(results[0].success).toBe(true);
+      expect(results[0]?.success).toBe(true);
     });
 
     it("should execute parallel strategy", async () => {
@@ -325,8 +325,8 @@ describe("Planner", () => {
 
       const results = await planner.executePlan(plan, failingExecute);
 
-      expect(results[0].success).toBe(false);
-      expect(results[0].error).toBe("Execution failed");
+      expect(results[0]?.success).toBe(false);
+      expect(results[0]?.error).toBe("Execution failed");
     });
 
     it("should stop on critical task failure in sequential mode", async () => {

@@ -18,10 +18,6 @@
       "types": "./dist/memory.d.ts",
       "default": "./dist/memory.js"
     },
-    "./safety": {
-      "types": "./dist/safety.d.ts",
-      "default": "./dist/safety.js"
-    },
     "./errors": {
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"

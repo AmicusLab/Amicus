@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { systemHealth, healthStatus, uptime, tokenomics, totalCost } from '../state/signals.js';
+import { systemHealth, healthStatus, uptime, tokenomics, totalCost, budgetLimit, budgetUsedPercent, budgetStatus } from '../state/signals.js';
 import { getStatus, getTokenomics } from '../api/client.js';
 
 @customElement('status-board')
@@ -35,6 +35,23 @@ export class StatusBoard extends LitElement {
     .status-degraded { color: #fbbf24; }
     .status-unhealthy { color: #ef4444; }
     .status-unknown { color: #888; }
+    .budget-normal { color: #4ade80; }
+    .budget-warning { color: #fbbf24; }
+    .budget-exceeded { color: #ef4444; }
+    .budget-alert {
+      background: rgba(239, 68, 68, 0.2);
+      border: 1px solid #ef4444;
+      border-radius: 4px;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+      color: #ef4444;
+    }
+    .budget-info {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 0.25rem;
+    }
   `;
 
   @state() private _health = systemHealth.value;
@@ -78,7 +95,20 @@ export class StatusBoard extends LitElement {
     const uptimeStr = uptime.value;
     const cost = totalCost.value;
     const mem = this._health?.resources.memoryPercent.toFixed(1) ?? '0';
-    
+    const budget = budgetLimit.value;
+    const budgetPercent = budgetUsedPercent.value;
+    const bStatus = budgetStatus.value;
+
+    const budgetAlert = bStatus === 'exceeded'
+      ? html`<div class="budget-alert">Budget exceeded! ($${cost} / $${budget?.toFixed(2)})</div>`
+      : bStatus === 'warning'
+        ? html`<div class="budget-alert">Budget warning: ${budgetPercent.toFixed(1)}% used</div>`
+        : null;
+
+    const budgetInfo = budget
+      ? html`<div class="budget-info">${budgetPercent.toFixed(1)}% of $${budget.toFixed(2)}</div>`
+      : null;
+
     return html`
       <div class="grid">
         <div class="card">
@@ -95,7 +125,9 @@ export class StatusBoard extends LitElement {
         </div>
         <div class="card">
           <div class="card-title">Total Cost</div>
-          <div class="card-value">$${cost}</div>
+          <div class="card-value budget-${bStatus}">$${cost}</div>
+          ${budgetInfo}
+          ${budgetAlert}
         </div>
       </div>
     `;

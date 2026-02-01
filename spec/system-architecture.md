@@ -10,7 +10,6 @@
 | | `apps/dashboard` | 웹 대시보드 | Lit + Signals |
 | **Orchestration Layer** | `apps/daemon` | 백그라운드 서버 | Hono + WebSocket |
 | **Core Intelligence** | `packages/core` | 에이전트 두뇌 | Bun + TypeScript |
-| **Safety Layer** | `packages/safety` | 파일 시스템 보호 | simple-git |
 | **Persistence** | `packages/memory` | 컨텍스트 관리 | Markdown |
 | **Capability** | `packages/mcp-client` | 외부 도구 연결 | MCP Protocol |
 
@@ -21,38 +20,37 @@
                          │  User/Developer │
                          └────────┬────────┘
                                   │
-              ┌───────────────────┼───────────────────┐
-              │                   │                   │
-              ▼                   ▼                   ▼
-    ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-    │   apps/cli      │  │ apps/dashboard  │  │  External IDE   │
-    │  (Terminal UI)  │  │   (Web UI)      │  │   (ACP Client)  │
-    └────────┬────────┘  └────────┬────────┘  └────────┬────────┘
-             │                    │                    │
-             └────────────────────┼────────────────────┘
-                                  │
-                                  ▼
-                    ┌─────────────────────────┐
-                    │     apps/daemon         │
-                    │   (Hono HTTP Server)    │
-                    │   (WebSocket Server)    │
-                    └───────────┬─────────────┘
-                                │
-              ┌─────────────────┼─────────────────┐
-              │                 │                 │
-              ▼                 ▼                 ▼
-    ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-    │ packages/core   │ │ packages/memory │ │packages/mcp-cli-│
-    │  - RoutineEngine│ │  - ContextManager│ │ent              │
-    │  - Planner      │ │  - NOW.md       │ │  - Tool Registry│
-    │  - Economist    │ │  - MEMORY.md    │ │  - External APIs│
-    └─────────────────┘ └─────────────────┘ └─────────────────┘
-                                │
-                                ▼
-                    ┌─────────────────────────┐
-                    │    File System / Git    │
-                    │    (Safety Layer)       │
-                    └─────────────────────────┘
+               ┌──────────────────┼──────────────────┐
+               │                  │                  │
+               ▼                  ▼                  ▼
+     ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+     │   apps/cli      │  │ apps/dashboard  │  │  External IDE   │
+     │  (Terminal UI)  │  │   (Web UI)      │  │   (ACP Client)  │
+     └────────┬────────┘  └────────┬────────┘  └────────┬────────┘
+              │                    │                    │
+              └────────────────────┼────────────────────┘
+                                   │
+                                   ▼
+                     ┌─────────────────────────┐
+                     │     apps/daemon         │
+                     │   (Hono HTTP Server)    │
+                     │   (WebSocket Server)    │
+                     └───────────┬─────────────┘
+                                 │
+               ┌─────────────────┼─────────────────┐
+               │                 │                 │
+               ▼                 ▼                 ▼
+     ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+     │ packages/core   │ │ packages/memory │ │packages/mcp-cli-│
+     │  - RoutineEngine│ │  - ContextManager│ │ent              │
+     │  - Planner      │ │  - NOW.md       │ │  - Tool Registry│
+     │  - Economist    │ │  - MEMORY.md    │ │  - External APIs│
+     └─────────────────┘ └─────────────────┘ └─────────────────┘
+                                 │
+                                 ▼
+                     ┌─────────────────────────┐
+                     │    File System / Git    │
+                     └─────────────────────────┘
 ```
 
 ---
@@ -116,20 +114,7 @@
 [Task Input] → [Planner] → [Sub-tasks] → [Economist] → [Model Selection] → [Execution]
 ```
 
-### 2.4 Safety Layer (`packages/safety`)
-
-**역할:** 시스템 보호. 모든 "부수 효과(Side-effect)"는 이 계층을 통과해야 함.
-
-**핵심 로직 (Trust-First):**
-
-| 단계 | 동작 |
-|------|------|
-| 1. Pre-Action | Git 스냅샷 생성 (stash/commit) |
-| 2. Action | 실제 작업 수행 |
-| 3. Verification | 작업 결과 검증 |
-| 4. Post-Action | 실패 시 롤백, 성공 시 audit.log 기록 |
-
-### 2.5 Persistence Layer (`packages/memory`)
+### 2.4 Persistence Layer (`packages/memory`)
 
 **역할:** 컨텍스트 관리. Human-Readable 마크다운 사용.
 
@@ -138,7 +123,7 @@
 | `data/NOW.md` | 현재 진행 중인 태스크, 단기 메모리 | 세션 단위 |
 | `data/MEMORY.md` | 장기 기억, 사용자 선호도, 레슨 런 | 영구 |
 
-### 2.6 Capability Layer (`packages/mcp-client`)
+### 2.5 Capability Layer (`packages/mcp-client`)
 
 **역할:** 외부 도구 연결. 표준 MCP 프로토콜 사용.
 
@@ -164,11 +149,11 @@
 3. Reasoning
    └─ Core가 목표 달성을 위한 최적의 도구와 모델 결정
 
-4. Safety Check
-   └─ 위험한 작업 시 CLI를 통해 사용자 승인 요청
+ 4. Approval Check
+    └─ 위험한 작업 시 CLI를 통해 사용자 승인 요청
 
 5. Execution
-   └─ Safety 래퍼 내에서 MCP 또는 파일 조작 수행
+   └─ MCP 또는 파일 조작 수행
 
 6. Updates
    └─ 결과에 따라 MEMORY.md 업데이트 및 경험 축적

@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api.js';
+import { providerRoutes } from './routes/providers.js';
 import {
   addClient,
   removeClient,
@@ -24,12 +25,13 @@ export function createApp(): Hono {
 
   app.route('/health', healthRoutes);
   app.route('/api', apiRoutes);
+  app.route('/api', providerRoutes);
 
   app.get('/', (c) => {
     return c.json({
       name: '@amicus/daemon',
       version: '0.1.0',
-      endpoints: ['/health', '/api/status', '/api/tasks', '/api/tokenomics'],
+      endpoints: ['/health', '/api/status', '/api/tasks', '/api/tokenomics', '/api/llm-providers', '/api/mcp-servers'],
     });
   });
 
