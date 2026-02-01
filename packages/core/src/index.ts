@@ -18,3 +18,6 @@ export { ConfigManager } from './config/config-manager.js';
 export { AmicusConfigSchema, DEFAULT_CONFIG } from './config/app-config.js';
 export type { AmicusConfig } from './config/app-config.js';
 export { SecretStore } from './config/secret-store.js';
+export { ModelRegistry } from './llm/model/ModelRegistry.js';
+export { ModelValidator } from './llm/model/ModelValidator.js';
+export type { ValidationResult, ModelValidationResult, ProviderValidationResult } from './llm/model/ModelValidator.js';

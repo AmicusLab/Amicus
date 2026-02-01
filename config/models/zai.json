@@ -1,5 +1,78 @@
 {
   "provider": "zai",
-  "lastUpdated": 0,
-  "models": []
+  "lastUpdated": 1704067200,
+  "models": [
+    {
+      "id": "glm-4.7",
+      "name": "GLM-4.7",
+      "description": "GLM-4.7 is a high-performance multimodal model with advanced reasoning capabilities",
+      "provider": "zai",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "inputCostPer1M": 0.5,
+      "outputCostPer1M": 1.5,
+      "capabilities": ["chat", "vision", "function-calling", "json-mode"],
+      "complexityRange": { "min": 70, "max": 100 }
+    },
+    {
+      "id": "glm-4.5",
+      "name": "GLM-4.5",
+      "description": "GLM-4.5 offers balanced performance for complex tasks",
+      "provider": "zai",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "inputCostPer1M": 0.3,
+      "outputCostPer1M": 1.0,
+      "capabilities": ["chat", "vision", "function-calling", "json-mode"],
+      "complexityRange": { "min": 50, "max": 80 }
+    },
+    {
+      "id": "glm-4.1",
+      "name": "GLM-4.1",
+      "description": "GLM-4.1 is optimized for general-purpose tasks",
+      "provider": "zai",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "inputCostPer1M": 0.2,
+      "outputCostPer1M": 0.6,
+      "capabilities": ["chat", "function-calling", "json-mode"],
+      "complexityRange": { "min": 30, "max": 60 }
+    },
+    {
+      "id": "glm-4",
+      "name": "GLM-4",
+      "description": "GLM-4 is a versatile model for everyday tasks",
+      "provider": "zai",
+      "contextWindow": 128000,
+      "maxOutputTokens": 4096,
+      "inputCostPer1M": 0.1,
+      "outputCostPer1M": 0.3,
+      "capabilities": ["chat", "function-calling"],
+      "complexityRange": { "min": 20, "max": 50 }
+    },
+    {
+      "id": "glm-4v",
+      "name": "GLM-4V",
+      "description": "GLM-4V is a vision-enabled model for image understanding",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 2048,
+      "inputCostPer1M": 0.15,
+      "outputCostPer1M": 0.45,
+      "capabilities": ["chat", "vision"],
+      "complexityRange": { "min": 30, "max": 70 }
+    },
+    {
+      "id": "glm-3-turbo",
+      "name": "GLM-3 Turbo",
+      "description": "GLM-3 Turbo is a fast, cost-effective model for simple tasks",
+      "provider": "zai",
+      "contextWindow": 32768,
+      "maxOutputTokens": 2048,
+      "inputCostPer1M": 0.05,
+      "outputCostPer1M": 0.15,
+      "capabilities": ["chat"],
+      "complexityRange": { "min": 0, "max": 30 }
+    }
+  ]
 }

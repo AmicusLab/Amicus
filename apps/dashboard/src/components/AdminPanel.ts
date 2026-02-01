@@ -19,8 +19,9 @@ import {
   adminTestProviderConnection,
   type AdminProviderView,
 } from '../api/client.js';
+import './ModelSelector.js';
 
-type AdminTab = 'providers' | 'config' | 'audit' | 'password';
+type AdminTab = 'providers' | 'models' | 'config' | 'audit' | 'password';
 
 @customElement('admin-panel')
 export class AdminPanel extends LitElement {
@@ -702,6 +703,10 @@ export class AdminPanel extends LitElement {
     `;
   }
 
+  private renderModels() {
+    return html`<model-selector></model-selector>`;
+  }
+
   private renderAuthed() {
     return html`
       <div class="row">
@@ -717,6 +722,7 @@ export class AdminPanel extends LitElement {
       <div class="row" style="margin-top:0.5rem;">
         <div class="tabs">
           <button class="tab ${this.tab === 'providers' ? 'active' : ''}" @click=${() => void this.switchTab('providers')}>Providers</button>
+          <button class="tab ${this.tab === 'models' ? 'active' : ''}" @click=${() => void this.switchTab('models')}>Models</button>
           <button class="tab ${this.tab === 'config' ? 'active' : ''}" @click=${() => void this.switchTab('config')}>Config</button>
           <button class="tab ${this.tab === 'audit' ? 'active' : ''}" @click=${() => void this.switchTab('audit')}>Audit</button>
           <button class="tab ${this.tab === 'password' ? 'active' : ''}" @click=${() => void this.switchTab('password')}>Password</button>
@@ -725,11 +731,13 @@ export class AdminPanel extends LitElement {
 
       ${this.tab === 'providers'
         ? this.renderProviders()
-        : this.tab === 'config'
-          ? this.renderConfig()
-          : this.tab === 'audit'
-            ? this.renderAudit()
-            : this.renderPassword()}
+        : this.tab === 'models'
+          ? this.renderModels()
+          : this.tab === 'config'
+            ? this.renderConfig()
+            : this.tab === 'audit'
+              ? this.renderAudit()
+              : this.renderPassword()}
     `;
   }
 
