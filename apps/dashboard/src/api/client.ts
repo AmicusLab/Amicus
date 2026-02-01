@@ -1,4 +1,4 @@
-import type { APIResponse, SystemHealth, Tokenomics } from '@amicus/types/dashboard';
+import type { APIResponse, SystemHealth, Tokenomics, LLMProviderStatus, MCPServerStatus } from '@amicus/types/dashboard';
 
 const API_BASE = '/api';
 
@@ -44,4 +44,12 @@ export async function cancelTask(taskId: string): Promise<APIResponse<{ taskId: 
 
 export async function getTokenomics(): Promise<APIResponse<Tokenomics>> {
   return fetchJSON('/tokenomics');
+}
+
+export async function getProviders(): Promise<APIResponse<LLMProviderStatus[]>> {
+  return fetchJSON('/llm-providers');
+}
+
+export async function getMCPServers(): Promise<APIResponse<MCPServerStatus[]>> {
+  return fetchJSON('/mcp-servers');
 }
