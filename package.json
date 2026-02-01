@@ -15,8 +15,10 @@
     "verify": "bun run typecheck && bun run build && bun run test:all",
     "report": "bash scripts/task-report.sh",
     "demo": "bun run scripts/demo.ts",
-    "start": "concurrently \"bun run --cwd apps/daemon start\" \"bun run --cwd apps/dashboard dev\" \"sleep 3 && bun run --cwd apps/cli start\"",
-    "start:dev": "concurrently \"bun run --cwd apps/daemon dev\" \"bun run --cwd apps/dashboard dev\" \"sleep 3 && bun run --cwd apps/cli start\"",
+    "start": "concurrently --kill-others-on-fail --names daemon,dashboard \"bun run --cwd apps/daemon start\" \"bun run --cwd apps/dashboard dev\"",
+    "start:dev": "concurrently --kill-others-on-fail --names daemon,dashboard \"bun run --cwd apps/daemon dev\" \"bun run --cwd apps/dashboard dev\"",
+    "start:all": "concurrently --kill-others-on-fail --names daemon,dashboard,cli \"bun run --cwd apps/daemon start\" \"bun run --cwd apps/dashboard dev\" \"sleep 3 && bun run --cwd apps/cli start\"",
+    "stop": "bash scripts/stop.sh",
     "start:daemon": "bun run --cwd apps/daemon start",
     "start:dashboard": "bun run --cwd apps/dashboard preview",
     "start:cli": "bun run --cwd apps/cli start"
