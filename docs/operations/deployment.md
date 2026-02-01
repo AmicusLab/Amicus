@@ -35,6 +35,9 @@ cp .env.example .env
 | `OPENAI_API_KEY` | OpenAI API key | `sk-...` |
 | `GOOGLE_API_KEY` | Google AI API key | `...` |
 | `AMICUS_API_KEY` | API authentication key (optional) | `your-secret-key` |
+| `CONFIG_ENCRYPTION_KEY` | Encrypt persisted secrets (required for runtime key updates) | `change-me-strong-passphrase` |
+| `AMICUS_ADMIN_SESSION_SECRET` | Admin session signing secret (optional; falls back to CONFIG_ENCRYPTION_KEY) | `change-me-strong-secret` |
+| `AMICUS_ADMIN_PASSWORD` | Admin login password (optional; enables /admin/login) | `change-me` |
 
 ### Optional Variables
 
@@ -71,6 +74,16 @@ NODE_ENV=production bun run --cwd apps/daemon start
 ```
 
 Daemon will start on port 3000 by default.
+
+## Configuration Files
+
+Non-secret runtime configuration is stored in:
+- `data/config.json`
+
+Secrets are handled via environment variables and/or an encrypted secrets file:
+- `data/secrets.enc.json` (encrypted-at-rest; daemon-only)
+
+See `docs/operations/configuration.md` for details.
 
 ### 3. Serve Dashboard (Optional)
 

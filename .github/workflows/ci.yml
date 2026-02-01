@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -30,17 +32,34 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      - name: Typecheck
-        run: bun run typecheck
+      - name: Detect dashboard changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD="${{ github.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD="${{ github.sha }}"
+          fi
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          if git diff --name-only "$BASE" "$HEAD" | grep -q '^apps/dashboard/'; then
+            echo "dashboard=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dashboard=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Build
-        run: bun run build
+      - name: Install Playwright browsers (dashboard changes only)
+        if: steps.changes.outputs.dashboard == 'true'
+        run: bunx playwright install --with-deps chromium
+        working-directory: apps/dashboard
 
-      - name: Unit Tests
-        run: bun run test
-
-      - name: Interface Tests
-        run: bun run test:interface
+      - name: Verify (includes conditional UI E2E)
+        env:
+          AMICUS_VERIFY_UI_BASE_SHA: ${{ steps.changes.outputs.base }}
+          AMICUS_VERIFY_UI_HEAD_SHA: ${{ steps.changes.outputs.head }}
+        run: bun run verify
 
       - name: Build Interface Apps
         run: |
