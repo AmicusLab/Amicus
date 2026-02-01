@@ -630,6 +630,25 @@ export class RoutineEngine extends EventEmitter {
   }
 
   /**
+   * Emergency stop - cancel all running tasks
+   * @returns Array of task IDs that were cancelled
+   */
+  emergencyStop(): string[] {
+    const runningTaskIds = this.getRunningTaskIds();
+    const cancelledIds: string[] = [];
+
+    for (const taskId of runningTaskIds) {
+      const machine = this.runningMachines.get(taskId);
+      if (machine) {
+        machine.send({ type: "CANCEL" });
+        cancelledIds.push(taskId);
+      }
+    }
+
+    return cancelledIds;
+  }
+
+  /**
    * Internal method to emit status change events
    */
   private emitStatusChange(task: Task, status: TaskStatus): void {

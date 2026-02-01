@@ -10,7 +10,10 @@ export function connect(url = `ws://${window.location.host}`): WebSocket {
     return socket;
   }
   
-  socket = new WebSocket(url);
+  const wsUrl = url.includes('://') ? url : `ws://${url}`;
+  // Default to /ws path (daemon ws endpoint). Works with Vite ws proxy in dev.
+  const normalized = wsUrl.endsWith('/ws') ? wsUrl : `${wsUrl}/ws`;
+  socket = new WebSocket(normalized);
   
   socket.onopen = () => {
     console.log('[WS] Connected');

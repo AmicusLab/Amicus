@@ -6,6 +6,8 @@ import { logger } from 'hono/logger';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api.js';
 import { providerRoutes } from './routes/providers.js';
+import { adminRoutes } from './routes/admin.js';
+import { authMiddleware } from './middleware/auth.js';
 import {
   addClient,
   removeClient,
@@ -16,16 +18,29 @@ import {
   startHeartbeat,
   type WSClient,
 } from './ws/WebSocketManager.js';
+import { getCookie } from 'hono/cookie';
+import { configManager } from './services/ConfigService.js';
+import { getAdminSessionCookieName, verifyAdminSessionToken } from './admin/session.js';
+
+function getSessionSecret(): string {
+  return (
+    process.env.AMICUS_ADMIN_SESSION_SECRET ||
+    process.env.CONFIG_ENCRYPTION_KEY ||
+    ''
+  );
+}
 
 export function createApp(): Hono {
   const app = new Hono();
 
   app.use('*', cors());
   app.use('*', logger());
+  app.use('*', authMiddleware);
 
   app.route('/health', healthRoutes);
   app.route('/api', apiRoutes);
   app.route('/api', providerRoutes);
+  app.route('/admin', adminRoutes);
 
   app.get('/', (c) => {
     return c.json({
@@ -95,9 +110,20 @@ export function setupWebSocket(app: Hono) {
 
   app.get(
     '/ws',
-    upgradeWebSocket(() => {
+    upgradeWebSocket((c) => {
+      const authEnabled = configManager.getConfig().auth.enabled;
+      const secret = getSessionSecret();
+      const token = getCookie(c, getAdminSessionCookieName());
+      const session = authEnabled && secret && token
+        ? verifyAdminSessionToken({ token, nowMs: Date.now(), secret })
+        : null;
+
       return {
         onOpen: (_event: WSOpenEvent, ws: WSClient) => {
+          if (authEnabled && !session) {
+            ws.close(1008, 'Unauthorized');
+            return;
+          }
           const clientId = addClient(ws);
           broadcast('connect', { clientId, clients: getClientCount() });
           sendMessage(ws, 'heartbeat', { timestamp: Date.now(), clients: getClientCount() });

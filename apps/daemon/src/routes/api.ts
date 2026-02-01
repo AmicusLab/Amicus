@@ -8,8 +8,10 @@ import {
   pauseTask,
   resumeTask,
   cancelTask,
+  emergencyStop,
   getTokenomics,
 } from '../services/EngineService.js';
+import { configManager } from '../services/ConfigService.js';
 
 export const apiRoutes = new Hono();
 
@@ -90,4 +92,18 @@ apiRoutes.post('/tasks/:id/cancel', (c) => {
 
 apiRoutes.get('/tokenomics', (c) => {
   return c.json(response(getTokenomics()));
+});
+
+apiRoutes.get('/config', (c) => {
+  return c.json(response(configManager.getSafeConfig()));
+});
+
+apiRoutes.post('/tasks/emergency-stop', (c) => {
+  const cancelledIds = emergencyStop();
+  
+  return c.json(response({ 
+    action: 'emergency_stop',
+    cancelledCount: cancelledIds.length,
+    cancelledIds,
+  }));
 });

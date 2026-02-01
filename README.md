@@ -44,9 +44,31 @@ Amicus는 사용자의 로컬 환경에서 자율적으로 업무를 수행하�
 bun install
 ```
 
-### 2. 전체 시스템 구동
+### 2. 초기 설정 (최초 1회)
 
-**터미inal 1 - Daemon (필수)**
+```bash
+# 관리자 비밀번호 및 세션 시크릿 자동 생성
+bun run init
+
+# 생성된 .env 파일 확인
+cat .env
+```
+
+**옵션:**
+- `--dry-run`: 실제 변경 없이 미리보기
+- `--force`: 기존 값 덮어쓰기
+- `--password <pw>`: 특정 비밀번호 지정
+- `--no-password`: 비밀번호 생성 생략
+
+**예시:**
+```bash
+bun run init --dry-run        # 미리보기
+bun run init --password admin123  # 특정 비밀번호 설정
+```
+
+### 3. 전체 시스템 구동
+
+**터미널 1 - Daemon (필수)**
 ```bash
 bun run --cwd apps/daemon dev
 ```

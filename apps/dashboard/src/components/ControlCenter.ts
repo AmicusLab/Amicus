@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { isConnected } from '../state/signals.js';
-import { getTasks, pauseTask, resumeTask, cancelTask } from '../api/client.js';
+import { getTasks, pauseTask, resumeTask, cancelTask, emergencyStop } from '../api/client.js';
 
 interface TaskInfo {
   taskId: string;
@@ -125,6 +125,22 @@ export class ControlCenter extends LitElement {
     this._loadTasks();
   }
 
+  private async _handleEmergencyStop() {
+    try {
+      const result = await emergencyStop();
+      if (result.success && result.data) {
+        const { cancelledCount, cancelledIds } = result.data;
+        alert(`Emergency stop executed. Cancelled ${cancelledCount} task(s): ${cancelledIds.join(', ') || 'none'}`);
+        this._loadTasks();
+      } else {
+        alert('Emergency stop failed');
+      }
+    } catch (e) {
+      console.error('Emergency stop failed:', e);
+      alert('Emergency stop failed: ' + (e instanceof Error ? e.message : 'Unknown error'));
+    }
+  }
+
   render() {
     const connected = isConnected.value;
     
@@ -167,7 +183,7 @@ export class ControlCenter extends LitElement {
         </div>
         
         <div class="kill-switch">
-          <button class="btn-kill" @click=${() => alert('Emergency stop not implemented')}>
+          <button class="btn-kill" @click=${this._handleEmergencyStop}>
             EMERGENCY STOP
           </button>
         </div>

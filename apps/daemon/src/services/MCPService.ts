@@ -2,8 +2,14 @@ import { MCPManager } from '@amicus/mcp-client';
 import type { MCPClient } from '@amicus/mcp-client';
 import type { Tool } from '@amicus/mcp-client';
 import { join } from 'path';
+import { configManager, repoRoot } from './ConfigService.js';
 
-const MCP_CONFIG_PATH = process.env.MCP_CONFIG_PATH || join(process.cwd(), '..', '..', 'data', 'mcp-servers.json');
+function resolveMcpConfigPath(): string {
+  const cfg = configManager.getConfig();
+  const raw = process.env.MCP_CONFIG_PATH || cfg.mcp.configPath;
+  // Preserve existing behavior: allow absolute paths or repo-relative paths.
+  return raw.startsWith('/') ? raw : join(repoRoot, raw);
+}
 
 interface MCPClientLike {
   discoverTools(): Promise<Tool[]>;
@@ -22,7 +28,7 @@ class MCPService {
     if (this.initialized) return;
     
     try {
-      await this.manager.loadServers(MCP_CONFIG_PATH);
+      await this.manager.loadServers(resolveMcpConfigPath());
       const connected = await this.manager.connectToAllServers();
       
       console.log(`[MCPService] Connected to ${connected.size} MCP server(s)`);

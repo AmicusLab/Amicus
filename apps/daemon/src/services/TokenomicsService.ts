@@ -1,6 +1,7 @@
 import { Economist } from '@amicus/core';
 import type { Tokenomics, ModelUsageStats } from '@amicus/types/dashboard';
 import type { CostStats } from '@amicus/core';
+import { configManager } from './ConfigService.js';
 
 interface CostEntry {
   timestamp: number;
@@ -18,15 +19,16 @@ let economistInstance: Economist | null = null;
 
 export function getEconomist(): Economist {
   if (!economistInstance) {
+    const cfg = configManager.getConfig();
     const budget = process.env.LLM_BUDGET_DAILY
       ? parseFloat(process.env.LLM_BUDGET_DAILY)
-      : Infinity;
+      : cfg.llm.dailyBudget;
     const threshold = process.env.LLM_BUDGET_ALERT_THRESHOLD
       ? parseFloat(process.env.LLM_BUDGET_ALERT_THRESHOLD)
-      : 0.8;
+      : cfg.llm.budgetAlertThreshold;
 
     economistInstance = new Economist({
-      budget,
+      budget: Number.isFinite(budget) ? budget : Infinity,
       budgetAlertThreshold: threshold,
       onBudgetAlert: (spent, budget) => {
         console.warn(`[Tokenomics] Budget alert: $${spent.toFixed(4)} / $${budget.toFixed(2)} (${((spent / budget) * 100).toFixed(1)}%)`);

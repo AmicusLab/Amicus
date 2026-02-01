@@ -8,6 +8,9 @@ export const thoughts = signal<Array<{ content: string; timestamp: number }>>([]
 export const llmProviders = signal<LLMProviderStatus[]>([]);
 export const mcpServers = signal<MCPServerStatus[]>([]);
 
+// UI navigation (no router)
+export const activeView = signal<'dashboard' | 'admin'>('dashboard');
+
 export const healthStatus = computed(() => systemHealth.value?.status ?? 'unknown');
 export const uptime = computed(() => {
   const ms = systemHealth.value?.daemon.uptime ?? 0;

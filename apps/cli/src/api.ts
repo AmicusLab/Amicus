@@ -1,9 +1,22 @@
 import type { APIResponse, SystemHealth, Tokenomics } from '@amicus/types/dashboard';
 
 const API_BASE = process.env.AMICUS_API_URL || 'http://localhost:3000';
+const API_KEY = process.env.AMICUS_API_KEY;
 
-async function fetchJSON<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`);
+async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...options?.headers as Record<string, string>,
+  };
+
+  if (API_KEY) {
+    headers['Authorization'] = `Bearer ${API_KEY}`;
+  }
+
+  const response = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+  });
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }

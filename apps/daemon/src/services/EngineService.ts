@@ -5,6 +5,7 @@ import type { Tokenomics } from '@amicus/types/dashboard';
 import { mcpService } from './MCPService.js';
 import { tokenomicsService } from './TokenomicsService.js';
 import { providerService } from './ProviderService.js';
+import { repoRoot } from './ConfigService.js';
 
 let engineInstance: RoutineEngine | null = null;
 let contextManagerInstance: ContextManager | null = null;
@@ -12,7 +13,7 @@ let contextManagerInstance: ContextManager | null = null;
 export function getEngine(): RoutineEngine {
   if (!engineInstance) {
     if (!contextManagerInstance) {
-      contextManagerInstance = new ContextManager({ repoRoot: process.cwd() });
+      contextManagerInstance = new ContextManager({ repoRoot });
     }
     const mcpClient = mcpService.getClient();
     engineInstance = new RoutineEngine({
@@ -50,6 +51,10 @@ export function resumeTask(taskId: string): boolean {
 
 export function cancelTask(taskId: string): boolean {
   return getEngine().cancelTask(taskId);
+}
+
+export function emergencyStop(): string[] {
+  return getEngine().emergencyStop();
 }
 
 export async function executeTask(task: Task): Promise<TaskResult> {

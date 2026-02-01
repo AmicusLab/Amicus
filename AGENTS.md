@@ -64,6 +64,21 @@ Amicus는 **Bun Workspaces** 기반의 모노레포 프로젝트입니다.
     - Unit: `bun test`
     - Interface: `bun run test:interface`
 
+### UI 변경 검증 (Dashboard 등)
+
+Dashboard(Lit/Vite) UI 동작이 바뀌는 PR/커밋은 **실제 UI 실행 기반 검증**이 필수입니다.
+
+- 원칙: **타입체크/빌드만으로 UI 변경을 완료 처리하지 않는다**
+- 기본 검증(빠른 번들 체크): `bun run --cwd apps/dashboard build`
+- 동작 검증(E2E, 권장): `bun run --cwd apps/dashboard test:e2e`
+
+자동 강제(Conditional):
+- `bun run verify`는 변경 파일에 `apps/dashboard/`가 포함되면 `verify:ui` 단계에서 Playwright E2E를 실행합니다.
+- CI에서도 동일 규칙을 적용합니다(대시보드 변경이 있을 때만 브라우저 설치 + E2E 실행).
+
+주의:
+- Dashboard에는 **VITE_* 환경변수로 시크릿(API key 등)**을 절대 넣지 않는다.
+
 ---
 
 ## 4. 에이전트 정의 (Agent Definitions)
