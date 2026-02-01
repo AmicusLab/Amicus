@@ -1,12 +1,9 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { MCPManager } from '../MCPManager.js';
 import { MCPClient } from '../MCPClient.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const CONFIG_PATH = join(__dirname, '..', '..', '..', '..', 'data', 'mcp-servers.json');
+const CONFIG_PATH = join(__dirname, '..', '..', '__tests__', 'test-mcp-servers.json');
 
 describe('GitHub MCP Integration', () => {
   let manager: MCPManager;
