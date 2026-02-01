@@ -4,3 +4,4 @@ export * from './openai.js';
 export * from './google.js';
 export * from './groq.js';
 export * from './moonshot.js';
+export * from './zai.js';

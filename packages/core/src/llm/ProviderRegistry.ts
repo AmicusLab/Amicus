@@ -11,7 +11,7 @@ import type {
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { MoonshotPlugin } from './plugins/moonshot.js';
+import { MoonshotPlugin, ZaiPlugin } from './plugins/index.js';
 
 /**
  * Provider 레지스트리
@@ -500,55 +500,4 @@ class GroqPlugin implements LLMProviderPlugin {
     );
   }
 }
-
-class ZaiPlugin implements LLMProviderPlugin {
-  readonly name = 'z.ai';
-  readonly id = 'zai';
-
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(config?: ProviderConfig): unknown {
-    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
-    if (!apiKey) {
-      throw new Error(`${this.apiKeyEnv} not set`);
-    }
-    const provider = createOpenAI({
-      baseURL: 'https://api.z.ai/v1',
-      apiKey,
-    });
-    return provider('zai-model');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'zai-model',
-        name: 'z.ai Model',
-        description: 'z.ai LLM',
-        maxTokens: 8192,
-        inputCostPer1K: 0.001,
-        outputCostPer1K: 0.002,
-        complexityRange: { min: 0, max: 100 },
-        capabilities: ['text', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}
-
 
