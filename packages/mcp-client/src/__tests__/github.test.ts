@@ -25,22 +25,22 @@ describe('GitHub MCP Integration', () => {
     const githubConfig = manager.getServerConfig('github');
     
     expect(githubConfig).toBeDefined();
-    expect(githubConfig?.name).toBe('github');
-    expect(githubConfig?.enabled).toBe(true);
+    expect(githubConfig?.id).toBe('github');
+    expect(githubConfig?.name).toBe('GitHub API');
+    expect(githubConfig?.enabled).toBe(false);
     expect(githubConfig?.transport).toBe('stdio');
     expect(githubConfig?.command).toBe('npx');
     expect(githubConfig?.args).toContain('@modelcontextprotocol/server-github');
-    expect(githubConfig?.description).toContain('GitHub');
   });
 
-  test('should have GitHub server in enabled configs', async () => {
+  test('should have filesystem server in enabled configs', async () => {
     await manager.loadServers(CONFIG_PATH);
     
     const enabledConfigs = manager.getEnabledServerConfigs();
-    const githubConfig = enabledConfigs.find(config => config.name === 'github');
+    const filesystemConfig = enabledConfigs.find(config => config.id === 'filesystem');
     
-    expect(githubConfig).toBeDefined();
-    expect(githubConfig?.enabled).toBe(true);
+    expect(filesystemConfig).toBeDefined();
+    expect(filesystemConfig?.enabled).toBe(true);
   });
 
   test.skipIf(!process.env.GITHUB_TOKEN)('should connect to GitHub server with valid token', async () => {
@@ -56,29 +56,16 @@ describe('GitHub MCP Integration', () => {
     await manager.disconnectFromServer('github');
   });
 
-  test('should fail gracefully without GitHub token', async () => {
-    const originalToken = process.env.GITHUB_TOKEN;
+  test('should fail gracefully when connecting to disabled server', async () => {
+    await manager.loadServers(CONFIG_PATH);
     
     try {
-      delete process.env.GITHUB_TOKEN;
-      
-      await manager.loadServers(CONFIG_PATH);
-      
-      try {
-        await manager.connectToServer('github');
-      } catch (error) {
-        expect(error).toBeDefined();
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        expect(
-          errorMessage.toLowerCase().includes('token') ||
-          errorMessage.toLowerCase().includes('auth') ||
-          errorMessage.toLowerCase().includes('credential')
-        ).toBe(true);
-      }
-    } finally {
-      if (originalToken) {
-        process.env.GITHUB_TOKEN = originalToken;
-      }
+      await manager.connectToServer('github');
+      expect(true).toBe(false);
+    } catch (error) {
+      expect(error).toBeDefined();
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      expect(errorMessage.toLowerCase()).toContain('disabled');
     }
   });
 
@@ -120,22 +107,14 @@ describe('GitHub MCP Integration', () => {
     }
   });
 
-  test('should track GitHub server connection status', async () => {
+  test('should track server connection status', async () => {
     await manager.loadServers(CONFIG_PATH);
     
     expect(manager.isServerConnected('github')).toBe(false);
+    expect(manager.isServerConnected('filesystem')).toBe(false);
     
     const status = manager.getServerStatus();
-    const githubStatus = status.find(s => s.serverId === 'github');
-    
-    expect(githubStatus).toBeUndefined();
-  });
-
-  test('should handle rate limiting gracefully', async () => {
-    await manager.loadServers(CONFIG_PATH);
-    const githubConfig = manager.getServerConfig('github');
-    
-    expect(githubConfig).toBeDefined();
+    expect(status.length).toBe(0);
   });
 
   test('should support multiple simultaneous MCP servers', async () => {
@@ -145,8 +124,26 @@ describe('GitHub MCP Integration', () => {
     
     expect(allConfigs.length).toBeGreaterThanOrEqual(2);
     
+    const serverIds = allConfigs.map(config => config.id);
+    expect(serverIds).toContain('filesystem');
+    expect(serverIds).toContain('github');
+    
     const serverNames = allConfigs.map(config => config.name);
-    expect(serverNames).toContain('filesystem');
-    expect(serverNames).toContain('github');
+    expect(serverNames).toContain('Local Filesystem');
+    expect(serverNames).toContain('GitHub API');
+  });
+
+  test('should load filesystem server config', async () => {
+    await manager.loadServers(CONFIG_PATH);
+    
+    const fsConfig = manager.getServerConfig('filesystem');
+    
+    expect(fsConfig).toBeDefined();
+    expect(fsConfig?.id).toBe('filesystem');
+    expect(fsConfig?.name).toBe('Local Filesystem');
+    expect(fsConfig?.enabled).toBe(true);
+    expect(fsConfig?.transport).toBe('stdio');
+    expect(fsConfig?.command).toBe('npx');
+    expect(fsConfig?.args).toContain('@modelcontextprotocol/server-filesystem');
   });
 });

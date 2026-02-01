@@ -7,7 +7,8 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const MCP_CONFIG_PATH = join(__dirname, '..', '..', '..', 'data', 'mcp-servers.json');
-const GITHUB_SERVER_NAME = 'github';
+const GITHUB_SERVER_ID = 'github';
+const FILESYSTEM_SERVER_ID = 'filesystem';
 
 describe('GitHub MCP Integration', () => {
   let manager: MCPManager;
@@ -24,13 +25,27 @@ describe('GitHub MCP Integration', () => {
     it('should load GitHub server config from mcp-servers.json', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
 
-      const githubConfig = manager.getServerConfig(GITHUB_SERVER_NAME);
+      const githubConfig = manager.getServerConfig(GITHUB_SERVER_ID);
       expect(githubConfig).toBeDefined();
-      expect(githubConfig?.name).toBe(GITHUB_SERVER_NAME);
-      expect(githubConfig?.enabled).toBe(true);
+      expect(githubConfig?.id).toBe(GITHUB_SERVER_ID);
+      expect(githubConfig?.name).toBe('GitHub API');
+      expect(githubConfig?.enabled).toBe(false);
       expect(githubConfig?.transport).toBe('stdio');
       expect(githubConfig?.command).toBe('npx');
       expect(githubConfig?.args).toContain('@modelcontextprotocol/server-github');
+    });
+
+    it('should load filesystem server config', async () => {
+      await manager.loadServers(MCP_CONFIG_PATH);
+
+      const fsConfig = manager.getServerConfig(FILESYSTEM_SERVER_ID);
+      expect(fsConfig).toBeDefined();
+      expect(fsConfig?.id).toBe(FILESYSTEM_SERVER_ID);
+      expect(fsConfig?.name).toBe('Local Filesystem');
+      expect(fsConfig?.enabled).toBe(true);
+      expect(fsConfig?.transport).toBe('stdio');
+      expect(fsConfig?.command).toBe('npx');
+      expect(fsConfig?.args).toContain('@modelcontextprotocol/server-filesystem');
     });
   });
 
@@ -38,24 +53,30 @@ describe('GitHub MCP Integration', () => {
     it.skipIf(!process.env.GITHUB_TOKEN)('should connect to GitHub server with valid token', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
 
-      const client = await manager.connectToServer(GITHUB_SERVER_NAME);
+      const client = await manager.connectToServer(GITHUB_SERVER_ID);
       expect(client).toBeDefined();
-      expect(manager.isServerConnected(GITHUB_SERVER_NAME)).toBe(true);
+      expect(manager.isServerConnected(GITHUB_SERVER_ID)).toBe(true);
     });
 
     it.skipIf(!process.env.GITHUB_TOKEN)('should disconnect from GitHub server', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      await manager.connectToServer(GITHUB_SERVER_NAME);
+      await manager.connectToServer(GITHUB_SERVER_ID);
 
-      await manager.disconnectFromServer(GITHUB_SERVER_NAME);
-      expect(manager.isServerConnected(GITHUB_SERVER_NAME)).toBe(false);
+      await manager.disconnectFromServer(GITHUB_SERVER_ID);
+      expect(manager.isServerConnected(GITHUB_SERVER_ID)).toBe(false);
+    });
+
+    it('should fail when connecting to disabled server', async () => {
+      await manager.loadServers(MCP_CONFIG_PATH);
+
+      await expect(manager.connectToServer(GITHUB_SERVER_ID)).rejects.toThrow('disabled');
     });
   });
 
   describe('Tool Discovery', () => {
     it.skipIf(!process.env.GITHUB_TOKEN)('should discover GitHub tools after connection', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      const client = await manager.connectToServer(GITHUB_SERVER_NAME);
+      const client = await manager.connectToServer(GITHUB_SERVER_ID);
 
       const tools = await client.discoverTools();
       expect(Array.isArray(tools)).toBe(true);
@@ -79,7 +100,7 @@ describe('GitHub MCP Integration', () => {
 
     it.skipIf(!process.env.GITHUB_TOKEN)('should have proper tool schemas', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      const client = await manager.connectToServer(GITHUB_SERVER_NAME);
+      const client = await manager.connectToServer(GITHUB_SERVER_ID);
 
       const tools = await client.discoverTools();
       expect(tools.length).toBeGreaterThan(0);
@@ -96,7 +117,7 @@ describe('GitHub MCP Integration', () => {
   describe('Tool Invocation', () => {
     it.skipIf(!process.env.GITHUB_TOKEN)('should invoke list_issues tool', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      const client = await manager.connectToServer(GITHUB_SERVER_NAME);
+      const client = await manager.connectToServer(GITHUB_SERVER_ID);
 
       const result = await client.invokeTool('list_issues', {
         owner: 'octocat',
@@ -110,7 +131,7 @@ describe('GitHub MCP Integration', () => {
 
     it.skipIf(!process.env.GITHUB_TOKEN)('should handle invalid repository gracefully', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      const client = await manager.connectToServer(GITHUB_SERVER_NAME);
+      const client = await manager.connectToServer(GITHUB_SERVER_ID);
 
       const result = await client.invokeTool('list_issues', {
         owner: 'nonexistent-repo-xyz123',
@@ -126,7 +147,7 @@ describe('GitHub MCP Integration', () => {
   describe('Error Handling', () => {
     it.skipIf(!process.env.GITHUB_TOKEN)('should handle multiple requests without crashing', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      const client = await manager.connectToServer(GITHUB_SERVER_NAME);
+      const client = await manager.connectToServer(GITHUB_SERVER_ID);
 
       const requests = Array(3).fill(null).map(() =>
         client.invokeTool('list_issues', {
@@ -147,34 +168,43 @@ describe('GitHub MCP Integration', () => {
     it('should show GitHub server as disconnected initially', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
 
-      expect(manager.isServerConnected(GITHUB_SERVER_NAME)).toBe(false);
+      expect(manager.isServerConnected(GITHUB_SERVER_ID)).toBe(false);
     });
 
     it.skipIf(!process.env.GITHUB_TOKEN)('should show GitHub server as connected after connection', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
-      await manager.connectToServer(GITHUB_SERVER_NAME);
+      await manager.connectToServer(GITHUB_SERVER_ID);
 
       const status = manager.getServerStatus();
-      const githubStatus = status.find((s) => s.serverId === GITHUB_SERVER_NAME);
+      const githubStatus = status.find((s) => s.serverId === GITHUB_SERVER_ID);
       expect(githubStatus?.connected).toBe(true);
     });
   });
 
   describe('Integration with MCPManager', () => {
-    it('should include GitHub server in enabled servers', async () => {
+    it('should include filesystem server in enabled servers', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
 
       const enabledServers = manager.getEnabledServerConfigs();
-      const githubEnabled = enabledServers.some((s) => s.name === GITHUB_SERVER_NAME);
-      expect(githubEnabled).toBe(true);
+      const filesystemEnabled = enabledServers.some((s) => s.id === FILESYSTEM_SERVER_ID);
+      expect(filesystemEnabled).toBe(true);
     });
 
-    it.skipIf(!process.env.GITHUB_TOKEN)('should connect to GitHub via connectToAllServers', async () => {
+    it('should not include disabled servers in enabled list', async () => {
+      await manager.loadServers(MCP_CONFIG_PATH);
+
+      const enabledServers = manager.getEnabledServerConfigs();
+      const githubEnabled = enabledServers.some((s) => s.id === GITHUB_SERVER_ID);
+      expect(githubEnabled).toBe(false);
+    });
+
+    it.skipIf(!process.env.GITHUB_TOKEN)('should connect to enabled servers via connectToAllServers', async () => {
       await manager.loadServers(MCP_CONFIG_PATH);
       const connected = await manager.connectToAllServers();
 
-      expect(connected.size).toBeGreaterThan(0);
-      expect(manager.isServerConnected(GITHUB_SERVER_NAME)).toBe(true);
+      // Only filesystem should be connected (GitHub is disabled)
+      expect(connected.has(FILESYSTEM_SERVER_ID)).toBe(true);
+      expect(connected.has(GITHUB_SERVER_ID)).toBe(false);
     });
   });
 });

@@ -61,7 +61,7 @@ export class MCPClient {
       return MCPClient.activeConnections.get(serverId)!;
     }
 
-    const serverConfig = MCPClient.serversConfig.servers.find(s => s.name === serverId);
+    const serverConfig = MCPClient.serversConfig.servers.find(s => s.id === serverId);
     if (!serverConfig) {
       throw new Error(`Server configuration not found for: ${serverId}`);
     }

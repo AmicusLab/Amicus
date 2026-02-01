@@ -17,6 +17,7 @@ describe('MCPManager', () => {
     const testConfig: MCPServersConfig = {
       servers: [
         {
+          id: 'test-server-1',
           name: 'test-server-1',
           enabled: true,
           transport: 'stdio',
@@ -25,6 +26,7 @@ describe('MCPManager', () => {
           description: 'Test server 1',
         },
         {
+          id: 'test-server-2',
           name: 'test-server-2',
           enabled: false,
           transport: 'stdio',

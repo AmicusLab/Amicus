@@ -17,7 +17,7 @@ export class MCPManager {
     
     this.serverConfigs.clear();
     for (const serverConfig of config.servers) {
-      this.serverConfigs.set(serverConfig.name, serverConfig);
+      this.serverConfigs.set(serverConfig.id, serverConfig);
     }
   }
 
