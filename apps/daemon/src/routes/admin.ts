@@ -157,6 +157,39 @@ adminRoutes.post('/logout', adminAuthMiddleware, (c) => {
   return c.json(ok({ message: 'Logged out' }));
 });
 
+adminRoutes.post('/password', adminAuthMiddleware, async (c) => {
+  const body = await c.req.json().catch(() => null) as { password?: unknown } | null;
+  const password = typeof body?.password === 'string' ? body.password : '';
+  if (!password || password.length < 8) {
+    return c.json(fail('INVALID_PASSWORD', 'Password must be at least 8 characters'), 400);
+  }
+
+  try {
+    await secretStore.set('AMICUS_ADMIN_PASSWORD', password);
+    process.env.AMICUS_ADMIN_PASSWORD = password;
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'admin.passwordChange',
+      resource: 'password',
+      result: 'success',
+    });
+    return c.json(ok({ message: 'Password updated' }));
+  } catch (e) {
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'admin.passwordChange',
+      resource: 'password',
+      result: 'failure',
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return c.json(fail('PASSWORD_UPDATE_FAILED', e instanceof Error ? e.message : String(e)), 500);
+  }
+});
+
 adminRoutes.get('/session', adminAuthMiddleware, (c) => {
   return c.json(ok({ role: 'admin' }));
 });

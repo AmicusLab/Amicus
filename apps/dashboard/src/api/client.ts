@@ -144,3 +144,10 @@ export async function adminGetAudit(limit = 50): Promise<APIResponse<Array<{ tim
 export async function adminRenewPairing(): Promise<APIResponse<{ code: string; expiresAtMs: number }>> {
   return fetchJSONFromBase(ADMIN_BASE, '/pairing/renew', { method: 'POST' });
 }
+
+export async function adminSetPassword(password: string): Promise<APIResponse<{ message: string }>> {
+  return fetchJSONFromBase(ADMIN_BASE, '/password', {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  });
+}

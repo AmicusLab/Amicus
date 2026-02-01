@@ -1,14 +1,21 @@
 import { serve } from '@hono/node-server';
+import { join } from 'node:path';
 import { createApp, setupWebSocket } from './server.js';
 import { setupEventBroadcasting, setupTokenomicsBroadcasting } from './ws/events.js';
 import { startEngine } from './services/EngineService.js';
 import { mcpService } from './services/MCPService.js';
 import { configManager, initializeConfig } from './services/ConfigService.js';
 import { getPairingState } from './admin/pairing.js';
+import { loadRepoEnv } from './services/EnvService.js';
 
 let server: ReturnType<typeof serve> | undefined;
 
 async function main(): Promise<void> {
+  // Load repo-level env files so users don't need to manually wire dotenv.
+  // When running via `bun run --cwd apps/daemon ...`, process.cwd() is `apps/daemon`.
+  const repoRoot = join(process.cwd(), '..', '..');
+  await loadRepoEnv({ repoRoot });
+
   await initializeConfig();
   const cfg = configManager.getConfig();
   const PORT = Number(process.env.PORT) || cfg.daemon.port;

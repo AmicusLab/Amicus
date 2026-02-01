@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
+    "init": "bun run src/init.ts",
     "start": "bun run src/index.ts",
     "build": "tsc -b",
     "test": "bun test __tests__/"

@@ -14,10 +14,11 @@ import {
   adminUnlinkProvider,
   adminGetAudit,
   adminRenewPairing,
+  adminSetPassword,
   type AdminProviderView,
 } from '../api/client.js';
 
-type AdminTab = 'providers' | 'config' | 'audit';
+type AdminTab = 'providers' | 'config' | 'audit' | 'password';
 
 @customElement('admin-panel')
 export class AdminPanel extends LitElement {
@@ -155,6 +156,10 @@ export class AdminPanel extends LitElement {
   // login inputs (not persisted)
   @state() private pairingCode = '';
   @state() private password = '';
+
+  // password change inputs (not persisted)
+  @state() private newPassword = '';
+  @state() private confirmPassword = '';
 
   // data
   @state() private providers: AdminProviderView[] = [];
@@ -304,6 +309,30 @@ export class AdminPanel extends LitElement {
       await this.loadTabData();
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Unlink failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async setPassword(): Promise<void> {
+    if (!this.newPassword || this.newPassword.length < 8) {
+      this.setMsg('error', 'Password must be at least 8 characters');
+      return;
+    }
+    if (this.newPassword !== this.confirmPassword) {
+      this.setMsg('error', 'Passwords do not match');
+      return;
+    }
+
+    this.loading = true;
+    this.message = null;
+    try {
+      await adminSetPassword(this.newPassword);
+      this.setMsg('ok', 'Password updated successfully. Use it for next login.');
+      this.newPassword = '';
+      this.confirmPassword = '';
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Password update failed');
     } finally {
       this.loading = false;
     }
@@ -547,6 +576,45 @@ export class AdminPanel extends LitElement {
     `;
   }
 
+  private renderPassword() {
+    return html`
+      <div class="card">
+        <h3>Change Admin Password</h3>
+        <div class="row">
+          <div>
+            <p><strong>New Password</strong></p>
+            <input
+              type="password"
+              placeholder="at least 8 characters"
+              .value=${this.newPassword}
+              @input=${(e: InputEvent) => {
+                this.newPassword = (e.target as HTMLInputElement).value;
+              }}
+            />
+          </div>
+        </div>
+        <div class="row" style="margin-top:0.5rem;">
+          <div>
+            <p><strong>Confirm Password</strong></p>
+            <input
+              type="password"
+              placeholder="re-enter password"
+              .value=${this.confirmPassword}
+              @input=${(e: InputEvent) => {
+                this.confirmPassword = (e.target as HTMLInputElement).value;
+              }}
+            />
+          </div>
+        </div>
+        <div class="row" style="margin-top:1rem;">
+          <button class="btn primary" ?disabled=${this.loading} @click=${() => void this.setPassword()}>
+            Save Password
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   private renderAuthed() {
     return html`
       <div class="row">
@@ -564,6 +632,7 @@ export class AdminPanel extends LitElement {
           <button class="tab ${this.tab === 'providers' ? 'active' : ''}" @click=${() => void this.switchTab('providers')}>Providers</button>
           <button class="tab ${this.tab === 'config' ? 'active' : ''}" @click=${() => void this.switchTab('config')}>Config</button>
           <button class="tab ${this.tab === 'audit' ? 'active' : ''}" @click=${() => void this.switchTab('audit')}>Audit</button>
+          <button class="tab ${this.tab === 'password' ? 'active' : ''}" @click=${() => void this.switchTab('password')}>Password</button>
         </div>
       </div>
 
@@ -571,7 +640,9 @@ export class AdminPanel extends LitElement {
         ? this.renderProviders()
         : this.tab === 'config'
           ? this.renderConfig()
-          : this.renderAudit()}
+          : this.tab === 'audit'
+            ? this.renderAudit()
+            : this.renderPassword()}
     `;
   }
 
