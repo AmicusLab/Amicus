@@ -8,6 +8,7 @@ import {
   pauseTask,
   resumeTask,
   cancelTask,
+  emergencyStop,
   getTokenomics,
 } from '../services/EngineService.js';
 
@@ -90,4 +91,14 @@ apiRoutes.post('/tasks/:id/cancel', (c) => {
 
 apiRoutes.get('/tokenomics', (c) => {
   return c.json(response(getTokenomics()));
+});
+
+apiRoutes.post('/tasks/emergency-stop', (c) => {
+  const cancelledIds = emergencyStop();
+  
+  return c.json(response({ 
+    action: 'emergency_stop',
+    cancelledCount: cancelledIds.length,
+    cancelledIds,
+  }));
 });

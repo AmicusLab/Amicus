@@ -6,6 +6,7 @@ import { logger } from 'hono/logger';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api.js';
 import { providerRoutes } from './routes/providers.js';
+import { authMiddleware } from './middleware/auth.js';
 import {
   addClient,
   removeClient,
@@ -22,6 +23,7 @@ export function createApp(): Hono {
 
   app.use('*', cors());
   app.use('*', logger());
+  app.use('*', authMiddleware);
 
   app.route('/health', healthRoutes);
   app.route('/api', apiRoutes);

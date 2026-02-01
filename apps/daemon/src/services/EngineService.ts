@@ -52,6 +52,10 @@ export function cancelTask(taskId: string): boolean {
   return getEngine().cancelTask(taskId);
 }
 
+export function emergencyStop(): string[] {
+  return getEngine().emergencyStop();
+}
+
 export async function executeTask(task: Task): Promise<TaskResult> {
   return getEngine().executeTask(task);
 }
