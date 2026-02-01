@@ -6,6 +6,7 @@
     "packages/*"
   ],
   "scripts": {
+    "init": "bun run --cwd apps/daemon init",
     "typecheck": "tsc -b",
     "build": "tsc -b",
     "test": "bun test",

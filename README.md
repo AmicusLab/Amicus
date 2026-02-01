@@ -48,7 +48,7 @@ bun install
 
 ```bash
 # 관리자 비밀번호 및 세션 시크릿 자동 생성
-bun run --cwd apps/daemon init
+bun run init
 
 # 생성된 .env 파일 확인
 cat .env
@@ -59,6 +59,12 @@ cat .env
 - `--force`: 기존 값 덮어쓰기
 - `--password <pw>`: 특정 비밀번호 지정
 - `--no-password`: 비밀번호 생성 생략
+
+**예시:**
+```bash
+bun run init --dry-run        # 미리보기
+bun run init --password admin123  # 특정 비밀번호 설정
+```
 
 ### 3. 전체 시스템 구동
 

@@ -23,10 +23,10 @@ bun install
 
 ### Automated Setup (Recommended)
 
-Run the init command to automatically generate required secrets:
+Run the init command from the project root to automatically generate required secrets:
 
 ```bash
-bun run --cwd apps/daemon init
+bun run init
 ```
 
 This will create a `.env` file with:
@@ -40,6 +40,18 @@ This will create a `.env` file with:
 - `--password <pw>`: Set specific admin password
 - `--no-password`: Skip password generation
 - `--env-file <path>`: Custom env file path (default: `.env`)
+
+**Examples:**
+```bash
+bun run init --dry-run              # Preview without making changes
+bun run init --password admin123    # Set specific password
+bun run init --force                # Regenerate all secrets
+```
+
+**Advanced:** You can also run the daemon init script directly:
+```bash
+bun run --cwd apps/daemon init
+```
 
 ### Manual Setup (Advanced)
 
