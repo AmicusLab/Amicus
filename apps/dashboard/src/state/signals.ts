@@ -1,10 +1,12 @@
 import { signal, computed } from '@preact/signals-core';
-import type { SystemHealth, Tokenomics, WSMessage } from '@amicus/types/dashboard';
+import type { SystemHealth, Tokenomics, WSMessage, LLMProviderStatus, MCPServerStatus } from '@amicus/types/dashboard';
 
 export const systemHealth = signal<SystemHealth | null>(null);
 export const tokenomics = signal<Tokenomics | null>(null);
 export const isConnected = signal(false);
 export const thoughts = signal<Array<{ content: string; timestamp: number }>>([]);
+export const llmProviders = signal<LLMProviderStatus[]>([]);
+export const mcpServers = signal<MCPServerStatus[]>([]);
 
 export const healthStatus = computed(() => systemHealth.value?.status ?? 'unknown');
 export const uptime = computed(() => {
@@ -20,6 +22,22 @@ export const uptime = computed(() => {
 
 export const totalCost = computed(() => {
   return tokenomics.value?.totalCost.usd.toFixed(4) ?? '0.0000';
+});
+
+export const budgetLimit = computed(() => {
+  return tokenomics.value?.budgetLimit;
+});
+
+export const budgetUsedPercent = computed(() => {
+  return tokenomics.value?.budgetUsedPercent ?? 0;
+});
+
+export const budgetStatus = computed(() => {
+  const percent = budgetUsedPercent.value;
+  if (percent >= 100) return 'exceeded';
+  if (percent >= 80) return 'warning';
+  if (percent > 0) return 'normal';
+  return 'unlimited';
 });
 
 export function handleWSMessage(message: WSMessage): void {
