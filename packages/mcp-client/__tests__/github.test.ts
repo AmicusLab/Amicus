@@ -1,21 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { MCPManager } from '../src/MCPManager.js';
 import { MCPClient, ToolResult } from '../src/MCPClient.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
+import { join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Try multiple possible paths for the config file to support different environments
-const possibleConfigPaths = [
-  join(__dirname, '..', '..', '..', 'data', 'mcp-servers.json'),
-  join(process.cwd(), 'data', 'mcp-servers.json'),
-  join(__dirname, '..', '..', '..', '..', 'data', 'mcp-servers.json'),
-];
-
-const MCP_CONFIG_PATH = possibleConfigPaths.find(p => existsSync(p)) || possibleConfigPaths[0];
+const MCP_CONFIG_PATH = join(__dirname, 'test-mcp-servers.json');
 const GITHUB_SERVER_ID = 'github';
 const FILESYSTEM_SERVER_ID = 'filesystem';
 
@@ -26,11 +14,7 @@ describe('GitHub MCP Integration', () => {
     manager = new MCPManager();
   });
 
-  // Log config path for debugging in CI
-  console.log('MCP_CONFIG_PATH:', MCP_CONFIG_PATH);
-  console.log('Config file exists:', existsSync(MCP_CONFIG_PATH));
-  console.log('process.cwd():', process.cwd());
-  console.log('__dirname:', __dirname);
+
 
   afterEach(async () => {
     await MCPClient.disconnectAllServers();
