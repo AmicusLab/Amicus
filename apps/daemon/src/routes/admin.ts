@@ -5,6 +5,9 @@ import type { APIResponse } from '@amicus/types/dashboard';
 import { adminAuthMiddleware } from '../middleware/admin-auth.js';
 import { configManager, secretStore } from '../services/ConfigService.js';
 import { initPairing, verifyPairingCode } from '../admin/pairing.js';
+import { upsertEnvVar } from '../services/EnvService.js';
+import { readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import {
   createAdminSessionToken,
   getAdminSessionCookieName,
@@ -167,6 +170,18 @@ adminRoutes.post('/password', adminAuthMiddleware, async (c) => {
   try {
     await secretStore.set('AMICUS_ADMIN_PASSWORD', password);
     process.env.AMICUS_ADMIN_PASSWORD = password;
+
+    // Also update .env file so password persists after server restart
+    const repoRoot = join(process.cwd(), '..', '..');
+    const envPath = join(repoRoot, '.env');
+    try {
+      const envContent = await readFile(envPath, 'utf-8');
+      const res = upsertEnvVar({ content: envContent, key: 'AMICUS_ADMIN_PASSWORD', value: password, overwrite: true });
+      await writeFile(envPath, res.next, { encoding: 'utf-8' });
+    } catch (envErr) {
+      console.error('[Admin] Failed to update .env file:', envErr);
+    }
+
     writeAudit({
       timestamp: new Date().toISOString(),
       eventId: randomUUID(),
