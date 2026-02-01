@@ -26,6 +26,12 @@ describe('GitHub MCP Integration', () => {
     manager = new MCPManager();
   });
 
+  // Log config path for debugging in CI
+  console.log('MCP_CONFIG_PATH:', MCP_CONFIG_PATH);
+  console.log('Config file exists:', existsSync(MCP_CONFIG_PATH));
+  console.log('process.cwd():', process.cwd());
+  console.log('__dirname:', __dirname);
+
   afterEach(async () => {
     await MCPClient.disconnectAllServers();
   });

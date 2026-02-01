@@ -1,0 +1,23 @@
+{
+  "servers": [
+    {
+      "id": "filesystem",
+      "name": "Local Filesystem",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/zemyblue/Documents/projects/Amicus/Amicus/data"],
+      "enabled": true
+    },
+    {
+      "id": "github",
+      "name": "GitHub API",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "enabled": false
+    }
+  ]
+}
