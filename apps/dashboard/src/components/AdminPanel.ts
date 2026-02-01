@@ -15,6 +15,8 @@ import {
   adminGetAudit,
   adminRenewPairing,
   adminSetPassword,
+  adminValidateProviderApiKey,
+  adminTestProviderConnection,
   type AdminProviderView,
 } from '../api/client.js';
 
@@ -330,6 +332,48 @@ export class AdminPanel extends LitElement {
     }
   }
 
+  private async validateProviderKey(id: string, apiKey: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const res = await adminValidateProviderApiKey(id, apiKey);
+      if (res.success && res.data) {
+        if (res.data.valid) {
+          this.setMsg('ok', `API key for ${id} is valid`);
+        } else {
+          this.setMsg('error', `API key validation failed: ${res.data.error ?? 'Unknown error'}`);
+        }
+      } else {
+        this.setMsg('error', res.error?.message ?? 'Validation failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Validation failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async testProviderConnection(id: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const res = await adminTestProviderConnection(id);
+      if (res.success && res.data) {
+        if (res.data.valid) {
+          this.setMsg('ok', `Connection to ${id} successful`);
+        } else {
+          this.setMsg('error', `Connection test failed: ${res.data.error ?? 'Unknown error'}`);
+        }
+      } else {
+        this.setMsg('error', res.error?.message ?? 'Connection test failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Connection test failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
   private async setPassword(): Promise<void> {
     if (!this.newPassword || this.newPassword.length < 8) {
       this.setMsg('error', 'Password must be at least 8 characters');
@@ -451,7 +495,7 @@ export class AdminPanel extends LitElement {
                     ${p.error ? html`<p class="provider-meta">error: ${p.error}</p>` : nothing}
                   </div>
                 </div>
-                <div class="row" style="margin-top:0.5rem;">
+                <div class="row" style="margin-top:0.5rem; gap: 0.5rem;">
                   <input
                     type="password"
                     placeholder="set API key (not stored in browser)"
@@ -467,6 +511,28 @@ export class AdminPanel extends LitElement {
                       }
                     }}
                   />
+                  <button
+                    class="btn"
+                    ?disabled=${this.loading}
+                    @click=${(e: Event) => {
+                      const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
+                      const key = input?.value ?? '';
+                      if (key) {
+                        void this.validateProviderKey(p.id, key);
+                      } else {
+                        this.setMsg('error', 'Please enter an API key to validate');
+                      }
+                    }}
+                  >
+                    Validate
+                  </button>
+                  <button
+                    class="btn primary"
+                    ?disabled=${this.loading}
+                    @click=${() => void this.testProviderConnection(p.id)}
+                  >
+                    Test
+                  </button>
                 </div>
               </div>
               <div class="provider-actions">
