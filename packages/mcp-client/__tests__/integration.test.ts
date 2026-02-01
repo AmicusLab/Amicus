@@ -3,15 +3,8 @@ import { MCPClient } from '../src/MCPClient.js';
 import { MCPManager } from '../src/MCPManager.js';
 import { loadMCPConfig } from '../src/config.js';
 import { join } from 'path';
-import { existsSync } from 'fs';
 
-// Support different working directories in CI and local
-const possiblePaths = [
-  join(process.cwd(), 'data', 'mcp-servers.json'),
-  join(__dirname, '..', '..', '..', 'data', 'mcp-servers.json'),
-];
-
-const MCP_CONFIG_PATH = possiblePaths.find(p => existsSync(p)) || possiblePaths[0];
+const MCP_CONFIG_PATH = join(__dirname, 'test-mcp-servers.json');
 
 describe('MCP Integration Tests', () => {
   describe('Filesystem MCP Server', () => {
@@ -82,7 +75,7 @@ describe('MCP Integration Tests', () => {
         return;
       }
 
-      const result = await client.invokeTool('list_directory', { path: '/Users/zemyblue/Documents/projects/Amicus/Amicus/data' });
+      const result = await client.invokeTool('list_directory', { path: process.cwd() + '/data' });
       expect(result).toBeDefined();
       expect(result.isError).toBeFalsy();
       expect(result.content).toBeDefined();
@@ -95,7 +88,7 @@ describe('MCP Integration Tests', () => {
         return;
       }
 
-      const result = await client.invokeTool('read_file', { path: '/Users/zemyblue/Documents/projects/Amicus/Amicus/data/mcp-servers.json' });
+      const result = await client.invokeTool('read_file', { path: process.cwd() + '/data/mcp-servers.json' });
       expect(result).toBeDefined();
       expect(result.isError).toBeFalsy();
       expect(result.content).toBeDefined();
@@ -110,7 +103,7 @@ describe('MCP Integration Tests', () => {
       }
 
       // Try to read a non-existent file
-      const result = await client.invokeTool('read_file', { path: '/Users/zemyblue/Documents/projects/Amicus/Amicus/data/non-existent-file-12345.txt' });
+      const result = await client.invokeTool('read_file', { path: process.cwd() + '/data/non-existent-file-12345.txt' });
       expect(result).toBeDefined();
       // Should return error in result, not throw
       expect(result.isError).toBe(true);
