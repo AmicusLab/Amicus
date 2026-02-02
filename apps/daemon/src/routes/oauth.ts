@@ -150,6 +150,9 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
     } else if (oauthConfig.flow === 'pkce') {
       const flow = new PKCEFlow(oauthConfig);
       const { url, state } = flow.generateAuthUrl();
+      
+      console.log('[OAuth] PKCE flow generated URL:', url);
+      console.log('[OAuth] PKCE state:', state);
 
       const flowId = randomUUID();
       pendingFlows.set(flowId, {

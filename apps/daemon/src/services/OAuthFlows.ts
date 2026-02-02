@@ -214,6 +214,15 @@ export class PKCEFlow {
       access_type: 'offline',
       prompt: 'consent',
     });
+    
+    console.log('[PKCEFlow] Generated auth URL params:', {
+      client_id: this.config.clientId,
+      redirect_uri: this.config.callbackUrl,
+      scope: this.config.scope,
+      code_challenge_method: 'S256',
+      state_length: this.verifier.length,
+      challenge_length: this.challenge.length,
+    });
 
     return {
       url: `${this.config.authorizationUrl}?${params.toString()}`,
