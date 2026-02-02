@@ -44,9 +44,9 @@ describe('LLM Plugins - Basic Functionality', () => {
     it('should return correct models', async () => {
       const plugin = new (await import('./src/llm/plugins/openai.js')).OpenAIPlugin({}, 'OPENAI_API_KEY');
       const models = plugin.getModels();
-      
+
       expect(models.length).toBeGreaterThan(0);
-      expect(models[0].id).toBe('gpt-4o');
+      expect(models[0].id).toBe('gpt-4-turbo');
     });
   });
 
