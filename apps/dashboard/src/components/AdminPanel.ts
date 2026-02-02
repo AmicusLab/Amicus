@@ -685,13 +685,12 @@ export class AdminPanel extends LitElement {
     `;
   }
 
-  private isOAuthProvider(id: string): boolean {
-    const oauthProviders = ['openai-codex', 'anthropic-max', 'github-copilot', 'google-gemini'];
-    return oauthProviders.includes(id);
+  private isOAuthProvider(p: AdminProviderView): boolean {
+    return p.authMethod === 'oauth' || p.authMethod === 'both';
   }
 
   private renderProviderCard(p: AdminProviderView) {
-    const isOAuth = this.isOAuthProvider(p.id);
+    const isOAuth = this.isOAuthProvider(p);
     return html`
       <div class="card ${p.error ? 'danger' : ''}">
         <div class="provider">
@@ -838,8 +837,8 @@ export class AdminPanel extends LitElement {
     const filtered = this.providers.filter((p) => p.id.toLowerCase().includes(query));
     
     const connected = filtered.filter((p) => p.available);
-    const apiKeyProviders = filtered.filter((p) => !p.available && !this.isOAuthProvider(p.id));
-    const oauthProviders = filtered.filter((p) => !p.available && this.isOAuthProvider(p.id));
+    const apiKeyProviders = filtered.filter((p) => !p.available && !this.isOAuthProvider(p));
+    const oauthProviders = filtered.filter((p) => !p.available && this.isOAuthProvider(p));
 
     return html`
       <div style="margin-bottom:1rem;">

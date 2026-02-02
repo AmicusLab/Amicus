@@ -5,6 +5,7 @@ import {
   type LLMProviderConfig,
 } from '@amicus/core';
 import type { LLMProviderStatus, APIKeyValidationResult } from '@amicus/types/dashboard';
+import type { ProviderAuthConfig } from '@amicus/types';
 import { configManager, secretStore } from './ConfigService.js';
 
 class ProviderService {
@@ -34,40 +35,69 @@ class ProviderService {
     this.initialized = true;
   }
 
+  private mergeProviders(
+    defaults: ProviderConfigEntry[],
+    userConfig: ProviderConfigEntry[]
+  ): ProviderConfigEntry[] {
+    const userMap = new Map(userConfig.map((p) => [p.id, p]));
+    const merged: ProviderConfigEntry[] = [];
+
+    for (const defaultProvider of defaults) {
+      const userProvider = userMap.get(defaultProvider.id);
+      if (userProvider) {
+        merged.push({ ...defaultProvider, ...userProvider });
+        userMap.delete(defaultProvider.id);
+      } else {
+        merged.push(defaultProvider);
+      }
+    }
+
+    for (const remaining of userMap.values()) {
+      merged.push(remaining);
+    }
+
+    return merged;
+  }
+
   getAdminProviderView(): Array<{
     id: string;
     enabled: boolean;
     loaded: boolean;
     available: boolean;
     modelCount: number;
+    authMethod?: 'api_key' | 'oauth' | 'both';
+    oauthStatus?: 'connected' | 'disconnected';
     error?: string;
   }> {
     const cfg = configManager.getConfig();
-    const config: LLMProviderConfig = cfg.llm.providers.length > 0
-      ? {
-          providers: cfg.llm.providers.map((p) => ({
-            id: p.id,
-            enabled: p.enabled,
-            package: p.package,
-            ...(p.envKey ? { envKey: p.envKey } : {}),
-          })),
-          defaultModel: cfg.llm.defaultModel,
-          dailyBudget: cfg.llm.dailyBudget,
-          budgetAlertThreshold: cfg.llm.budgetAlertThreshold,
-        }
-      : llmProviderConfig;
+    const rawProviders = this.mergeProviders(
+      llmProviderConfig.providers,
+      cfg.llm.providers as ProviderConfigEntry[]
+    );
 
     const state = this.registry.getState();
-    return config.providers.map((p) => {
+    return rawProviders.map((p) => {
       const loaded = state.loadedProviders.includes(p.id);
       const available = state.availableProviders.includes(p.id);
       const failed = state.failedProviders.find((fp) => fp.providerId === p.id);
+      
+      const auth = (p as { auth?: ProviderAuthConfig }).auth;
+      const authMethod = auth?.method ?? 'api_key';
+      
+      let oauthStatus: 'connected' | 'disconnected' | undefined;
+      if (authMethod === 'oauth' || authMethod === 'both') {
+        const credential = secretStore.getCredential(p.id);
+        oauthStatus = credential?.type === 'oauth' ? 'connected' : 'disconnected';
+      }
+      
       return {
         id: p.id,
         enabled: p.enabled,
         loaded,
         available,
         modelCount: this.registry.getModelsByProvider(p.id).length,
+        authMethod,
+        ...(oauthStatus ? { oauthStatus } : {}),
         ...(failed?.message ? { error: failed.message } : {}),
       };
     });
