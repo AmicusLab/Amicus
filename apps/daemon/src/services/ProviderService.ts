@@ -45,7 +45,19 @@ class ProviderService {
     for (const defaultProvider of defaults) {
       const userProvider = userMap.get(defaultProvider.id);
       if (userProvider) {
-        merged.push({ ...defaultProvider, ...userProvider });
+        const defaultAuth = (defaultProvider as unknown as { auth?: ProviderAuthConfig }).auth;
+        const userAuth = (userProvider as unknown as { auth?: ProviderAuthConfig }).auth;
+        
+        const mergedProvider = {
+          ...defaultProvider,
+          ...userProvider,
+        };
+        
+        if (defaultAuth) {
+          (mergedProvider as unknown as { auth: ProviderAuthConfig }).auth = userAuth ?? defaultAuth;
+        }
+        
+        merged.push(mergedProvider);
         userMap.delete(defaultProvider.id);
       } else {
         merged.push(defaultProvider);
