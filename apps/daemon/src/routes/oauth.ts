@@ -70,10 +70,14 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
   }
 
   let oauthConfig;
-  if (provider.auth.oauthMethods && body?.methodId) {
-    const method = provider.auth.oauthMethods.find((m) => m.id === body.methodId);
+  if (provider.auth.oauthMethods && provider.auth.oauthMethods.length > 0) {
+    const methodId = body?.methodId;
+    const method = methodId
+      ? provider.auth.oauthMethods.find((m) => m.id === methodId)
+      : provider.auth.oauthMethods[0];
+    
     if (!method) {
-      return c.json(fail('INVALID_METHOD', `OAuth method ${body.methodId} not found`), 400);
+      return c.json(fail('INVALID_METHOD', `OAuth method ${methodId ?? 'default'} not found`), 400);
     }
     oauthConfig = method.flow;
   } else if (provider.auth.oauth) {
