@@ -48,41 +48,69 @@ function fail(code: string, message: string): APIResponse<never> {
 }
 
 function getProviderConfig(providerId: string): ProviderWithAuth | undefined {
+  const defaultProvider = llmProviderConfig.providers.find((p) => p.id === providerId) as ProviderWithAuth | undefined;
   const cfg = configManager.getConfig();
-  let provider = cfg.llm.providers.find((p) => p.id === providerId) as ProviderWithAuth | undefined;
-  if (!provider) {
-    provider = llmProviderConfig.providers.find((p) => p.id === providerId) as ProviderWithAuth | undefined;
+  const userProvider = cfg.llm.providers.find((p) => p.id === providerId);
+  
+  if (!defaultProvider) {
+    return userProvider as ProviderWithAuth | undefined;
   }
-  return provider;
+  
+  if (!userProvider) {
+    return defaultProvider;
+  }
+  
+  return {
+    ...defaultProvider,
+    ...userProvider,
+    auth: (userProvider as ProviderWithAuth).auth ?? defaultProvider.auth,
+  } as ProviderWithAuth;
 }
 
 oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) => {
   const providerId = c.req.param('id');
   const body = (await c.req.json().catch(() => null)) as { methodId?: string } | null;
+  console.log('[OAuth] Start request:', { providerId, body });
+  
   const provider = getProviderConfig(providerId);
 
   if (!provider) {
+    console.log('[OAuth] Provider not found:', providerId);
     return c.json(fail('NOT_FOUND', `Unknown provider: ${providerId}`), 404);
   }
 
   if (!provider.auth) {
+    console.log('[OAuth] Provider has no auth config:', providerId);
     return c.json(fail('NOT_SUPPORTED', `Provider ${providerId} does not support OAuth`), 400);
   }
+
+  console.log('[OAuth] Provider auth config:', { 
+    providerId, 
+    hasOAuthMethods: !!provider.auth.oauthMethods,
+    oauthMethodsCount: provider.auth.oauthMethods?.length,
+    hasOAuth: !!provider.auth.oauth
+  });
 
   let oauthConfig;
   if (provider.auth.oauthMethods && provider.auth.oauthMethods.length > 0) {
     const methodId = body?.methodId;
+    console.log('[OAuth] Looking for method:', { methodId, availableMethods: provider.auth.oauthMethods.map(m => m.id) });
+    
     const method = methodId
       ? provider.auth.oauthMethods.find((m) => m.id === methodId)
       : provider.auth.oauthMethods[0];
     
     if (!method) {
+      console.log('[OAuth] Method not found:', { methodId, availableMethods: provider.auth.oauthMethods.map(m => m.id) });
       return c.json(fail('INVALID_METHOD', `OAuth method ${methodId ?? 'default'} not found`), 400);
     }
+    
+    console.log('[OAuth] Selected method:', { methodId: method.id, flowType: method.flow.flow });
     oauthConfig = method.flow;
   } else if (provider.auth.oauth) {
     oauthConfig = provider.auth.oauth;
   } else {
+    console.log('[OAuth] No OAuth methods or oauth config found');
     return c.json(fail('NOT_SUPPORTED', `Provider ${providerId} does not support OAuth`), 400);
   }
 

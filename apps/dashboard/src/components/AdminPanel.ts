@@ -514,10 +514,12 @@ export class AdminPanel extends LitElement {
   }
 
   private async startOAuthFlow(providerId: string, methodId?: string): Promise<void> {
+    console.log('[AdminPanel] startOAuthFlow:', { providerId, methodId });
     this.loading = true;
     this.message = null;
     try {
       const res = await adminOAuthStart(providerId, methodId);
+      console.log('[AdminPanel] OAuth start response:', res);
       if (res.success && res.data) {
         if (res.data.flowType === 'device_code') {
           this.oauthDialog = {
@@ -851,9 +853,11 @@ export class AdminPanel extends LitElement {
                   ? html`
                       <select
                         style="min-width:200px;"
+                        .value=${this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id || ''}
                         @change=${(e: Event) => {
                           const select = e.target as HTMLSelectElement;
                           this.selectedOAuthMethod[p.id] = select.value;
+                          console.log('[AdminPanel] OAuth method selected:', { providerId: p.id, methodId: select.value });
                         }}
                       >
                         ${p.oauthMethods?.map((method) => html`
@@ -865,6 +869,7 @@ export class AdminPanel extends LitElement {
                         ?disabled=${this.loading || p.available}
                         @click=${() => {
                           const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
+                          console.log('[AdminPanel] Connect clicked:', { providerId: p.id, methodId, allMethods: p.oauthMethods });
                           void this.startOAuthFlow(p.id, methodId);
                         }}
                       >
