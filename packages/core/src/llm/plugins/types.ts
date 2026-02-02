@@ -74,6 +74,18 @@ export interface ModelInfo {
   
   /** 지원 기능 */
   capabilities: ('text' | 'vision' | 'tools' | 'streaming')[];
+  
+  /** 입력 컨텍스트 창 크기 (토큰 단위) */
+  contextWindow?: number;
+  
+  /** 모델 모달리티 타입 */
+  modality?: 'text' | 'multimodal' | 'vision' | 'audio';
+  
+  /** 추론 능력 수준 */
+  supportsReasoning?: boolean | 'basic' | 'extended';
+  
+  /** 모델 출시일 */
+  releaseDate?: string;
 }
 
 /**
