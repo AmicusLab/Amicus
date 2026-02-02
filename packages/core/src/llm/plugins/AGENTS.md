@@ -144,19 +144,19 @@ export class {Provider}Plugin implements LLMProviderPlugin {
 
 ### Provider ID
 - **Format**: `lowercase-with-hyphens`
-- **Examples**: `zai`, `zai-coding-plan`, `kimi-code`
+- **Examples**: `zai`, `zai-coding-plan`, `kimi-for-coding`
 - **Rule**: 간결하고 명확하게, 공식 이름 사용
 
 ### Class Name
 - **Format**: `{Provider}Plugin`
-- **Examples**: `ZaiPlugin`, `KimiCodePlugin`
+- **Examples**: `ZaiPlugin`, `KimiForCodingPlugin`
 - **Rule**: PascalCase, "Plugin" suffix 필수
 
 ### Environment Variable
 - **Format**: `{PROVIDER_ID}_API_KEY`
 - **Examples**: `ZAI_API_KEY`, `KIMI_API_KEY`
 - **Rule**: UPPERCASE_WITH_UNDERSCORES, `_API_KEY` suffix 표준
-- **Note**: Multiple providers can share the same API key (e.g., kimi and kimi-code both use KIMI_API_KEY)
+- **Note**: Multiple providers can share the same API key (e.g., kimi and kimi-for-coding both use KIMI_API_KEY)
 
 ---
 
