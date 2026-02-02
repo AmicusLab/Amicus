@@ -26,7 +26,7 @@ export type Credential = ApiKeyCredential | OAuthCredential | TokenCredential;
 
 export type AuthStatus = 'disconnected' | 'connected' | 'expired' | 'error';
 
-export type OAuthFlowType = 'device_code' | 'pkce';
+export type OAuthFlowType = 'device_code' | 'pkce' | 'code_paste';
 
 export interface DeviceCodeFlowConfig {
   flow: 'device_code';
@@ -34,6 +34,7 @@ export interface DeviceCodeFlowConfig {
   deviceCodeUrl: string;
   tokenUrl: string;
   scope?: string;
+  copilotTokenUrl?: string;
 }
 
 export interface PKCEFlowConfig {
@@ -45,7 +46,23 @@ export interface PKCEFlowConfig {
   scope?: string;
 }
 
-export type OAuthFlowConfig = DeviceCodeFlowConfig | PKCEFlowConfig;
+export interface CodePasteFlowConfig {
+  flow: 'code_paste';
+  clientId: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+  redirectUri: string;
+  scope?: string;
+}
+
+export type OAuthFlowConfig = DeviceCodeFlowConfig | PKCEFlowConfig | CodePasteFlowConfig;
+
+export interface OAuthMethod {
+  id: string;
+  label: string;
+  flow: OAuthFlowType;
+  description?: string;
+}
 
 export type AuthMethod = 'api_key' | 'oauth' | 'both';
 
@@ -53,6 +70,13 @@ export interface ProviderAuthConfig {
   method: AuthMethod;
   envKey?: string;
   oauth?: OAuthFlowConfig;
+  oauthMethods?: OAuthMethodConfig[];
+}
+
+export interface OAuthMethodConfig {
+  id: string;
+  label: string;
+  flow: OAuthFlowConfig;
 }
 
 export interface DeviceCodeResponse {

@@ -20,19 +20,96 @@ export const llmProviderConfig: LLMProviderConfig = {
       id: 'anthropic', 
       enabled: true, 
       package: '@ai-sdk/anthropic',
-      envKey: 'ANTHROPIC_API_KEY'
+      envKey: 'ANTHROPIC_API_KEY',
+      auth: {
+        method: 'both',
+        envKey: 'ANTHROPIC_API_KEY',
+        oauthMethods: [
+          {
+            id: 'claude-pro',
+            label: 'Claude Pro/Max',
+            flow: {
+              flow: 'code_paste',
+              clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+              authorizationUrl: 'https://claude.ai/oauth/authorize',
+              tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
+              redirectUri: 'https://console.anthropic.com/oauth/code/callback',
+              scope: 'org:create_api_key user:profile user:inference',
+            },
+          },
+          {
+            id: 'create-api-key',
+            label: 'Create an API Key',
+            flow: {
+              flow: 'code_paste',
+              clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+              authorizationUrl: 'https://console.anthropic.com/oauth/authorize',
+              tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
+              redirectUri: 'https://console.anthropic.com/oauth/code/callback',
+              scope: 'org:create_api_key user:profile',
+            },
+          },
+        ],
+      } as ProviderAuthConfig,
     },
     { 
       id: 'openai', 
       enabled: true, 
       package: '@ai-sdk/openai',
-      envKey: 'OPENAI_API_KEY'
+      envKey: 'OPENAI_API_KEY',
+      auth: {
+        method: 'both',
+        envKey: 'OPENAI_API_KEY',
+        oauthMethods: [
+          {
+            id: 'chatgpt-browser',
+            label: 'ChatGPT Pro/Plus (Browser)',
+            flow: {
+              flow: 'pkce',
+              clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+              authorizationUrl: 'https://auth.openai.com/oauth/authorize',
+              tokenUrl: 'https://auth.openai.com/oauth/token',
+              callbackUrl: 'http://localhost:3000/oauth/callback',
+              scope: 'openid profile email offline_access',
+            },
+          },
+          {
+            id: 'chatgpt-headless',
+            label: 'ChatGPT Pro/Plus (Headless)',
+            flow: {
+              flow: 'device_code',
+              clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+              deviceCodeUrl: 'https://auth.openai.com/api/accounts/deviceauth/usercode',
+              tokenUrl: 'https://auth.openai.com/api/accounts/deviceauth/token',
+              scope: 'openid profile email offline_access',
+            },
+          },
+        ],
+      } as ProviderAuthConfig,
     },
     { 
       id: 'google', 
       enabled: true, 
       package: '@ai-sdk/google',
-      envKey: 'GOOGLE_API_KEY'
+      envKey: 'GOOGLE_API_KEY',
+      auth: {
+        method: 'both',
+        envKey: 'GOOGLE_API_KEY',
+        oauthMethods: [
+          {
+            id: 'gemini-browser',
+            label: 'Google Gemini (Browser)',
+            flow: {
+              flow: 'pkce',
+              clientId: '456324763910-ejpb7ro7k7baenh62uvnoh3isl2gh66r.apps.googleusercontent.com',
+              authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+              tokenUrl: 'https://oauth2.googleapis.com/token',
+              callbackUrl: 'http://localhost:3000/oauth/callback',
+              scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email',
+            },
+          },
+        ],
+      } as ProviderAuthConfig,
     },
     { 
       id: 'groq', 
@@ -84,37 +161,6 @@ export const llmProviderConfig: LLMProviderConfig = {
       baseURL: 'https://api.minimax.chat/v1',
     },
     
-    // OAuth providers (subscription-based)
-    {
-      id: 'openai-codex',
-      enabled: false,
-      package: '@ai-sdk/openai',
-      auth: {
-        method: 'oauth',
-        oauth: {
-          flow: 'device_code',
-          clientId: 'Iv1.b507a08c87ecfe98',
-          deviceCodeUrl: 'https://github.com/login/device/code',
-          tokenUrl: 'https://github.com/login/oauth/access_token',
-          scope: 'read:user',
-        },
-      } as ProviderAuthConfig,
-    },
-    {
-      id: 'anthropic-max',
-      enabled: false,
-      package: '@ai-sdk/anthropic',
-      auth: {
-        method: 'oauth',
-        oauth: {
-          flow: 'device_code',
-          clientId: 'anthropic-max-client',
-          deviceCodeUrl: 'https://console.anthropic.com/device/code',
-          tokenUrl: 'https://console.anthropic.com/oauth/token',
-          scope: 'model:read model:write',
-        },
-      } as ProviderAuthConfig,
-    },
     {
       id: 'github-copilot',
       enabled: false,
@@ -122,30 +168,20 @@ export const llmProviderConfig: LLMProviderConfig = {
       baseURL: 'https://api.githubcopilot.com',
       auth: {
         method: 'oauth',
-        oauth: {
-          flow: 'device_code',
-          clientId: 'Iv1.b507a08c87ecfe98',
-          deviceCodeUrl: 'https://github.com/login/device/code',
-          tokenUrl: 'https://github.com/login/oauth/access_token',
-          scope: 'copilot',
-        },
-      } as ProviderAuthConfig,
-    },
-    {
-      id: 'google-gemini',
-      enabled: false,
-      package: '@ai-sdk/google',
-      auth: {
-        method: 'both',
-        envKey: 'GOOGLE_API_KEY',
-        oauth: {
-          flow: 'pkce',
-          clientId: '456324763910-ejpb7ro7k7baenh62uvnoh3isl2gh66r.apps.googleusercontent.com',
-          authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-          tokenUrl: 'https://oauth2.googleapis.com/token',
-          callbackUrl: 'http://localhost:3000/oauth/callback',
-          scope: 'https://www.googleapis.com/auth/generative-language',
-        },
+        oauthMethods: [
+          {
+            id: 'copilot-device',
+            label: 'GitHub Copilot',
+            flow: {
+              flow: 'device_code',
+              clientId: 'Ov23li8tweQw6odWQebz',
+              deviceCodeUrl: 'https://github.com/login/device/code',
+              tokenUrl: 'https://github.com/login/oauth/access_token',
+              scope: 'read:user',
+              copilotTokenUrl: 'https://api.github.com/copilot_internal/v2/token',
+            },
+          },
+        ],
       } as ProviderAuthConfig,
     },
   ],
