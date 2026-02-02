@@ -27,7 +27,7 @@ export class AnthropicPlugin implements LLMProviderPlugin {
       throw new Error('Anthropic API key not found');
     }
 
-    return anthropic('claude-3-5-sonnet-20241022');
+    return anthropic;
   }
   
   getModels(): ModelInfo[] {

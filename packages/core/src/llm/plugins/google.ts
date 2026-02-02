@@ -27,7 +27,7 @@ export class GooglePlugin implements LLMProviderPlugin {
       throw new Error('Google API key not found');
     }
 
-    return google('gemini-1.5-pro-latest');
+    return google;
   }
   
   getModels(): ModelInfo[] {

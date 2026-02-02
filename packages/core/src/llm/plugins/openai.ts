@@ -27,7 +27,7 @@ export class OpenAIPlugin implements LLMProviderPlugin {
       throw new Error('OpenAI API key not found');
     }
 
-    return openai('gpt-4o');
+    return openai;
   }
   
   getModels(): ModelInfo[] {
