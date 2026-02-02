@@ -63,10 +63,10 @@ export const llmProviderConfig: LLMProviderConfig = {
       baseURL: 'https://api.z.ai/api/coding/paas/v4',
     },
     { 
-      id: 'moonshot', 
+      id: 'kimi-for-coding', 
       enabled: false, 
-      package: '@ai-sdk/openai-compatible',
-      envKey: 'MOONSHOT_API_KEY'
+      package: '@ai-sdk/openai',
+      envKey: 'KIMI_API_KEY'
     },
     
     // 향후 추가될 providers 예시
@@ -104,7 +104,7 @@ export const providerEnvMap: Record<string, string> = {
   groq: 'GROQ_API_KEY',
   zai: 'ZAI_API_KEY',
   'zai-coding-plan': 'ZAI_CODING_PLAN_API_KEY',
-  moonshot: 'MOONSHOT_API_KEY',
+  'kimi-for-coding': 'KIMI_API_KEY',
 };
 
 /**
@@ -117,5 +117,5 @@ export const defaultModelsByProvider: Record<string, string> = {
   groq: 'llama-3.3-70b-versatile',
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
-  moonshot: 'kimi-k2.5',
+  'kimi-for-coding': 'kimi-for-coding',
 };

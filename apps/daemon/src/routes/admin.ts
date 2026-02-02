@@ -22,7 +22,8 @@ const defaultModelsByProvider: Record<string, string> = {
   groq: 'llama-3.3-70b-versatile',
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
-  moonshot: 'kimi-k2.5',
+  kimi: 'kimi-k2.5',
+  'kimi-code': 'kimi-for-coding',
 };
 
 export const adminRoutes = new Hono();
@@ -367,6 +368,17 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
   try {
     await secretStore.set(envKey, apiKey);
     process.env[envKey] = apiKey;
+    
+    if (!provider.enabled) {
+      await configManager.update({
+        llm: {
+          providers: cfg.llm.providers.map((p) => 
+            p.id === id ? { ...p, enabled: true } : p
+          ),
+        },
+      });
+    }
+    
     await providerService.reload();
     
     if (!cfg.llm.defaultModel) {

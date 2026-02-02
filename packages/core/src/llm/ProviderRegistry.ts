@@ -11,7 +11,7 @@ import type {
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { MoonshotPlugin, ZaiPlugin, ZaiCodingPlanPlugin } from './plugins/index.js';
+import { KimiPlugin, ZaiPlugin, ZaiCodingPlanPlugin } from './plugins/index.js';
 
 /**
  * Provider 레지스트리
@@ -99,8 +99,8 @@ export class ProviderRegistry {
         return new GooglePlugin(module, apiKeyEnv);
       case 'groq':
         return new GroqPlugin(module, apiKeyEnv);
-      case 'moonshot':
-        return new MoonshotPlugin(module, apiKeyEnv);
+      case 'kimi-for-coding':
+        return new KimiPlugin(module, apiKeyEnv);
       case 'zai':
         return new ZaiPlugin(module, apiKeyEnv);
       case 'zai-coding-plan':

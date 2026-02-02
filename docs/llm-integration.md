@@ -10,7 +10,7 @@ Amicus는 Vercel AI SDK를 기반으로 6개의 LLM 프로바이더를 지원합
 
 ### 핵심 특징
 
-- **다중 프로바이더 지원**: Anthropic, OpenAI, Google, Groq, z.ai, Moonshot
+- **다중 프로바이더 지원**: Anthropic, OpenAI, Google, Groq, z.ai, Kimi
 - **자동 모델 라우팅**: 작업 복잡도에 따라 최적의 모델 선택
 - **비용 추적 및 예산 관리**: 실시간 비용 모니터링 및 예산 알림
 - **스트리밍 지원**: 실시간 텍스트 생성
@@ -34,7 +34,7 @@ Amicus는 Vercel AI SDK를 기반으로 6개의 LLM 프로바이더를 지원합
 | 프로바이더 | ID | 패키지 | 상태 | 비고 |
 |------------|----|----|----|----|
 | **z.ai** | `zai` | `@ai-sdk/openai` | ⚪ 비활성 | OpenAI 호환 API |
-| **Moonshot AI** | `moonshot` | `@ai-sdk/openai` | ⚪ 비활성 | OpenAI 호환 API |
+| **Kimi AI** | `kimi` | `@ai-sdk/openai` | ⚪ 비활성 | OpenAI 호환 API |
 
 ### 2.3 모델별 가격 정보
 
@@ -65,7 +65,7 @@ GROQ_API_KEY=gsk_...
 
 # 커뮤니티 프로바이더 (선택사항)
 ZAI_API_KEY=...
-MOONSHOT_API_KEY=...
+KIMI_API_KEY=...
 
 # 예산 설정
 LLM_BUDGET_DAILY=10.00
@@ -97,8 +97,8 @@ LLM_DEFAULT_MODEL=anthropic:claude-3-5-sonnet-20241022
 - [z.ai Platform](https://z.ai) 접속
 - API 키 생성
 
-#### Moonshot AI
-- [Moonshot Platform](https://platform.moonshot.cn/console/api-keys) 접속
+#### Kimi AI
+- [Kimi Platform](https://platform.kimi.cn/console/api-keys) 접속
 - API Key 생성
 
 ---
@@ -144,10 +144,10 @@ export const llmProviderConfig: LLMProviderConfig = {
 
 ```typescript
 {
-  id: 'moonshot',
+  id: 'kimi',
   enabled: false,  // 비활성화
   package: '@ai-sdk/openai',
-  envKey: 'MOONSHOT_API_KEY',
+  envKey: 'KIMI_API_KEY',
 },
 ```
 
@@ -474,7 +474,7 @@ Error: Budget exceeded: Cannot afford estimated cost $0.015000
 
 ### 7.7 커뮤니티 프로바이더 연결 실패
 
-**증상:** z.ai 또는 Moonshot 연결 실패
+**증상:** z.ai 또는 Kimi 연결 실패
 
 **해결 방법:**
 1. `.env` 파일에서 API 키 확인

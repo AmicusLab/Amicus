@@ -52,6 +52,32 @@ function createAuditEvent(
 modelRoutes.get('/models/:provider', (c) => {
   const provider = c.req.param('provider');
 
+  // Try plugin-based models first (kimi, kimi-code, etc.)
+  const pluginModels = providerService.getRegistry().getModelsByProvider(provider);
+
+  if (pluginModels.length > 0) {
+    // Plugin-based provider: use plugin's getModels()
+    const modelsWithAvailability = pluginModels.map((model) => {
+      const availability = modelRegistry.getModelAvailability(model.id);
+      return {
+        ...model,
+        provider, // Ensure provider field is set
+        availability: availability ?? {
+          id: model.id,
+          healthy: true, // Plugin models are healthy if provider is loaded
+          lastChecked: Date.now(),
+        },
+      };
+    });
+
+    return c.json(ok({
+      provider,
+      models: modelsWithAvailability,
+      count: modelsWithAvailability.length,
+    }));
+  }
+
+  // Fallback to JSON config-based models (zai, zai-coding-plan)
   modelRegistry.loadModels(provider);
 
   const models = modelRegistry.getModelsByProvider(provider);
@@ -78,6 +104,21 @@ modelRoutes.get('/models/:provider', (c) => {
 modelRoutes.get('/models/:provider/:id', (c) => {
   const provider = c.req.param('provider');
   const id = c.req.param('id');
+
+  const pluginModels = providerService.getRegistry().getModelsByProvider(provider);
+  const pluginModel = pluginModels.find((m) => m.id === id);
+
+  if (pluginModel) {
+    const availability = modelRegistry.getModelAvailability(id);
+    return c.json(ok({
+      model: { ...pluginModel, provider },
+      availability: availability ?? {
+        id,
+        healthy: true,
+        lastChecked: Date.now(),
+      },
+    }));
+  }
 
   modelRegistry.loadModels(provider);
 

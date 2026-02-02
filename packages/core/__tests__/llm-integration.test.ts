@@ -17,7 +17,7 @@ import type { Task, TaskStatus, TaskPriority } from '@amicus/types/core';
  * - GOOGLE_API_KEY
  * - GROQ_API_KEY
  * - ZAI_API_KEY
- * - MOONSHOT_API_KEY
+ * - KIMI_API_KEY
  */
 
 // Helper function to check if API key exists and is valid (not a placeholder)
@@ -28,7 +28,8 @@ function hasApiKey(providerId: string): boolean {
     google: 'GOOGLE_API_KEY',
     groq: 'GROQ_API_KEY',
     zai: 'ZAI_API_KEY',
-    moonshot: 'MOONSHOT_API_KEY',
+    kimi: 'KIMI_API_KEY',
+    'kimi-code': 'KIMI_API_KEY',
   };
 
   const envVar = envVarMap[providerId];
