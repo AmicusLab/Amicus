@@ -13,7 +13,7 @@ function getSessionSecret(): string {
 export async function adminAuthMiddleware(c: Context, next: Next) {
   const secret = getSessionSecret();
   if (!secret) {
-    return c.json({ error: 'Admin session secret not configured' }, 500);
+    return c.json({ error: 'Unauthorized' }, 401);
   }
 
   const token = getCookie(c, getAdminSessionCookieName());
@@ -26,7 +26,6 @@ export async function adminAuthMiddleware(c: Context, next: Next) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
 
-  // Stash session info for downstream handlers.
   c.set('adminSession', session);
   return next();
 }

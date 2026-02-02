@@ -28,7 +28,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(result.valid).toBe(true);
       expect(result.tokenCount).toBe(10);
@@ -43,7 +43,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(result.valid).toBe(true);
       expect(result.tokenCount).toBeUndefined();
@@ -62,7 +62,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(result.valid).toBe(true);
       expect(result.tokenCount).toBe(25);
@@ -76,7 +76,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'invalid-key', 'zai');
+      const result = await validator.validateModel('glm-4.7', 'invalid-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Invalid API key');
@@ -91,7 +91,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(result.valid).toBe(false);
       expect(result.error).toContain('API request failed');
@@ -100,7 +100,7 @@ describe('ModelValidator', () => {
     it('should return valid=false with error when fetch throws', async () => {
       globalThis.fetch = mock(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Connection error: Network error');
@@ -114,7 +114,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-      await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
+      await validator.validateModel('glm-4.7', 'test-api-key', 'zai', 'https://api.z.ai/api/paas/v4');
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const call = mockFetch.mock.calls[0];
@@ -145,7 +145,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateAllModels('zai', 'test-api-key');
+      const result = await validator.validateAllModels('zai', 'test-api-key', 'https://api.z.ai/api/paas/v4');
 
       expect(result.provider).toBe('zai');
       expect(result.results.length).toBe(6);
@@ -173,7 +173,7 @@ describe('ModelValidator', () => {
         } as Response);
       }) as unknown as typeof fetch;
 
-      const result = await validator.validateAllModels('zai', 'test-api-key');
+      const result = await validator.validateAllModels('zai', 'test-api-key', 'https://api.z.ai/api/paas/v4');
 
       expect(result.validCount).toBe(3);
       expect(result.invalidCount).toBe(3);
@@ -185,7 +185,7 @@ describe('ModelValidator', () => {
         json: () => Promise.resolve({ usage: { prompt_tokens: 10 } }),
       } as Response)) as unknown as typeof fetch;
 
-      const result = await validator.validateAllModels('unknown', 'test-api-key');
+      const result = await validator.validateAllModels('unknown', 'test-api-key', 'https://api.z.ai/api/paas/v4');
 
       expect(result.provider).toBe('unknown');
       expect(result.results).toEqual([]);
