@@ -8,6 +8,7 @@ import { apiRoutes } from './routes/api.js';
 import { providerRoutes } from './routes/providers.js';
 import { adminRoutes } from './routes/admin.js';
 import { modelRoutes, modelAdminRoutes } from './routes/models.js';
+import { oauthRoutes } from './routes/oauth.js';
 import { authMiddleware } from './middleware/auth.js';
 import {
   addClient,
@@ -44,6 +45,8 @@ export function createApp(): Hono {
   app.route('/api', modelRoutes);
   app.route('/admin', adminRoutes);
   app.route('/admin', modelAdminRoutes);
+  app.route('/admin', oauthRoutes);
+  app.route('/oauth', oauthRoutes);
 
   app.get('/', (c) => {
     return c.json({
