@@ -442,6 +442,9 @@ export class AdminPanel extends LitElement {
         zai: 'glm-4.7',
         'zai-coding-plan': 'glm-4.7',
         'kimi-for-coding': 'kimi-for-coding',
+        openrouter: 'openai/gpt-4-turbo',
+        moonshot: 'moonshot-v1-128k',
+        minimax: 'abab5.5-chat',
       };
 
       const defaultModelName = defaultModelsByProvider[id];
