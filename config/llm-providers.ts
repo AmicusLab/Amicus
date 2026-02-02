@@ -68,6 +68,27 @@ export const llmProviderConfig: LLMProviderConfig = {
       package: '@ai-sdk/openai',
       envKey: 'KIMI_API_KEY'
     },
+    {
+      id: 'openrouter',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'OPENROUTER_API_KEY',
+      baseURL: 'https://openrouter.ai/api/v1',
+    },
+    {
+      id: 'moonshot',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'MOONSHOT_API_KEY',
+      baseURL: 'https://api.moonshot.cn/v1',
+    },
+    {
+      id: 'minimax',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'MINIMAX_API_KEY',
+      baseURL: 'https://api.minimax.chat/v1',
+    },
     
     // 향후 추가될 providers 예시
     // { 
@@ -105,6 +126,9 @@ export const providerEnvMap: Record<string, string> = {
   zai: 'ZAI_API_KEY',
   'zai-coding-plan': 'ZAI_CODING_PLAN_API_KEY',
   'kimi-for-coding': 'KIMI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+  moonshot: 'MOONSHOT_API_KEY',
+  minimax: 'MINIMAX_API_KEY',
 };
 
 /**
@@ -118,4 +142,7 @@ export const defaultModelsByProvider: Record<string, string> = {
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
   'kimi-for-coding': 'kimi-for-coding',
+  openrouter: 'openai/gpt-4-turbo',
+  moonshot: 'moonshot-v1-128k',
+  minimax: 'abab5.5-chat',
 };
