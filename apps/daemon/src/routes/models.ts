@@ -64,8 +64,8 @@ modelRoutes.get('/models/:provider', (c) => {
         provider, // Ensure provider field is set
         availability: availability ?? {
           id: model.id,
-          healthy: true, // Plugin models are healthy if provider is loaded
-          lastChecked: Date.now(),
+          healthy: false,
+          lastChecked: 0,
         },
       };
     });
