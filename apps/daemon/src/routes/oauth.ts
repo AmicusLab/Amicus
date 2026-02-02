@@ -4,7 +4,7 @@ import type { APIResponse } from '@amicus/types/dashboard';
 import type { OAuthCredential, ProviderAuthConfig } from '@amicus/types';
 import { adminAuthMiddleware } from '../middleware/admin-auth.js';
 import { configManager, secretStore } from '../services/ConfigService.js';
-import { DeviceCodeFlow, PKCEFlow } from '../services/OAuthFlows.js';
+import { DeviceCodeFlow, PKCEFlow, CodePasteFlow } from '../services/OAuthFlows.js';
 import { tokenRefreshManager } from '../services/TokenRefreshManager.js';
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit } from '../services/AuditLogService.js';
@@ -23,7 +23,7 @@ export const oauthRoutes = new Hono();
 
 type PendingOAuth = {
   providerId: string;
-  flow: DeviceCodeFlow | PKCEFlow;
+  flow: DeviceCodeFlow | PKCEFlow | CodePasteFlow;
   deviceCode?: string;
   state?: string;
   expiresAt: number;
@@ -58,17 +58,29 @@ function getProviderConfig(providerId: string): ProviderWithAuth | undefined {
 
 oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) => {
   const providerId = c.req.param('id');
+  const body = (await c.req.json().catch(() => null)) as { methodId?: string } | null;
   const provider = getProviderConfig(providerId);
 
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${providerId}`), 404);
   }
 
-  if (!provider.auth?.oauth) {
+  if (!provider.auth) {
     return c.json(fail('NOT_SUPPORTED', `Provider ${providerId} does not support OAuth`), 400);
   }
 
-  const oauthConfig = provider.auth.oauth;
+  let oauthConfig;
+  if (provider.auth.oauthMethods && body?.methodId) {
+    const method = provider.auth.oauthMethods.find((m) => m.id === body.methodId);
+    if (!method) {
+      return c.json(fail('INVALID_METHOD', `OAuth method ${body.methodId} not found`), 400);
+    }
+    oauthConfig = method.flow;
+  } else if (provider.auth.oauth) {
+    oauthConfig = provider.auth.oauth;
+  } else {
+    return c.json(fail('NOT_SUPPORTED', `Provider ${providerId} does not support OAuth`), 400);
+  }
 
   try {
     if (oauthConfig.flow === 'device_code') {
@@ -103,7 +115,7 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
           interval: deviceCodeResponse.interval,
         })
       );
-    } else {
+    } else if (oauthConfig.flow === 'pkce') {
       const flow = new PKCEFlow(oauthConfig);
       const { url, state } = flow.generateAuthUrl();
 
@@ -132,6 +144,37 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
           state,
         })
       );
+    } else if (oauthConfig.flow === 'code_paste') {
+      const flow = new CodePasteFlow(oauthConfig);
+      const { url, state } = flow.generateAuthUrl();
+
+      const flowId = randomUUID();
+      pendingFlows.set(flowId, {
+        providerId,
+        flow,
+        state,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      });
+
+      writeAudit({
+        timestamp: new Date().toISOString(),
+        eventId: randomUUID(),
+        actor: 'admin',
+        action: 'oauth.start',
+        resource: `provider:${providerId}`,
+        result: 'success',
+      });
+
+      return c.json(
+        ok({
+          flowId,
+          flowType: 'code_paste',
+          authorizationUrl: url,
+          state,
+        })
+      );
+    } else {
+      return c.json(fail('UNSUPPORTED_FLOW', `Flow type not supported`), 400);
     }
   } catch (e) {
     writeAudit({
@@ -249,7 +292,7 @@ oauthRoutes.post('/providers/:id/oauth/callback', adminAuthMiddleware, async (c)
     return c.json(fail('NOT_FOUND', 'OAuth flow not found or expired'), 404);
   }
 
-  if (!(pending.flow instanceof PKCEFlow) || !pending.state) {
+  if (!(pending.flow instanceof PKCEFlow || pending.flow instanceof CodePasteFlow) || !pending.state) {
     return c.json(fail('INVALID_FLOW', 'This flow does not support callback'), 400);
   }
 

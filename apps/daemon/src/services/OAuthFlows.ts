@@ -3,6 +3,7 @@ import { createServer, type Server } from 'node:http';
 import type {
   DeviceCodeFlowConfig,
   PKCEFlowConfig,
+  CodePasteFlowConfig,
   DeviceCodeResponse,
   OAuthTokenResponse,
   OAuthPollResult,
@@ -138,9 +139,15 @@ export class DeviceCodeFlow {
       const result = await this.poll(deviceCode);
 
       if (result.status === 'success') {
+        let accessToken = result.tokens.accessToken;
+
+        if (this.config.copilotTokenUrl) {
+          accessToken = await this.getCopilotToken(accessToken);
+        }
+
         const cred: OAuthCredential = {
           type: 'oauth',
-          accessToken: result.tokens.accessToken,
+          accessToken,
         };
         if (result.tokens.refreshToken) cred.refreshToken = result.tokens.refreshToken;
         if (result.tokens.tokenType) cred.tokenType = result.tokens.tokenType;
@@ -163,6 +170,26 @@ export class DeviceCodeFlow {
     }
 
     throw new Error('Device code expired');
+  }
+
+  private async getCopilotToken(githubToken: string): Promise<string> {
+    if (!this.config.copilotTokenUrl) {
+      throw new Error('Copilot token URL not configured');
+    }
+
+    const res = await fetch(this.config.copilotTokenUrl, {
+      headers: {
+        Authorization: `token ${githubToken}`,
+        Accept: 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Copilot token request failed: ${res.status}`);
+    }
+
+    const json = (await res.json()) as Record<string, unknown>;
+    return String(json.token ?? '');
   }
 }
 
@@ -329,5 +356,99 @@ export class PKCEFlow {
         finish(new Error('OAuth callback timeout'));
       }, opts.timeoutMs);
     });
+  }
+}
+
+export class CodePasteFlow {
+  private verifier: string = '';
+  private challenge: string = '';
+
+  constructor(private config: CodePasteFlowConfig) {}
+
+  generateAuthUrl(): { url: string; state: string } {
+    this.verifier = randomBytes(32).toString('hex');
+    this.challenge = createHash('sha256').update(this.verifier).digest('base64url');
+
+    const params = new URLSearchParams({
+      client_id: this.config.clientId,
+      response_type: 'code',
+      redirect_uri: this.config.redirectUri,
+      scope: this.config.scope ?? '',
+      code_challenge: this.challenge,
+      code_challenge_method: 'S256',
+      state: this.verifier,
+    });
+
+    return {
+      url: `${this.config.authorizationUrl}?${params.toString()}`,
+      state: this.verifier,
+    };
+  }
+
+  async exchangeCode(code: string, state: string): Promise<OAuthCredential> {
+    if (state !== this.verifier) {
+      throw new Error('OAuth state mismatch');
+    }
+
+    const body = new URLSearchParams({
+      client_id: this.config.clientId,
+      code,
+      grant_type: 'authorization_code',
+      redirect_uri: this.config.redirectUri,
+      code_verifier: this.verifier,
+    });
+
+    const res = await fetch(this.config.tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Token exchange failed: ${res.status} ${text}`);
+    }
+
+    const json = (await res.json()) as Record<string, unknown>;
+    const cred: OAuthCredential = {
+      type: 'oauth',
+      accessToken: String(json.access_token ?? ''),
+    };
+    if (json.refresh_token) cred.refreshToken = String(json.refresh_token);
+    if (json.token_type) cred.tokenType = String(json.token_type);
+    if (json.scope) cred.scope = String(json.scope);
+    if (json.expires_in) {
+      cred.expiresAt = Date.now() + Number(json.expires_in) * 1000;
+    }
+    return cred;
+  }
+
+  async refresh(refreshToken: string): Promise<OAuthTokenResponse> {
+    const body = new URLSearchParams({
+      client_id: this.config.clientId,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    });
+
+    const res = await fetch(this.config.tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Token refresh failed: ${res.status} ${text}`);
+    }
+
+    const json = (await res.json()) as Record<string, unknown>;
+    const result: OAuthTokenResponse = {
+      accessToken: String(json.access_token ?? ''),
+      tokenType: String(json.token_type ?? 'Bearer'),
+    };
+    if (json.expires_in != null) result.expiresIn = Number(json.expires_in);
+    if (json.refresh_token) result.refreshToken = String(json.refresh_token);
+    if (json.scope) result.scope = String(json.scope);
+    return result;
   }
 }

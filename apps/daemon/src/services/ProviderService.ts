@@ -67,6 +67,7 @@ class ProviderService {
     modelCount: number;
     authMethod?: 'api_key' | 'oauth' | 'both';
     oauthStatus?: 'connected' | 'disconnected';
+    oauthMethods?: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }>;
     error?: string;
   }> {
     const cfg = configManager.getConfig();
@@ -85,9 +86,19 @@ class ProviderService {
       const authMethod = auth?.method ?? 'api_key';
       
       let oauthStatus: 'connected' | 'disconnected' | undefined;
+      let oauthMethods: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }> | undefined;
+      
       if (authMethod === 'oauth' || authMethod === 'both') {
         const credential = secretStore.getCredential(p.id);
         oauthStatus = credential?.type === 'oauth' ? 'connected' : 'disconnected';
+        
+        if (auth?.oauthMethods && auth.oauthMethods.length > 0) {
+          oauthMethods = auth.oauthMethods.map((method) => ({
+            id: method.id,
+            label: method.label,
+            flow: method.flow.flow,
+          }));
+        }
       }
       
       return {
@@ -98,6 +109,7 @@ class ProviderService {
         modelCount: this.registry.getModelsByProvider(p.id).length,
         authMethod,
         ...(oauthStatus ? { oauthStatus } : {}),
+        ...(oauthMethods ? { oauthMethods } : {}),
         ...(failed?.message ? { error: failed.message } : {}),
       };
     });
