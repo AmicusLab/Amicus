@@ -15,6 +15,16 @@ import {
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit, readAudit } from '../services/AuditLogService.js';
 
+const defaultModelsByProvider: Record<string, string> = {
+  anthropic: 'claude-3-5-sonnet-20241022',
+  openai: 'gpt-4-turbo',
+  google: 'gemini-1.5-pro',
+  groq: 'llama-3.3-70b-versatile',
+  zai: 'glm-4.7',
+  'zai-coding-plan': 'glm-4.7',
+  moonshot: 'kimi-k2.5',
+};
+
 export const adminRoutes = new Hono();
 
 // Simple in-memory rate limiter for auth endpoints
@@ -358,6 +368,19 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
     await secretStore.set(envKey, apiKey);
     process.env[envKey] = apiKey;
     await providerService.reload();
+    
+    if (!cfg.llm.defaultModel) {
+      const defaultModelName = defaultModelsByProvider[id];
+      if (defaultModelName) {
+        const newDefaultModel = `${id}:${defaultModelName}`;
+        await configManager.update({
+          llm: {
+            defaultModel: newDefaultModel,
+          },
+        });
+      }
+    }
+    
     writeAudit({
       timestamp: new Date().toISOString(),
       eventId: randomUUID(),

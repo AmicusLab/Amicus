@@ -138,7 +138,7 @@ export interface LLMProviderConfig {
   providers: ProviderConfigEntry[];
   
   /** 기본 모델 (provider:model 형식) */
-  defaultModel?: string;
+  defaultModel?: string | null;
   
   /** 일일 예산 (USD) */
   dailyBudget?: number;

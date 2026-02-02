@@ -2,6 +2,10 @@ export interface ValidationResult {
   valid: boolean;
   tokenCount?: number | undefined;
   error?: string | undefined;
+  details?: {
+    statusCode?: number;
+    message?: string;
+  };
 }
 
 export interface ModelValidationResult extends ValidationResult {
@@ -15,7 +19,7 @@ export interface ProviderValidationResult {
   invalidCount: number;
 }
 
-interface TokenizerResponse {
+interface ChatCompletionResponse {
   usage?: {
     prompt_tokens?: number;
     total_tokens?: number;
@@ -23,11 +27,19 @@ interface TokenizerResponse {
 }
 
 export class ModelValidator {
-  private readonly baseURL = 'https://api.z.ai/api/paas/v4';
+  async validateModel(modelId: string, apiKey: string, providerId?: 'zai' | 'zai-coding-plan', baseURL?: string): Promise<ValidationResult> {
+    if (!baseURL) {
+      return {
+        valid: false,
+        error: 'baseURL is required for model validation',
+      };
+    }
 
-  async validateModel(modelId: string, apiKey: string): Promise<ValidationResult> {
+    console.log(`[ModelValidator] Using base URL: ${baseURL} for provider: ${providerId}`);
+    
     try {
-      const response = await fetch(`${this.baseURL}/tokenizer`, {
+      const apiBaseURL = baseURL;
+      const response = await fetch(`${apiBaseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -36,11 +48,12 @@ export class ModelValidator {
         body: JSON.stringify({
           model: modelId,
           messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1,
         }),
       });
 
       if (response.status === 200) {
-        const data = await response.json() as TokenizerResponse;
+        const data = await response.json() as ChatCompletionResponse;
         const tokenCount = data.usage?.prompt_tokens ?? data.usage?.total_tokens;
 
         if (tokenCount !== undefined) {
@@ -60,10 +73,27 @@ export class ModelValidator {
           error: 'Invalid API key',
         };
       } else {
-        const errorText = await response.text().catch(() => 'Unknown error');
+        const errorData = await response.json().catch(() => null) as {
+          error?: {
+            message?: string;
+            code?: string;
+          };
+        };
+
+        let detailedError = `API request failed`;
+        if (errorData?.error?.code === '1113') {
+          detailedError = 'Insufficient balance - please check your account';
+        } else if (errorData?.error?.code === '1305') {
+          detailedError = 'Rate limit exceeded - please try again later';
+        }
+
         return {
           valid: false,
-          error: `API request failed: ${errorText}`,
+          error: detailedError,
+          details: {
+            statusCode: response.status,
+            message: errorData?.error?.message || detailedError,
+          },
         };
       }
     } catch (error) {
@@ -74,13 +104,13 @@ export class ModelValidator {
     }
   }
 
-  async validateAllModels(provider: string, apiKey: string): Promise<ProviderValidationResult> {
+  async validateAllModels(provider: string, apiKey: string, baseURL?: string): Promise<ProviderValidationResult> {
     const models = this.getModelsForProvider(provider);
     
     const results: ModelValidationResult[] = [];
     
     for (const modelId of models) {
-      const validation = await this.validateModel(modelId, apiKey);
+      const validation = await this.validateModel(modelId, apiKey, provider as 'zai' | 'zai-coding-plan', baseURL);
       results.push({
         modelId,
         ...validation,
@@ -99,7 +129,7 @@ export class ModelValidator {
   }
 
   private getModelsForProvider(provider: string): string[] {
-    if (provider === 'zai') {
+    if (provider === 'zai' || provider === 'zai-coding-plan') {
       return [
         'glm-4.7',
         'glm-4.5',

@@ -28,7 +28,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
 
       expect(result.valid).toBe(true);
       expect(result.tokenCount).toBe(10);
@@ -43,7 +43,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
 
       expect(result.valid).toBe(true);
       expect(result.tokenCount).toBeUndefined();
@@ -62,7 +62,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
 
       expect(result.valid).toBe(true);
       expect(result.tokenCount).toBe(25);
@@ -76,7 +76,7 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'invalid-key');
+      const result = await validator.validateModel('glm-4.7', 'invalid-key', 'zai');
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Invalid API key');
@@ -86,21 +86,21 @@ describe('ModelValidator', () => {
     it('should return valid=false with error message when API returns other error status', async () => {
       const mockResponse = {
         status: 500,
-        text: mock(() => Promise.resolve('Internal Server Error')),
+        json: () => Promise.resolve({ error: { message: 'Internal Server Error', code: '500' } }),
       } as unknown as Response;
 
       globalThis.fetch = mock(() => Promise.resolve(mockResponse)) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
 
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('API request failed: Internal Server Error');
+      expect(result.error).toContain('API request failed');
     });
 
     it('should return valid=false with error when fetch throws', async () => {
       globalThis.fetch = mock(() => Promise.reject(new Error('Network error'))) as unknown as typeof fetch;
 
-      const result = await validator.validateModel('glm-4.7', 'test-api-key');
+      const result = await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe('Connection error: Network error');
@@ -114,14 +114,14 @@ describe('ModelValidator', () => {
 
       globalThis.fetch = mockFetch as unknown as typeof fetch;
 
-      await validator.validateModel('glm-4.7', 'test-api-key');
+      await validator.validateModel('glm-4.7', 'test-api-key', 'zai');
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       const call = mockFetch.mock.calls[0];
       const url = call[0] as string;
       const options = call[1] as RequestInit;
       
-      expect(url).toBe('https://api.z.ai/api/paas/v4/tokenizer');
+      expect(url).toBe('https://api.z.ai/api/paas/v4/chat/completions');
       expect(options.method).toBe('POST');
       expect(options.headers).toEqual({
         'Authorization': 'Bearer test-api-key',

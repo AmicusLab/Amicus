@@ -1,6 +1,38 @@
 import type { ModelMetadata, ModelAvailability } from '@amicus/types/model';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
+
+/**
+ * Find the monorepo root directory by looking for package.json with workspaces field
+ * @param startPath Starting directory (defaults to process.cwd())
+ * @returns Absolute path to project root
+ */
+function findProjectRoot(startPath: string = process.cwd()): string {
+  let currentPath = startPath;
+  
+  // Traverse up the directory tree
+  while (currentPath !== '/') {
+    const pkgPath = resolve(currentPath, 'package.json');
+    
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+        // If package.json has workspaces field, it's the monorepo root
+        if (pkg.workspaces) {
+          return currentPath;
+        }
+      } catch {
+        // Ignore JSON parse errors and continue searching
+      }
+    }
+    
+    // Move up one directory
+    currentPath = resolve(currentPath, '..');
+  }
+  
+  // Fallback to current working directory if no root found
+  return process.cwd();
+}
 
 /**
  * Model Registry
@@ -19,7 +51,8 @@ export class ModelRegistry {
    * @param provider Provider identifier (e.g., 'zai', 'anthropic')
    */
   loadModels(provider: string): void {
-    const configPath = resolve(process.cwd(), 'config/models', `${provider}.json`);
+    const projectRoot = findProjectRoot();
+    const configPath = resolve(projectRoot, 'config/models', `${provider}.json`);
     
     try {
       const content = readFileSync(configPath, 'utf-8');

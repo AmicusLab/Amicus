@@ -4,6 +4,16 @@
 
 ---
 
+## 0. 사용자 선호사항 (User Preferences)
+
+**언어**: 한국어 (Korean)
+- 모든 응답은 한국어로 작성
+- 코드 주석은 영어로 (self-documenting code 우선)
+- 문서(*.md)는 필요시 한글로 작성 (단, LLM이 활용하는 문서는 영어 작성 가능)
+- 커밋 메시지는 영어 (컨벤션 준수)
+
+---
+
 ## 1. 프로젝트 구조 (Project Structure)
 
 Amicus는 **Bun Workspaces** 기반의 모노레포 프로젝트입니다.

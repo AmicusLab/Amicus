@@ -11,7 +11,7 @@ import type {
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { MoonshotPlugin, ZaiPlugin } from './plugins/index.js';
+import { MoonshotPlugin, ZaiPlugin, ZaiCodingPlanPlugin } from './plugins/index.js';
 
 /**
  * Provider 레지스트리
@@ -103,6 +103,8 @@ export class ProviderRegistry {
         return new MoonshotPlugin(module, apiKeyEnv);
       case 'zai':
         return new ZaiPlugin(module, apiKeyEnv);
+      case 'zai-coding-plan':
+        return new ZaiCodingPlanPlugin(module, apiKeyEnv);
       default:
         throw new Error(`Unknown provider: ${id}`);
     }

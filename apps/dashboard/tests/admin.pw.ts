@@ -39,6 +39,23 @@ test.describe('Admin', () => {
       });
     });
 
+    await page.route('**/admin/config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            llm: {
+              defaultModel: 'openai:gpt-3.5-turbo',
+              dailyBudget: 1000000,
+              budgetAlertThreshold: 800000,
+            },
+          },
+        }),
+      });
+    });
+
     await page.route('**/admin/providers/openai', async (route, request) => {
       if (request.method() !== 'PATCH') {
         await route.fallback();

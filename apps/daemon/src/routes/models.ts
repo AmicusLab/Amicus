@@ -5,6 +5,7 @@ import { ModelRegistry, ModelValidator } from '@amicus/core';
 import { adminAuthMiddleware } from '../middleware/admin-auth.js';
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit, type AuditEvent } from '../services/AuditLogService.js';
+import { configManager } from '../services/ConfigService.js';
 
 const modelRegistry = new ModelRegistry();
 const modelValidator = new ModelValidator();
@@ -163,10 +164,17 @@ modelAdminRoutes.post('/models/:provider/:id/validate', adminAuthMiddleware, asy
   const apiKey = typeof body?.apiKey === 'string' ? body.apiKey : '';
 
   if (!apiKey) {
-    const envKey = `${provider.toUpperCase()}_API_KEY`;
+    const envKey = `${provider.toUpperCase().replace(/-/g, '_')}_API_KEY`;
     const envApiKey = process.env[envKey];
+    console.log(`[ModelValidator] Provider: ${provider}, Looking for env key: ${envKey}, found: ${!!envApiKey}`);
     if (envApiKey) {
-      const result = await modelValidator.validateModel(id, envApiKey);
+      const config = configManager.getConfig();
+      const providerConfigItem = config.llm.providers.find(p => p.id === provider);
+      const baseURL = providerConfigItem?.baseURL;
+      console.log(`[ModelValidator] Provider config baseURL: ${baseURL}`);
+      console.log(`[ModelValidator] Validating model ${id} with API key from ${envKey} (length: ${envApiKey.length})`);
+      const result = await modelValidator.validateModel(id, envApiKey, provider as 'zai' | 'zai-coding-plan', baseURL);
+      console.log(`[ModelValidator] Validation result:`, result);
       modelRegistry.updateAvailability(id, result.valid);
 
       writeAudit(createAuditEvent(
@@ -188,7 +196,12 @@ modelAdminRoutes.post('/models/:provider/:id/validate', adminAuthMiddleware, asy
     return c.json(fail('INVALID_BODY', 'Expected { apiKey: string } or configured provider API key'), 400);
   }
 
-  const result = await modelValidator.validateModel(id, apiKey);
+  const config = configManager.getConfig();
+  const providerConfigItem = config.llm.providers.find(p => p.id === provider);
+  const baseURL = providerConfigItem?.baseURL;
+  console.log(`[ModelValidator] Using baseURL from config: ${baseURL} for provider: ${provider}`);
+  
+  const result = await modelValidator.validateModel(id, apiKey, provider as 'zai' | 'zai-coding-plan', baseURL);
   modelRegistry.updateAvailability(id, result.valid);
 
   writeAudit(createAuditEvent(

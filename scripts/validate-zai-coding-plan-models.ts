@@ -1,22 +1,22 @@
 #!/usr/bin/env bun
 
 /**
- * Z.ai Model Validation Script
+ * Z.ai Coding Plan Model Validation Script
  *
- * Validates all Z.ai models by calling the Chat Completions API.
- * Updates config/models/zai.json with availability status.
+ * Validates all Z.ai Coding Plan models by calling the Chat Completions API.
+ * Updates config/models/zai-coding-plan.json with availability status.
  *
  * Usage:
- *   bun run scripts/validate-zai-models.ts
- *   bun run scripts/validate-zai-models.ts -- --api-key=<key>
- *   ZAI_API_KEY=<key> bun run scripts/validate-zai-models.ts
+ *   bun run scripts/validate-zai-coding-plan-models.ts
+ *   bun run scripts/validate-zai-coding-plan-models.ts -- --api-key=<key>
+ *   ZAI_CODING_PLAN_API_KEY=<key> bun run scripts/validate-zai-coding-plan-models.ts
  *
  * Exit codes:
  *   0 - All models healthy
  *   1 - One or more models unhealthy
  */
 
-import { ZaiPlugin } from "../packages/core/dist/llm/plugins/zai.js";
+import { ZaiCodingPlanPlugin } from "../packages/core/dist/llm/plugins/zai-coding-plan.js";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -30,17 +30,17 @@ function parseArgs(): { apiKey?: string } {
       result.apiKey = arg.slice("--api-key=".length);
     } else if (arg === "--help" || arg === "-h") {
       console.log(`
-Z.ai Model Validation Script
+Z.ai Coding Plan Model Validation Script
 
 Usage:
-  bun run scripts/validate-zai-models.ts [options]
+  bun run scripts/validate-zai-coding-plan-models.ts [options]
 
 Options:
-  --api-key=<key>    Z.ai API key (optional if ZAI_API_KEY env var is set)
+  --api-key=<key>    Z.ai Coding Plan API key (optional if ZAI_CODING_PLAN_API_KEY env var is set)
   --help, -h         Show this help message
 
 Environment:
-  ZAI_API_KEY        Z.ai API key
+  ZAI_CODING_PLAN_API_KEY        Z.ai Coding Plan API key
 
 Exit codes:
   0 - All models healthy
@@ -85,7 +85,7 @@ async function validateModel(
   modelId: string,
   apiKey: string
 ): Promise<ModelHealth> {
-  const baseURL = "https://api.z.ai/api/paas/v4";
+  const baseURL = "https://api.z.ai/api/coding/paas/v4";
   const timestamp = Date.now();
 
   try {
@@ -152,14 +152,14 @@ async function validateModel(
  * Get API key from environment or arguments
  */
 function getApiKey(args: { apiKey?: string }): string {
-  const apiKey = args.apiKey ?? process.env.ZAI_API_KEY;
+  const apiKey = args.apiKey ?? process.env.ZAI_CODING_PLAN_API_KEY;
 
   if (!apiKey) {
     console.error(
-      `${colors.red}Error: ZAI_API_KEY not set${colors.reset}`
+      `${colors.red}Error: ZAI_CODING_PLAN_API_KEY not set${colors.reset}`
     );
     console.error(
-      `${colors.dim}Set ZAI_API_KEY environment variable or use --api-key flag${colors.reset}`
+      `${colors.dim}Set ZAI_CODING_PLAN_API_KEY environment variable or use --api-key flag${colors.reset}`
     );
     process.exit(1);
   }
@@ -172,7 +172,7 @@ function getApiKey(args: { apiKey?: string }): string {
  */
 function saveResults(result: ValidationResult): void {
   const configDir = path.join(process.cwd(), "config", "models");
-  const outputPath = path.join(configDir, "zai.json");
+  const outputPath = path.join(configDir, "zai-coding-plan.json");
 
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
@@ -189,13 +189,13 @@ function saveResults(result: ValidationResult): void {
  */
 async function main(): Promise<void> {
   console.log(
-    `${colors.bright}${colors.blue}Z.ai Model Validation${colors.reset}\n`
+    `${colors.bright}${colors.blue}Z.ai Coding Plan Model Validation${colors.reset}\n`
   );
 
   const args = parseArgs();
   const apiKey = getApiKey(args);
 
-  const plugin = new ZaiPlugin({}, "ZAI_API_KEY");
+  const plugin = new ZaiCodingPlanPlugin({}, "ZAI_CODING_PLAN_API_KEY");
   const models = plugin.getModels();
 
   console.log(
@@ -231,7 +231,7 @@ async function main(): Promise<void> {
   }
 
   const validationResult: ValidationResult = {
-    provider: "zai",
+    provider: "zai-coding-plan",
     lastUpdated: Date.now(),
     models: results,
   };

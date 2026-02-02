@@ -2,17 +2,17 @@ import { createOpenAI } from '@ai-sdk/openai';
 import type { LLMProviderPlugin, ProviderConfig, ModelInfo } from './types.js';
 
 /**
- * Z.ai (ZhipuAI) Provider Plugin
+ * Z.ai Coding Plan Provider Plugin
  *
- * Uses OpenAI-compatible API via @ai-sdk/openai with custom baseURL.
+ * Uses GLM Coding Plan endpoint for coding scenarios.
  * Supports 15 models: 10 text models and 5 vision models.
  *
- * Base URL: https://api.z.ai/api/paas/v4 (General endpoint)
+ * Base URL: https://api.z.ai/api/coding/paas/v4
  * Documentation: https://docs.z.ai/api-reference/introduction
  */
-export class ZaiPlugin implements LLMProviderPlugin {
-  readonly name = 'z.ai';
-  readonly id = 'zai';
+export class ZaiCodingPlanPlugin implements LLMProviderPlugin {
+  readonly name = 'z.ai (Coding Plan)';
+  readonly id = 'zai-coding-plan';
 
   constructor(
     private module: Record<string, unknown>,
@@ -25,7 +25,7 @@ export class ZaiPlugin implements LLMProviderPlugin {
       throw new Error(`${this.apiKeyEnv} not set`);
     }
     const provider = createOpenAI({
-      baseURL: 'https://api.z.ai/api/paas/v4',
+      baseURL: 'https://api.z.ai/api/coding/paas/v4',
       apiKey,
     });
     return provider('glm-4.7');

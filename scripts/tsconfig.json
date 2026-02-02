@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@amicus/core": ["./packages/core/dist/index.js"],
+      "@amicus/core/*": ["./packages/core/dist/*"],
+      "@amicus/types": ["./packages/types/dist/index.js"],
+      "@amicus/types/*": ["./packages/types/dist/*"],
+      "@amicus/memory": ["./packages/memory/dist/index.js"],
+      "@amicus/mcp-client": ["./packages/mcp-client/dist/index.js"]
+    }
+  },
+  "include": ["scripts/**/*.ts"]
+}

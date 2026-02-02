@@ -61,7 +61,7 @@ export interface ModelMetadata {
 /**
  * Model availability status
  *
- * Tracks the health and availability of a model endpoint.
+ * Tracks health and availability of a model endpoint.
  * Used by daemon to monitor model status and handle failures.
  */
 export interface ModelAvailability {
@@ -73,4 +73,31 @@ export interface ModelAvailability {
 
   /** Timestamp of last availability check (Unix ms) */
   lastChecked: number;
+}
+
+/**
+ * Model Registry interface
+ *
+ * Defines the contract for managing model metadata and availability.
+ */
+export interface IModelRegistry {
+  /**
+   * Load models for a specific provider from config files
+   */
+  loadModels(provider: string): Promise<ModelMetadata[]>;
+
+  /**
+   * Get a specific model by ID
+   */
+  getModel(id: string): ModelMetadata | undefined;
+
+  /**
+   * Get all models for a specific provider
+   */
+  getModelsByProvider(provider: string): ModelMetadata[];
+
+  /**
+   * Select the optimal model based on complexity score
+   */
+  selectOptimalModel(complexity: number, provider?: string): ModelMetadata | undefined;
 }

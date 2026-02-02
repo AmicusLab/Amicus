@@ -170,8 +170,8 @@ class ProviderService {
     }
 
     // For z.ai, make a test request to validate the API key
-    if (providerId === 'zai') {
-      return this.validateZaiApiKey(apiKey);
+    if (providerId === 'zai' || providerId === 'zai-coding-plan') {
+      return this.validateZaiApiKey(apiKey, providerId);
     }
 
     // For other providers, basic check (non-empty)
@@ -192,11 +192,11 @@ class ProviderService {
   /**
    * Validate z.ai API key by making a test request to Tokenizer API
    */
-  private async validateZaiApiKey(apiKey: string): Promise<APIKeyValidationResult> {
-    const baseURL = 'https://api.z.ai/api/paas/v4';
+  private async validateZaiApiKey(apiKey: string, providerId: 'zai' | 'zai-coding-plan' = 'zai'): Promise<APIKeyValidationResult> {
+    const baseURL = providerId === 'zai-coding-plan' ? 'https://api.z.ai/api/coding/paas/v4' : 'https://api.z.ai/api/paas/v4';
 
     try {
-      const response = await fetch(`${baseURL}/tokenizer`, {
+      const response = await fetch(`${baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -205,18 +205,19 @@ class ProviderService {
         body: JSON.stringify({
           model: 'glm-4.7',
           messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1,
         }),
       });
 
       if (response.status === 200) {
         return {
           valid: true,
-          providerId: 'zai',
+          providerId,
         };
       } else if (response.status === 401) {
         return {
           valid: false,
-          providerId: 'zai',
+          providerId,
           error: 'Invalid API key',
           details: {
             statusCode: response.status,
@@ -227,7 +228,7 @@ class ProviderService {
         const errorText = await response.text().catch(() => 'Unknown error');
         return {
           valid: false,
-          providerId: 'zai',
+          providerId,
           error: `API request failed: ${errorText}`,
           details: {
             statusCode: response.status,
@@ -238,7 +239,7 @@ class ProviderService {
     } catch (error) {
       return {
         valid: false,
-        providerId: 'zai',
+        providerId,
         error: `Connection error: ${error instanceof Error ? error.message : String(error)}`,
       };
     }

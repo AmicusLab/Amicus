@@ -24,6 +24,15 @@ interface ValidationResponse {
   error?: string;
 }
 
+interface AdminProviderView {
+  id: string;
+  enabled: boolean;
+  available: boolean;
+  loaded: boolean;
+  modelCount: number;
+  error?: string;
+}
+
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...options,
@@ -47,13 +56,10 @@ async function getModels(provider: string): Promise<{ success: boolean; data?: M
 
 async function adminValidateModel(
   provider: string,
-  id: string,
-  apiKey?: string
+  id: string
 ): Promise<{ success: boolean; data?: ValidationResponse; error?: { message: string } }> {
-  const body = apiKey ? JSON.stringify({ apiKey }) : undefined;
   return fetchJSON(`/admin/models/${provider}/${id}/validate`, {
     method: 'POST',
-    body,
   });
 }
 
@@ -62,6 +68,10 @@ async function adminPatchConfig(patch: Record<string, unknown>): Promise<{ succe
     method: 'PATCH',
     body: JSON.stringify(patch),
   });
+}
+
+async function adminListProviders(): Promise<{ success: boolean; data?: AdminProviderView[]; error?: { message: string } }> {
+  return fetchJSON('/admin/providers');
 }
 
 @customElement('model-selector')
@@ -185,32 +195,61 @@ export class ModelSelector extends LitElement {
   `;
 
   @state() private models: ModelWithAvailability[] = [];
+  @state() private providers: AdminProviderView[] = [];
   @state() private selectedModelId = '';
   @state() private currentDefaultModel = '';
   @state() private loading = false;
   @state() private message: { kind: 'success' | 'error'; text: string } | null = null;
-  @state() private apiKey = '';
 
-  private readonly provider = 'zai';
-
-  connectedCallback(): void {
+  async connectedCallback(): Promise<void> {
     super.connectedCallback();
-    void this.loadModels();
-    void this.loadCurrentDefaultModel();
+    await this.loadCurrentDefaultModel();
+    await this.loadProviders();
   }
 
   private setMsg(kind: 'success' | 'error', text: string) {
     this.message = { kind, text };
   }
 
-  private async loadModels(): Promise<void> {
+  private async loadProviders(): Promise<void> {
     this.loading = true;
     try {
-      const res = await getModels(this.provider);
+      const res = await adminListProviders();
       if (res.success && res.data) {
-        this.models = res.data.models;
+        this.providers = res.data.filter(p => p.enabled && p.available);
+        await this.loadModels();
+        await this.validateCurrentDefaultModel();
       } else {
-        this.setMsg('error', res.error?.message ?? 'Failed to load models');
+        this.setMsg('error', res.error?.message ?? 'Failed to load providers');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Failed to load providers');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async loadModels(): Promise<void> {
+    if (this.providers.length === 0) {
+      this.models = [];
+      return;
+    }
+
+    this.loading = true;
+    try {
+      const allModels: ModelWithAvailability[] = [];
+      for (const provider of this.providers) {
+        const res = await getModels(provider.id);
+        if (res.success && res.data) {
+          allModels.push(...res.data.models);
+        }
+      }
+      this.models = allModels;
+      
+      if (this.currentDefaultModel && !this.selectedModelId) {
+        console.log('[ModelSelector] Auto-selecting current default model:', this.currentDefaultModel);
+        this.selectedModelId = this.currentDefaultModel;
+        this.requestUpdate();
       }
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Failed to load models');
@@ -221,13 +260,32 @@ export class ModelSelector extends LitElement {
 
   private async loadCurrentDefaultModel(): Promise<void> {
     try {
+      console.log('[ModelSelector] Loading current default model...');
       const res = await fetchJSON<{ success: boolean; data?: Record<string, unknown>; error?: { message: string } }>('/admin/config');
+      console.log('[ModelSelector] Config response:', res);
       if (res.success && res.data) {
         const llm = res.data['llm'] as Record<string, unknown> | undefined;
         const defaultModel = llm?.['defaultModel'] as string | undefined;
+        console.log('[ModelSelector] Default model from config:', defaultModel);
         this.currentDefaultModel = defaultModel ?? '';
+        console.log('[ModelSelector] Set currentDefaultModel to:', this.currentDefaultModel);
       }
-    } catch {}
+    } catch (e) {
+      console.error('[ModelSelector] Failed to load default model:', e);
+    }
+  }
+
+  private async validateCurrentDefaultModel(): Promise<void> {
+    if (!this.currentDefaultModel) return;
+
+    const modelProviderId = this.currentDefaultModel.split(':')[0];
+    const isProviderAvailable = this.providers.some(p => p.id === modelProviderId);
+
+    if (!isProviderAvailable) {
+      this.setMsg('error', `Current default model is unavailable (provider "${modelProviderId}" not registered). Please select a new default model.`);
+      await adminPatchConfig({ llm: { defaultModel: null } });
+      this.currentDefaultModel = '';
+    }
   }
 
   private async changeDefaultModel(): Promise<void> {
@@ -239,14 +297,18 @@ export class ModelSelector extends LitElement {
     this.loading = true;
     this.message = null;
     try {
+      console.log('[ModelSelector] Setting default model to:', this.selectedModelId);
       const res = await adminPatchConfig({ llm: { defaultModel: this.selectedModelId } });
+      console.log('[ModelSelector] Config update response:', res);
       if (res.success) {
         this.currentDefaultModel = this.selectedModelId;
         this.setMsg('success', `Default model changed to ${this.selectedModelId}`);
+        console.log('[ModelSelector] Current default model set to:', this.currentDefaultModel);
       } else {
         this.setMsg('error', res.error?.message ?? 'Failed to change default model');
       }
     } catch (e) {
+      console.error('[ModelSelector] Failed to change default model:', e);
       this.setMsg('error', e instanceof Error ? e.message : 'Failed to change default model');
     } finally {
       this.loading = false;
@@ -259,10 +321,26 @@ export class ModelSelector extends LitElement {
       return;
     }
 
+    const colonIndex = this.selectedModelId.indexOf(':');
+    if (colonIndex === -1) {
+      this.setMsg('error', 'Invalid model ID format (expected provider:model)');
+      return;
+    }
+
+    const providerId = this.selectedModelId.slice(0, colonIndex);
+    const modelId = this.selectedModelId.slice(colonIndex + 1);
+
+    if (!providerId || !modelId) {
+      this.setMsg('error', 'Invalid model ID format');
+      return;
+    }
+
     this.loading = true;
     this.message = null;
     try {
-      const res = await adminValidateModel(this.provider, this.selectedModelId, this.apiKey || undefined);
+      console.log('[ModelSelector] Validating model:', { providerId, modelId, fullId: this.selectedModelId });
+      const res = await adminValidateModel(providerId, modelId);
+      console.log('[ModelSelector] Validation response:', res);
       if (res.success && res.data) {
         if (res.data.valid) {
           this.setMsg('success', `Model ${res.data.modelId} is valid (tokens: ${res.data.tokenCount ?? 'N/A'})`);
@@ -274,6 +352,7 @@ export class ModelSelector extends LitElement {
         this.setMsg('error', res.error?.message ?? 'Validation failed');
       }
     } catch (e) {
+      console.error('[ModelSelector] Validation error:', e);
       this.setMsg('error', e instanceof Error ? e.message : 'Validation failed');
     } finally {
       this.loading = false;
@@ -288,9 +367,11 @@ export class ModelSelector extends LitElement {
   private renderModelOption(model: ModelWithAvailability) {
     const status = this.getModelHealthStatus(model);
     const statusIcon = status === 'healthy' ? '●' : status === 'unhealthy' ? '●' : '○';
-    const isDefault = model.id === this.currentDefaultModel;
+    const fullModelId = `${model.provider}:${model.id}`;
+    const isDefault = fullModelId === this.currentDefaultModel;
+    const isSelected = fullModelId === this.selectedModelId;
     return html`
-      <option value="${model.id}">
+      <option value="${fullModelId}" ?selected="${isSelected}">
         ${statusIcon} ${model.name} ${isDefault ? '(default)' : ''} - ${model.provider}
       </option>
     `;
@@ -299,12 +380,34 @@ export class ModelSelector extends LitElement {
   render() {
     return html`
       <div class="card">
-        <h3>Model Selection (${this.provider})</h3>
+        <h3>Model Selection</h3>
+        <p style="margin: 0 0 1rem 0; color: #aaa; font-size: 0.9rem;">
+          Select the <strong>system-wide default model</strong> used for all LLM tasks unless overridden by specific task requirements.
+          The model is selected based on task complexity, and this default serves as a fallback when no suitable model is found.
+        </p>
+        ${this.providers.length === 0
+          ? html`
+            <p style="margin: 0 0 1rem 0; color: #ff6a6a; font-size: 0.85rem;">
+              <strong>Warning:</strong> No providers are registered. Go to <strong>Providers</strong> tab to add API keys.
+            </p>
+          `
+          : html`
+            <p style="margin: 0 0 1rem 0; color: #888; font-size: 0.85rem;">
+              <strong>Note:</strong> Showing models from ${this.providers.length} registered provider${this.providers.length > 1 ? 's' : ''}: 
+              <strong>${this.providers.map(p => p.id).join(', ')}</strong>
+            </p>
+          `
+        }
         
         <div class="current-model">
           <div class="current-model-label">Current Default Model</div>
           <div class="current-model-value">
-            ${this.currentDefaultModel || 'Not set'}
+            ${this.currentDefaultModel 
+              ? html`<span style="color: #6aa7ff;">${this.currentDefaultModel}</span>`
+              : this.providers.length === 0
+                ? html`<span style="color: #ff6a6a;">Not set - Add a provider first</span>`
+                : html`<span style="color: #ffa;">Not set - Will be auto-configured when you add an API key</span>`
+            }
           </div>
         </div>
 
@@ -312,11 +415,10 @@ export class ModelSelector extends LitElement {
           <div>
             <p>Select Model</p>
             <select
-              .value="${this.selectedModelId}"
               @change="${(e: Event) => { this.selectedModelId = (e.target as HTMLSelectElement).value; }}"
               ?disabled="${this.loading}"
             >
-              <option value="">-- Select a model --</option>
+              <option value="" ?selected="${!this.selectedModelId}">-- Select a model --</option>
               ${this.models.map((model) => this.renderModelOption(model))}
             </select>
           </div>
@@ -330,18 +432,13 @@ export class ModelSelector extends LitElement {
           </button>
         </div>
 
-        <div class="row row-inline" style="margin-top: 0.75rem;">
-          <div>
-            <p>API Key (optional)</p>
-            <input
-              type="password"
-              placeholder="API key for validation"
-              .value="${this.apiKey}"
-              @input="${(e: InputEvent) => { this.apiKey = (e.target as HTMLInputElement).value; }}"
-              ?disabled="${this.loading}"
-            />
-          </div>
-          
+        <div style="margin-top: 1rem; padding: 0.75rem; background: #1a1a1a; border-radius: 8px;">
+          <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #ccc;">
+            <strong>Model Validation</strong>
+          </p>
+          <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: #888;">
+            Test if the selected model is accessible and working using the saved API key from the Providers tab.
+          </p>
           <button 
             class="btn" 
             ?disabled="${this.loading || !this.selectedModelId}" 
@@ -364,7 +461,8 @@ export class ModelSelector extends LitElement {
             <div style="display: grid; gap: 0.5rem;">
               ${this.models.map((model) => {
                 const status = this.getModelHealthStatus(model);
-                const isDefault = model.id === this.currentDefaultModel;
+                const fullModelId = `${model.provider}:${model.id}`;
+                const isDefault = fullModelId === this.currentDefaultModel;
                 return html`
                   <div 
                     style="

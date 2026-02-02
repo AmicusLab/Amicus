@@ -21,3 +21,5 @@ export { SecretStore } from './config/secret-store.js';
 export { ModelRegistry } from './llm/model/ModelRegistry.js';
 export { ModelValidator } from './llm/model/ModelValidator.js';
 export type { ValidationResult, ModelValidationResult, ProviderValidationResult } from './llm/model/ModelValidator.js';
+export { ZaiPlugin } from './llm/plugins/zai.js';
+export { ZaiCodingPlanPlugin } from './llm/plugins/zai-coding-plan.js';
