@@ -6,3 +6,6 @@ export * from './groq.js';
 export * from './kimi-for-coding.js';
 export * from './zai.js';
 export * from './zai-coding-plan.js';
+export * from './openrouter.js';
+export * from './moonshot.js';
+export * from './minimax.js';
