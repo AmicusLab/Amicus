@@ -148,17 +148,16 @@ describe('ModelValidator', () => {
       const result = await validator.validateAllModels('zai', 'test-api-key', 'https://api.z.ai/api/paas/v4');
 
       expect(result.provider).toBe('zai');
-      expect(result.results.length).toBe(6);
-      expect(result.validCount).toBe(6);
+      expect(result.results.length).toBe(15);
+      expect(result.validCount).toBe(15);
       expect(result.invalidCount).toBe(0);
       
       const modelIds = result.results.map(r => r.modelId);
       expect(modelIds).toContain('glm-4.7');
-      expect(modelIds).toContain('glm-4.5');
-      expect(modelIds).toContain('glm-4.1');
-      expect(modelIds).toContain('glm-4');
-      expect(modelIds).toContain('glm-4v');
-      expect(modelIds).toContain('glm-3-turbo');
+      expect(modelIds).toContain('glm-4.7-flash');
+      expect(modelIds).toContain('glm-4.6v');
+      expect(modelIds).toContain('glm-4-32b-0414-128k');
+      expect(modelIds).toContain('autoglm-phone-multilingual');
     });
 
     it('should count valid and invalid models correctly', async () => {
@@ -176,7 +175,7 @@ describe('ModelValidator', () => {
       const result = await validator.validateAllModels('zai', 'test-api-key', 'https://api.z.ai/api/paas/v4');
 
       expect(result.validCount).toBe(3);
-      expect(result.invalidCount).toBe(3);
+      expect(result.invalidCount).toBe(12);
     });
 
     it('should return empty results for unknown provider', async () => {

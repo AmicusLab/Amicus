@@ -171,7 +171,8 @@ class ProviderService {
 
     // For z.ai, make a test request to validate the API key
     if (providerId === 'zai' || providerId === 'zai-coding-plan') {
-      return this.validateZaiApiKey(apiKey, providerId);
+      const baseURL = provider.baseURL ?? (providerId === 'zai-coding-plan' ? 'https://api.z.ai/api/coding/paas/v4' : 'https://api.z.ai/api/paas/v4');
+      return this.validateZaiApiKey(apiKey, baseURL, providerId);
     }
 
     // For other providers, basic check (non-empty)
@@ -192,8 +193,7 @@ class ProviderService {
   /**
    * Validate z.ai API key by making a test request to Tokenizer API
    */
-  private async validateZaiApiKey(apiKey: string, providerId: 'zai' | 'zai-coding-plan' = 'zai'): Promise<APIKeyValidationResult> {
-    const baseURL = providerId === 'zai-coding-plan' ? 'https://api.z.ai/api/coding/paas/v4' : 'https://api.z.ai/api/paas/v4';
+  private async validateZaiApiKey(apiKey: string, baseURL: string, providerId: 'zai' | 'zai-coding-plan' = 'zai'): Promise<APIKeyValidationResult> {
 
     try {
       const response = await fetch(`${baseURL}/chat/completions`, {

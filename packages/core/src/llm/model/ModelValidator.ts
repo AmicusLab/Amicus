@@ -132,11 +132,20 @@ export class ModelValidator {
     if (provider === 'zai' || provider === 'zai-coding-plan') {
       return [
         'glm-4.7',
+        'glm-4.7-flash',
+        'glm-4.7-flashx',
+        'glm-4.6',
         'glm-4.5',
-        'glm-4.1',
-        'glm-4',
-        'glm-4v',
-        'glm-3-turbo',
+        'glm-4.5-x',
+        'glm-4.5-air',
+        'glm-4.5-airx',
+        'glm-4.5-flash',
+        'glm-4-32b-0414-128k',
+        'glm-4.6v',
+        'glm-4.6v-flash',
+        'glm-4.6v-flashx',
+        'glm-4.5v',
+        'autoglm-phone-multilingual',
       ];
     }
 

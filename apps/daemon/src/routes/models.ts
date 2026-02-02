@@ -62,8 +62,8 @@ modelRoutes.get('/models/:provider', (c) => {
       ...model,
       availability: availability ?? {
         id: model.id,
-        healthy: true,
-        lastChecked: Date.now(),
+        healthy: false,
+        lastChecked: 0,
       },
     };
   });
@@ -97,8 +97,8 @@ modelRoutes.get('/models/:provider/:id', (c) => {
     model,
     availability: availability ?? {
       id,
-      healthy: true,
-      lastChecked: Date.now(),
+      healthy: false,
+      lastChecked: 0,
     },
   }));
 });

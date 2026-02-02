@@ -261,7 +261,7 @@ export class AdminPanel extends LitElement {
     if (this.tab === 'providers') {
       const res = await adminListProviders();
       if (res.success && res.data) {
-        this.providers = res.data.filter(p => p.available);
+        this.providers = res.data;
       }
       
       const configRes = await adminGetConfig();

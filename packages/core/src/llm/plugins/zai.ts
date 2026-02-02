@@ -28,7 +28,7 @@ export class ZaiPlugin implements LLMProviderPlugin {
       baseURL: 'https://api.z.ai/api/paas/v4',
       apiKey,
     });
-    return provider('glm-4.7');
+    return provider;
   }
 
   isAvailable(): boolean {
