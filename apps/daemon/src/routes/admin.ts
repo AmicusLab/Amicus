@@ -470,7 +470,7 @@ adminRoutes.post('/providers/:id/validate', adminAuthMiddleware, async (c) => {
       action: 'provider.validateApiKey',
       resource: `provider:${id}`,
       result: result.valid ? 'success' : 'failure',
-      message: result.valid ? undefined : result.error,
+      ...(result.valid ? {} : { message: result.error }),
     });
     return c.json(ok(result));
   } catch (e) {
@@ -505,7 +505,7 @@ adminRoutes.post('/providers/:id/test', adminAuthMiddleware, async (c) => {
       action: 'provider.testConnection',
       resource: `provider:${id}`,
       result: result.valid ? 'success' : 'failure',
-      message: result.valid ? undefined : result.error,
+      ...(result.valid ? {} : { message: result.error }),
     });
     return c.json(ok(result));
   } catch (e) {

@@ -28,7 +28,7 @@ export function getEconomist(): Economist {
       : cfg.llm.budgetAlertThreshold;
 
     economistInstance = new Economist({
-      defaultModel: cfg.llm.defaultModel,
+      ...(cfg.llm.defaultModel ? { defaultModel: cfg.llm.defaultModel } : {}),
       budget: Number.isFinite(budget) ? budget : Infinity,
       budgetAlertThreshold: threshold,
       onBudgetAlert: (spent, budget) => {
