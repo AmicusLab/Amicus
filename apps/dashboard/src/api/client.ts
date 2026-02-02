@@ -67,6 +67,8 @@ export async function getMCPServers(): Promise<APIResponse<MCPServerStatus[]>> {
 
 // --- Admin API (cookie-based) ---
 
+export type ProviderAuthMethod = 'api_key' | 'oauth' | 'both';
+
 export type AdminProviderView = {
   id: string;
   enabled: boolean;
@@ -74,6 +76,8 @@ export type AdminProviderView = {
   available: boolean;
   modelCount: number;
   error?: string;
+  authMethod?: ProviderAuthMethod;
+  oauthStatus?: 'disconnected' | 'connected' | 'expired';
 };
 
 export async function adminGetSession(): Promise<APIResponse<{ role: string }>> {
@@ -173,4 +177,54 @@ export async function adminTestProviderConnection(id: string): Promise<APIRespon
   return fetchJSONFromBase(ADMIN_BASE, `/providers/${id}/test`, {
     method: 'POST',
   });
+}
+
+export type OAuthStartResult = {
+  flowId: string;
+  flowType: 'device_code' | 'pkce';
+  userCode?: string;
+  verificationUri?: string;
+  verificationUriComplete?: string;
+  authorizationUrl?: string;
+  state?: string;
+  expiresIn?: number;
+  interval?: number;
+};
+
+export type OAuthPollResult = {
+  status: 'pending' | 'slow_down' | 'expired' | 'access_denied' | 'success';
+  connected?: boolean;
+};
+
+export type OAuthStatusResult = {
+  status: 'disconnected' | 'connected' | 'expired';
+  expiresAt?: number;
+  scope?: string;
+};
+
+export async function adminOAuthStart(providerId: string): Promise<APIResponse<OAuthStartResult>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${providerId}/oauth/start`, {
+    method: 'POST',
+  });
+}
+
+export async function adminOAuthPoll(providerId: string, flowId: string): Promise<APIResponse<OAuthPollResult>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${providerId}/oauth/poll?flowId=${encodeURIComponent(flowId)}`);
+}
+
+export async function adminOAuthCallback(providerId: string, flowId: string, code: string, state: string): Promise<APIResponse<{ status: string; connected: boolean }>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${providerId}/oauth/callback`, {
+    method: 'POST',
+    body: JSON.stringify({ flowId, code, state }),
+  });
+}
+
+export async function adminOAuthDisconnect(providerId: string): Promise<APIResponse<{ disconnected: boolean }>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${providerId}/oauth`, {
+    method: 'DELETE',
+  });
+}
+
+export async function adminOAuthStatus(providerId: string): Promise<APIResponse<OAuthStatusResult>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${providerId}/oauth/status`);
 }
