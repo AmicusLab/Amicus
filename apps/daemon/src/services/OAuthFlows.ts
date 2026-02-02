@@ -211,8 +211,9 @@ export class PKCEFlow {
       code_challenge: this.challenge,
       code_challenge_method: 'S256',
       state: this.verifier,
-      access_type: 'offline',
-      prompt: 'consent',
+      id_token_add_organizations: 'true',
+      codex_cli_simplified_flow: 'true',
+      originator: 'amicus',
     });
     
     console.log('[PKCEFlow] Generated auth URL params:', {
