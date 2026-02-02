@@ -48,10 +48,11 @@ export const llmProviderConfig: LLMProviderConfig = {
       baseURL: 'https://api.z.ai/v1',
     },
     {
-      id: 'moonshot',
+      id: 'kimi-for-coding',
       enabled: false,
       package: '@ai-sdk/openai', // Uses OpenAI-compatible API
-      envKey: 'MOONSHOT_API_KEY',
+      envKey: 'KIMI_API_KEY',
+      baseURL: 'https://api.kimi.com/coding/v1',
     },
   ],
 

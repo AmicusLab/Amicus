@@ -430,6 +430,42 @@ export class AdminPanel extends LitElement {
     }
   }
 
+  private async setDefaultProvider(id: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const defaultModelsByProvider: Record<string, string> = {
+        anthropic: 'claude-3-5-sonnet-20241022',
+        openai: 'gpt-4-turbo',
+        google: 'gemini-1.5-pro',
+        groq: 'llama-3.3-70b-versatile',
+        zai: 'glm-4.7',
+        'zai-coding-plan': 'glm-4.7',
+        'kimi-for-coding': 'kimi-for-coding',
+      };
+
+      const defaultModelName = defaultModelsByProvider[id];
+      if (!defaultModelName) {
+        this.setMsg('error', `No default model configured for ${id}`);
+        return;
+      }
+
+      const newDefaultModel = `${id}:${defaultModelName}`;
+      await adminPatchConfig({
+        llm: {
+          defaultModel: newDefaultModel,
+        },
+      });
+
+      this.currentDefaultModel = newDefaultModel;
+      this.setMsg('ok', `Default provider set to ${id}`);
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Failed to set default provider');
+    } finally {
+      this.loading = false;
+    }
+  }
+
   private async setPassword(): Promise<void> {
     if (!this.newPassword || this.newPassword.length < 8) {
       this.setMsg('error', 'Password must be at least 8 characters');
@@ -552,6 +588,17 @@ export class AdminPanel extends LitElement {
               <div class="provider-header">
                 <strong>${p.id}</strong>
                 <div class="provider-header-actions">
+                  ${p.available && !this.currentDefaultModel.startsWith(p.id + ':')
+                    ? html`<button
+                        class="btn primary"
+                        ?disabled=${this.loading}
+                        @click=${() => void this.setDefaultProvider(p.id)}
+                        title="Set as default provider"
+                      >
+                        Set as Default
+                      </button>`
+                    : nothing
+                  }
                   <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
                     ${p.enabled ? 'Disable' : 'Enable'}
                   </button>
