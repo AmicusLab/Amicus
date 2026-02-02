@@ -1,11 +1,5 @@
-/**
- * LLM Provider Configuration
- * 
- * LLM Provider 플러그인 설정 파일
- * 이 파일을 수정하여 Provider를 활성화/비활성화할 수 있습니다.
- */
-
 import type { LLMProviderConfig } from '../packages/core/src/llm/plugins/types.js';
+import type { ProviderAuthConfig } from '../packages/types/src/auth.js';
 
 /**
  * LLM Provider 기본 설정
@@ -90,19 +84,70 @@ export const llmProviderConfig: LLMProviderConfig = {
       baseURL: 'https://api.minimax.chat/v1',
     },
     
-    // 향후 추가될 providers 예시
-    // { 
-    //   id: 'mistral', 
-    //   enabled: false, 
-    //   package: '@ai-sdk/mistral',
-    //   envKey: 'MISTRAL_API_KEY'
-    // },
-    // { 
-    //   id: 'cohere', 
-    //   enabled: false, 
-    //   package: '@ai-sdk/cohere',
-    //   envKey: 'COHERE_API_KEY'
-    // },
+    // OAuth providers (subscription-based)
+    {
+      id: 'openai-codex',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      auth: {
+        method: 'oauth',
+        oauth: {
+          flow: 'device_code',
+          clientId: 'Iv1.b507a08c87ecfe98',
+          deviceCodeUrl: 'https://github.com/login/device/code',
+          tokenUrl: 'https://github.com/login/oauth/access_token',
+          scope: 'read:user',
+        },
+      } as ProviderAuthConfig,
+    },
+    {
+      id: 'anthropic-max',
+      enabled: false,
+      package: '@ai-sdk/anthropic',
+      auth: {
+        method: 'oauth',
+        oauth: {
+          flow: 'device_code',
+          clientId: 'anthropic-max-client',
+          deviceCodeUrl: 'https://console.anthropic.com/device/code',
+          tokenUrl: 'https://console.anthropic.com/oauth/token',
+          scope: 'model:read model:write',
+        },
+      } as ProviderAuthConfig,
+    },
+    {
+      id: 'github-copilot',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      baseURL: 'https://api.githubcopilot.com',
+      auth: {
+        method: 'oauth',
+        oauth: {
+          flow: 'device_code',
+          clientId: 'Iv1.b507a08c87ecfe98',
+          deviceCodeUrl: 'https://github.com/login/device/code',
+          tokenUrl: 'https://github.com/login/oauth/access_token',
+          scope: 'copilot',
+        },
+      } as ProviderAuthConfig,
+    },
+    {
+      id: 'google-gemini',
+      enabled: false,
+      package: '@ai-sdk/google',
+      auth: {
+        method: 'both',
+        envKey: 'GOOGLE_API_KEY',
+        oauth: {
+          flow: 'pkce',
+          clientId: '456324763910-ejpb7ro7k7baenh62uvnoh3isl2gh66r.apps.googleusercontent.com',
+          authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+          tokenUrl: 'https://oauth2.googleapis.com/token',
+          callbackUrl: 'http://localhost:3000/oauth/callback',
+          scope: 'https://www.googleapis.com/auth/generative-language',
+        },
+      } as ProviderAuthConfig,
+    },
   ],
   
   defaultModel: null,
@@ -129,6 +174,7 @@ export const providerEnvMap: Record<string, string> = {
   openrouter: 'OPENROUTER_API_KEY',
   moonshot: 'MOONSHOT_API_KEY',
   minimax: 'MINIMAX_API_KEY',
+  'google-gemini': 'GOOGLE_API_KEY',
 };
 
 /**
@@ -145,4 +191,8 @@ export const defaultModelsByProvider: Record<string, string> = {
   openrouter: 'openai/gpt-4-turbo',
   moonshot: 'moonshot-v1-128k',
   minimax: 'abab5.5-chat',
+  'openai-codex': 'gpt-4o',
+  'anthropic-max': 'claude-3-5-sonnet-20241022',
+  'github-copilot': 'gpt-4o',
+  'google-gemini': 'gemini-1.5-pro',
 };

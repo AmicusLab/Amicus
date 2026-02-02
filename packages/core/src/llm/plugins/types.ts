@@ -140,6 +140,9 @@ export interface ProviderConfigEntry {
   
   /** 기본 URL (OpenAI 호환 API용) */
   baseURL?: string;
+  
+  /** 인증 설정 (OAuth support) */
+  auth?: import('@amicus/types').ProviderAuthConfig;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
+import type { Credential, ApiKeyCredential, StoredCredential } from '@amicus/types';
 
 type EncryptedSecretsFileV1 = {
   version: 1;
@@ -133,6 +134,46 @@ export class SecretStore {
   async delete(key: string): Promise<void> {
     delete this.secrets[key];
     await this.persist();
+  }
+
+  getCredential(providerId: string): Credential | undefined {
+    const envKey = `${providerId.toUpperCase().replace(/-/g, '_')}_API_KEY`;
+    const envValue = process.env[envKey];
+    if (envValue) {
+      return { type: 'api_key', apiKey: envValue } as ApiKeyCredential;
+    }
+
+    const stored = this.secrets[`credential:${providerId}`];
+    if (!stored) return undefined;
+
+    try {
+      const parsed = JSON.parse(stored) as StoredCredential;
+      return parsed.credential;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async setCredential(providerId: string, credential: Credential): Promise<void> {
+    const stored: StoredCredential = {
+      providerId,
+      credential,
+      updatedAt: Date.now(),
+    };
+    this.secrets[`credential:${providerId}`] = JSON.stringify(stored);
+    await this.persist();
+  }
+
+  async deleteCredential(providerId: string): Promise<void> {
+    delete this.secrets[`credential:${providerId}`];
+    await this.persist();
+  }
+
+  listCredentials(): string[] {
+    const prefix = 'credential:';
+    return Object.keys(this.secrets)
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => k.slice(prefix.length));
   }
 
   private async persist(): Promise<void> {
