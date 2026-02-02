@@ -15,6 +15,16 @@ import {
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit, readAudit } from '../services/AuditLogService.js';
 
+const defaultModelsByProvider: Record<string, string> = {
+  anthropic: 'claude-3-5-sonnet-20241022',
+  openai: 'gpt-4-turbo',
+  google: 'gemini-1.5-pro',
+  groq: 'llama-3.3-70b-versatile',
+  zai: 'glm-4.7',
+  'zai-coding-plan': 'glm-4.7',
+  moonshot: 'kimi-k2.5',
+};
+
 export const adminRoutes = new Hono();
 
 // Simple in-memory rate limiter for auth endpoints
@@ -358,6 +368,19 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
     await secretStore.set(envKey, apiKey);
     process.env[envKey] = apiKey;
     await providerService.reload();
+    
+    if (!cfg.llm.defaultModel) {
+      const defaultModelName = defaultModelsByProvider[id];
+      if (defaultModelName) {
+        const newDefaultModel = `${id}:${defaultModelName}`;
+        await configManager.update({
+          llm: {
+            defaultModel: newDefaultModel,
+          },
+        });
+      }
+    }
+    
     writeAudit({
       timestamp: new Date().toISOString(),
       eventId: randomUUID(),
@@ -421,4 +444,80 @@ adminRoutes.get('/audit', adminAuthMiddleware, async (c) => {
     ? await readAudit({ limit })
     : await readAudit();
   return c.json(ok(events));
+});
+
+adminRoutes.post('/providers/:id/validate', adminAuthMiddleware, async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => null) as { apiKey?: unknown } | null;
+  const apiKey = typeof body?.apiKey === 'string' ? body.apiKey : '';
+
+  if (!apiKey) {
+    return c.json(fail('INVALID_BODY', 'Expected { apiKey: string }'), 400);
+  }
+
+  const cfg = configManager.getConfig();
+  const provider = cfg.llm.providers.find((p) => p.id === id);
+  if (!provider) {
+    return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
+  }
+
+  try {
+    const result = await providerService.validateApiKey(id, apiKey);
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'provider.validateApiKey',
+      resource: `provider:${id}`,
+      result: result.valid ? 'success' : 'failure',
+      ...(result.valid ? {} : { message: result.error }),
+    });
+    return c.json(ok(result));
+  } catch (e) {
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'provider.validateApiKey',
+      resource: `provider:${id}`,
+      result: 'failure',
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return c.json(fail('VALIDATION_ERROR', e instanceof Error ? e.message : String(e)), 500);
+  }
+});
+
+adminRoutes.post('/providers/:id/test', adminAuthMiddleware, async (c) => {
+  const id = c.req.param('id');
+
+  const cfg = configManager.getConfig();
+  const provider = cfg.llm.providers.find((p) => p.id === id);
+  if (!provider) {
+    return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
+  }
+
+  try {
+    const result = await providerService.testConnection(id);
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'provider.testConnection',
+      resource: `provider:${id}`,
+      result: result.valid ? 'success' : 'failure',
+      ...(result.valid ? {} : { message: result.error }),
+    });
+    return c.json(ok(result));
+  } catch (e) {
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'provider.testConnection',
+      resource: `provider:${id}`,
+      result: 'failure',
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return c.json(fail('TEST_ERROR', e instanceof Error ? e.message : String(e)), 500);
+  }
 });

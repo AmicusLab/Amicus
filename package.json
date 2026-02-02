@@ -17,6 +17,8 @@
     "verify": "bun run typecheck && bun run build && bun run test:all && bun run verify:ui",
     "report": "bash scripts/task-report.sh",
     "demo": "bun run scripts/demo.ts",
+    "validate:zai": "bun run scripts/validate-zai-models.ts",
+    "validate:zai-coding-plan": "bun run scripts/validate-zai-coding-plan-models.ts",
     "start": "concurrently --kill-others-on-fail --names daemon,dashboard \"bun run --cwd apps/daemon start\" \"bun run --cwd apps/dashboard dev\"",
     "start:dev": "concurrently --kill-others-on-fail --names daemon,dashboard \"bun run --cwd apps/daemon dev\" \"bun run --cwd apps/dashboard dev\"",
     "start:all": "concurrently --kill-others-on-fail --names daemon,dashboard,cli \"bun run --cwd apps/daemon start\" \"bun run --cwd apps/dashboard dev\" \"sleep 3 && bun run --cwd apps/cli start\"",

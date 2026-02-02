@@ -11,8 +11,7 @@ import type {
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { ZhipuPlugin } from './plugins/zhipu.js';
-import { MoonshotPlugin } from './plugins/moonshot.js';
+import { MoonshotPlugin, ZaiPlugin, ZaiCodingPlanPlugin } from './plugins/index.js';
 
 /**
  * Provider 레지스트리
@@ -100,10 +99,12 @@ export class ProviderRegistry {
         return new GooglePlugin(module, apiKeyEnv);
       case 'groq':
         return new GroqPlugin(module, apiKeyEnv);
-      case 'zhipu':
-        return new ZhipuPlugin(module, apiKeyEnv);
       case 'moonshot':
         return new MoonshotPlugin(module, apiKeyEnv);
+      case 'zai':
+        return new ZaiPlugin(module, apiKeyEnv);
+      case 'zai-coding-plan':
+        return new ZaiCodingPlanPlugin(module, apiKeyEnv);
       default:
         throw new Error(`Unknown provider: ${id}`);
     }
@@ -501,5 +502,4 @@ class GroqPlugin implements LLMProviderPlugin {
     );
   }
 }
-
 

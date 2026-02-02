@@ -151,3 +151,26 @@ export async function adminSetPassword(password: string): Promise<APIResponse<{ 
     body: JSON.stringify({ password }),
   });
 }
+
+export type APIKeyValidationResult = {
+  valid: boolean;
+  providerId: string;
+  error?: string;
+  details?: {
+    statusCode?: number;
+    message?: string;
+  };
+};
+
+export async function adminValidateProviderApiKey(id: string, apiKey: string): Promise<APIResponse<APIKeyValidationResult>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${id}/validate`, {
+    method: 'POST',
+    body: JSON.stringify({ apiKey }),
+  });
+}
+
+export async function adminTestProviderConnection(id: string): Promise<APIResponse<APIKeyValidationResult>> {
+  return fetchJSONFromBase(ADMIN_BASE, `/providers/${id}/test`, {
+    method: 'POST',
+  });
+}

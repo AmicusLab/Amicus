@@ -1,0 +1,288 @@
+{
+  "provider": "zai",
+  "lastUpdated": 1769990390492,
+  "models": [
+    {
+      "id": "glm-4.7",
+      "name": "GLM-4.7",
+      "description": "Flagship model",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.6,
+      "outputCostPer1M": 2.2,
+      "capabilities": [
+        "text",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 70,
+        "max": 100
+      }
+    },
+    {
+      "id": "glm-4.7-flash",
+      "name": "GLM-4.7 Flash",
+      "description": "Free model",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0,
+      "outputCostPer1M": 0,
+      "capabilities": [
+        "text",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 50,
+        "max": 80
+      }
+    },
+    {
+      "id": "glm-4.7-flashx",
+      "name": "GLM-4.7 FlashX",
+      "description": "Fast model",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.07,
+      "outputCostPer1M": 0.4,
+      "capabilities": [
+        "text",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 50,
+        "max": 80
+      }
+    },
+    {
+      "id": "glm-4.6",
+      "name": "GLM-4.6",
+      "description": "Standard model",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.5,
+      "outputCostPer1M": 1.8,
+      "capabilities": [
+        "text",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 60,
+        "max": 90
+      }
+    },
+    {
+      "id": "glm-4.5",
+      "name": "GLM-4.5",
+      "description": "Balanced model",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.3,
+      "outputCostPer1M": 1.2,
+      "capabilities": [
+        "text",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 50,
+        "max": 80
+      }
+    },
+    {
+      "id": "glm-4.5-x",
+      "name": "GLM-4.5 X",
+      "description": "Extended model",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.4,
+      "outputCostPer1M": 1.5,
+      "capabilities": [
+        "text",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 55,
+        "max": 85
+      }
+    },
+    {
+      "id": "glm-4.5-air",
+      "name": "GLM-4.5 Air",
+      "description": "Lightweight",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.1,
+      "outputCostPer1M": 0.5,
+      "capabilities": [
+        "text",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 30,
+        "max": 60
+      }
+    },
+    {
+      "id": "glm-4.5-airx",
+      "name": "GLM-4.5 AirX",
+      "description": "Ultra-fast",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.05,
+      "outputCostPer1M": 0.3,
+      "capabilities": [
+        "text",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 25,
+        "max": 55
+      }
+    },
+    {
+      "id": "glm-4.5-flash",
+      "name": "GLM-4.5 Flash",
+      "description": "Fast balanced",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.08,
+      "outputCostPer1M": 0.4,
+      "capabilities": [
+        "text",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 40,
+        "max": 70
+      }
+    },
+    {
+      "id": "glm-4-32b-0414-128k",
+      "name": "GLM-4 32B 128K",
+      "description": "32B model",
+      "provider": "zai",
+      "contextWindow": 128000,
+      "maxOutputTokens": 128000,
+      "inputCostPer1M": 0.2,
+      "outputCostPer1M": 0.8,
+      "capabilities": [
+        "text",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 45,
+        "max": 75
+      }
+    },
+    {
+      "id": "glm-4.6v",
+      "name": "GLM-4.6V",
+      "description": "Vision standard",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.6,
+      "outputCostPer1M": 2.2,
+      "capabilities": [
+        "text",
+        "vision",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 60,
+        "max": 90
+      }
+    },
+    {
+      "id": "glm-4.6v-flash",
+      "name": "GLM-4.6V Flash",
+      "description": "Vision fast",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0,
+      "outputCostPer1M": 0,
+      "capabilities": [
+        "text",
+        "vision",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 50,
+        "max": 80
+      }
+    },
+    {
+      "id": "glm-4.6v-flashx",
+      "name": "GLM-4.6V FlashX",
+      "description": "Vision ultra",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.07,
+      "outputCostPer1M": 0.4,
+      "capabilities": [
+        "text",
+        "vision",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 50,
+        "max": 80
+      }
+    },
+    {
+      "id": "glm-4.5v",
+      "name": "GLM-4.5V",
+      "description": "Vision balanced",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.3,
+      "outputCostPer1M": 1.2,
+      "capabilities": [
+        "text",
+        "vision",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 50,
+        "max": 80
+      }
+    },
+    {
+      "id": "autoglm-phone-multilingual",
+      "name": "AutoGLM Phone Multilingual",
+      "description": "Phone agent",
+      "provider": "zai",
+      "contextWindow": 8192,
+      "maxOutputTokens": 8192,
+      "inputCostPer1M": 0.4,
+      "outputCostPer1M": 1.5,
+      "capabilities": [
+        "text",
+        "vision",
+        "tools",
+        "streaming"
+      ],
+      "complexityRange": {
+        "min": 55,
+        "max": 85
+      }
+    }
+  ]
+}

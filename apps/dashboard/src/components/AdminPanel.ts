@@ -7,7 +7,6 @@ import {
   adminLogout,
   adminGetConfig,
   adminPatchConfig,
-  adminReloadConfig,
   adminListProviders,
   adminSetProviderEnabled,
   adminSetProviderApiKey,
@@ -15,10 +14,13 @@ import {
   adminGetAudit,
   adminRenewPairing,
   adminSetPassword,
+  adminValidateProviderApiKey,
+  adminTestProviderConnection,
   type AdminProviderView,
 } from '../api/client.js';
+import './ModelSelector.js';
 
-type AdminTab = 'providers' | 'config' | 'audit' | 'password';
+type AdminTab = 'providers' | 'models' | 'audit' | 'password';
 
 @customElement('admin-panel')
 export class AdminPanel extends LitElement {
@@ -111,20 +113,66 @@ export class AdminPanel extends LitElement {
       margin-top: 0.75rem;
     }
     .provider {
-      display: grid;
-      grid-template-columns: 1fr auto;
+      display: flex;
+      flex-direction: column;
       gap: 0.75rem;
-      align-items: start;
+    }
+    .provider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+    .provider-header-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
     }
     .provider-meta {
       font-size: 0.85rem;
       color: #aaa;
+      margin-top: -0.5rem;
     }
-    .provider-actions {
+    .provider-status {
       display: flex;
       gap: 0.5rem;
+      align-items: center;
+      margin-top: 0.25rem;
       flex-wrap: wrap;
-      justify-content: flex-end;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .status-badge.registered {
+      background: #1a3a1a;
+      color: #6aff6a;
+      border: 1px solid #2a4a2a;
+    }
+    .status-badge.not-registered {
+      background: #3a3a1a;
+      color: #ffa;
+      border: 1px solid #4a4a2a;
+    }
+    .status-badge.default {
+      background: #1a2a3a;
+      color: #6aa7ff;
+      border: 1px solid #2a3a4a;
+    }
+    .provider-controls {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .provider-controls input {
+      flex: 1;
+      min-width: 200px;
     }
     .msg {
       border: 1px solid #333;
@@ -169,8 +217,10 @@ export class AdminPanel extends LitElement {
 
   // data
   @state() private providers: AdminProviderView[] = [];
-  @state() private safeConfig: Record<string, unknown> | null = null;
   @state() private audit: Array<{ timestamp: string; action: string; resource: string; result: string; message?: string }> = [];
+  @state() private currentDefaultModel = '';
+  @state() private dailyBudget = '';
+  @state() private budgetAlertThreshold = '';
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -210,11 +260,18 @@ export class AdminPanel extends LitElement {
     if (!this.authed) return;
     if (this.tab === 'providers') {
       const res = await adminListProviders();
-      if (res.success && res.data) this.providers = res.data;
-    }
-    if (this.tab === 'config') {
-      const res = await adminGetConfig();
-      if (res.success && res.data) this.safeConfig = res.data;
+      if (res.success && res.data) {
+        this.providers = res.data;
+      }
+      
+      const configRes = await adminGetConfig();
+      if (configRes.success && configRes.data) {
+        const llm = configRes.data['llm'] as Record<string, unknown> | undefined;
+        const defaultModel = llm?.['defaultModel'] as string | undefined;
+        this.currentDefaultModel = defaultModel ?? '';
+        this.dailyBudget = typeof llm?.['dailyBudget'] === 'number' ? String(llm['dailyBudget']) : '';
+        this.budgetAlertThreshold = typeof llm?.['budgetAlertThreshold'] === 'number' ? String(llm['budgetAlertThreshold']) : '';
+      }
     }
     if (this.tab === 'audit') {
       const res = await adminGetAudit(50);
@@ -278,7 +335,6 @@ export class AdminPanel extends LitElement {
       await adminLogout();
       this.authed = false;
       this.providers = [];
-      this.safeConfig = null;
       this.audit = [];
       this.setMsg('ok', 'Logged out');
     } catch (e) {
@@ -303,28 +359,72 @@ export class AdminPanel extends LitElement {
   }
 
   private async setProviderKey(id: string, apiKey: string): Promise<void> {
-    this.loading = true;
-    this.message = null;
-    try {
-      await adminSetProviderApiKey(id, apiKey);
-      this.setMsg('ok', `API key updated for ${id}`);
-      await this.loadTabData();
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Update failed');
-    } finally {
-      this.loading = false;
-    }
+    await adminSetProviderApiKey(id, apiKey);
+    await this.loadTabData();
   }
 
   private async unlinkProvider(id: string): Promise<void> {
     this.loading = true;
     this.message = null;
     try {
+      const wasDefaultProvider = this.currentDefaultModel.startsWith(id + ':');
+      
       await adminUnlinkProvider(id);
-      this.setMsg('ok', `Provider ${id} unlinked`);
+      
+      if (wasDefaultProvider) {
+        await adminPatchConfig({ llm: { defaultModel: null } });
+        this.currentDefaultModel = '';
+        this.setMsg('ok', `Provider ${id} unlinked. Default model cleared because it belonged to this provider.`);
+      } else {
+        this.setMsg('ok', `Provider ${id} unlinked`);
+      }
+      
       await this.loadTabData();
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Unlink failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async validateAndSaveProviderKey(id: string, apiKey: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const res = await adminValidateProviderApiKey(id, apiKey);
+      if (res.success && res.data) {
+        if (res.data.valid) {
+          await this.setProviderKey(id, apiKey);
+          this.setMsg('ok', `API key for ${id} validated and saved successfully`);
+        } else {
+          this.setMsg('error', `API key validation failed: ${res.data.error ?? 'Unknown error'}`);
+        }
+      } else {
+        this.setMsg('error', res.error?.message ?? 'Validation failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Validation failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async testProviderConnection(id: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const res = await adminTestProviderConnection(id);
+      if (res.success && res.data) {
+        if (res.data.valid) {
+          this.setMsg('ok', `Connection to ${id} successful`);
+        } else {
+          this.setMsg('error', `Connection test failed: ${res.data.error ?? 'Unknown error'}`);
+        }
+      } else {
+        this.setMsg('error', res.error?.message ?? 'Connection test failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Connection test failed');
     } finally {
       this.loading = false;
     }
@@ -354,37 +454,45 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async patchConfig(patch: Record<string, unknown>): Promise<void> {
+  private async updateBudgetSettings(): Promise<void> {
     this.loading = true;
     this.message = null;
     try {
+      const dailyBudgetNum = this.dailyBudget ? Number(this.dailyBudget) : undefined;
+      const budgetAlertThresholdNum = this.budgetAlertThreshold ? Number(this.budgetAlertThreshold) : undefined;
+
+      if (dailyBudgetNum !== undefined && (isNaN(dailyBudgetNum) || dailyBudgetNum < 0)) {
+        this.setMsg('error', 'Daily budget must be a positive number');
+        return;
+      }
+
+      if (budgetAlertThresholdNum !== undefined && (isNaN(budgetAlertThresholdNum) || budgetAlertThresholdNum < 0)) {
+        this.setMsg('error', 'Alert threshold must be a positive number');
+        return;
+      }
+
+      const patch: Record<string, unknown> = {
+        llm: {
+          ...(dailyBudgetNum !== undefined && { dailyBudget: dailyBudgetNum }),
+          ...(budgetAlertThresholdNum !== undefined && { budgetAlertThreshold: budgetAlertThresholdNum }),
+        },
+      };
+
       const res = await adminPatchConfig(patch);
       if (res.success) {
-        this.safeConfig = res.data ?? null;
-        this.setMsg('ok', 'Config updated');
+        this.setMsg('ok', 'Budget settings updated');
+        await this.loadTabData();
       } else {
-        this.setMsg('error', res.error?.message ?? 'Config update failed');
+        this.setMsg('error', res.error?.message ?? 'Budget update failed');
       }
     } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Config update failed');
+      this.setMsg('error', e instanceof Error ? e.message : 'Budget update failed');
     } finally {
       this.loading = false;
     }
   }
 
-  private async reloadConfig(): Promise<void> {
-    this.loading = true;
-    this.message = null;
-    try {
-      await adminReloadConfig();
-      this.setMsg('ok', 'Config reloaded');
-      await this.loadTabData();
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Reload failed');
-    } finally {
-      this.loading = false;
-    }
-  }
+
 
   private renderLogin() {
     return html`
@@ -441,125 +549,122 @@ export class AdminPanel extends LitElement {
         ${this.providers.map((p) => html`
           <div class="card ${p.error ? 'danger' : ''}">
             <div class="provider">
-              <div>
-                <div class="row">
-                  <div>
-                    <strong>${p.id}</strong>
-                    <div class="provider-meta">
-                      enabled: ${String(p.enabled)} | loaded: ${String(p.loaded)} | available: ${String(p.available)} | models: ${p.modelCount}
-                    </div>
-                    ${p.error ? html`<p class="provider-meta">error: ${p.error}</p>` : nothing}
-                  </div>
-                </div>
-                <div class="row" style="margin-top:0.5rem;">
-                  <input
-                    type="password"
-                    placeholder="set API key (not stored in browser)"
-                    data-provider=${p.id}
-                    @keydown=${(e: KeyboardEvent) => {
-                      if (e.key === 'Enter') {
-                        const el = e.target as HTMLInputElement;
-                        const key = el.value;
-                        if (key) {
-                          el.value = '';
-                          void this.setProviderKey(p.id, key);
-                        }
-                      }
-                    }}
-                  />
+              <div class="provider-header">
+                <strong>${p.id}</strong>
+                <div class="provider-header-actions">
+                  <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
+                    ${p.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    class="btn danger"
+                    ?disabled=${this.loading}
+                    @click=${() => void this.unlinkProvider(p.id)}
+                    title="Disable and delete persisted key"
+                  >
+                    Unlink
+                  </button>
                 </div>
               </div>
-              <div class="provider-actions">
-                <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
-                  ${p.enabled ? 'Disable' : 'Enable'}
+              
+              <div class="provider-status">
+                ${p.available 
+                  ? html`<span class="status-badge registered">✓ Registered</span>`
+                  : html`<span class="status-badge not-registered">No API Key</span>`
+                }
+                ${this.currentDefaultModel.startsWith(p.id + ':')
+                  ? html`<span class="status-badge default">★ Default Provider</span>`
+                  : nothing
+                }
+                <span class="provider-meta">${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}</span>
+              </div>
+              ${p.error ? html`<div class="provider-meta" style="color: #ff6a6a;">Error: ${p.error}</div>` : nothing}
+              
+              <div class="provider-controls">
+                <input
+                  type="password"
+                  placeholder="Enter API key"
+                  data-provider=${p.id}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter') {
+                      const el = e.target as HTMLInputElement;
+                      const key = el.value;
+                      if (key) {
+                        void this.validateAndSaveProviderKey(p.id, key).then(() => {
+                          el.value = '';
+                        });
+                      }
+                    }
+                  }}
+                />
+                <button
+                  class="btn primary"
+                  ?disabled=${this.loading}
+                  @click=${(e: Event) => {
+                    const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
+                    const key = input?.value ?? '';
+                    if (key) {
+                      void this.validateAndSaveProviderKey(p.id, key).then(() => {
+                        if (input) input.value = '';
+                      });
+                    } else {
+                      this.setMsg('error', 'Please enter an API key');
+                    }
+                  }}
+                >
+                  Validate & Save
                 </button>
                 <button
-                  class="btn danger"
+                  class="btn"
                   ?disabled=${this.loading}
-                  @click=${() => void this.unlinkProvider(p.id)}
-                  title="Disable and delete persisted key"
+                  @click=${() => void this.testProviderConnection(p.id)}
                 >
-                  Unlink
+                  Test
                 </button>
               </div>
             </div>
           </div>
         `)}
       </div>
-    `;
-  }
 
-  private renderConfig() {
-    const cfg = this.safeConfig;
-    if (!cfg) return html`<p>Loading...</p>`;
-    const llm = (cfg['llm'] as Record<string, unknown> | undefined) ?? {};
-    const auth = (cfg['auth'] as Record<string, unknown> | undefined) ?? {};
-    const dailyBudget = typeof llm['dailyBudget'] === 'number' ? String(llm['dailyBudget']) : '';
-    const budgetAlertThreshold = typeof llm['budgetAlertThreshold'] === 'number' ? String(llm['budgetAlertThreshold']) : '';
-    const defaultModel = typeof llm['defaultModel'] === 'string' ? llm['defaultModel'] : '';
-    const authEnabled = typeof auth['enabled'] === 'boolean' ? auth['enabled'] : false;
-
-    return html`
-      <div class="card">
+      <div class="card" style="margin-top: 1rem;">
+        <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Usage & Budget</h3>
+        <p style="font-size: 0.85rem; margin-bottom: 1rem;">Configure daily token budget and alert thresholds for cost management.</p>
         <div class="row">
-          <button class="btn" ?disabled=${this.loading} @click=${() => void this.reloadConfig()}>
-            Reload from disk
+          <div>
+            <p><strong>Daily Budget (tokens)</strong></p>
+            <input
+              type="number"
+              placeholder="e.g., 1000000"
+              .value=${this.dailyBudget}
+              @input=${(e: InputEvent) => {
+                this.dailyBudget = (e.target as HTMLInputElement).value;
+              }}
+            />
+          </div>
+          <div>
+            <p><strong>Alert Threshold (tokens)</strong></p>
+            <input
+              type="number"
+              placeholder="e.g., 800000"
+              .value=${this.budgetAlertThreshold}
+              @input=${(e: InputEvent) => {
+                this.budgetAlertThreshold = (e.target as HTMLInputElement).value;
+              }}
+            />
+          </div>
+          <button 
+            class="btn primary" 
+            ?disabled=${this.loading}
+            @click=${() => void this.updateBudgetSettings()}
+          >
+            Save Budget
           </button>
         </div>
       </div>
-
-      <div class="card">
-        <h2>LLM</h2>
-        <div class="row">
-          <div>
-            <p>defaultModel</p>
-            <input
-              .value=${defaultModel}
-              @change=${(e: Event) => {
-                const value = (e.target as HTMLInputElement).value;
-                void this.patchConfig({ llm: { defaultModel: value } });
-              }}
-            />
-          </div>
-          <div>
-            <p>dailyBudget</p>
-            <input
-              .value=${dailyBudget}
-              @change=${(e: Event) => {
-                const value = Number((e.target as HTMLInputElement).value);
-                if (Number.isFinite(value)) {
-                  void this.patchConfig({ llm: { dailyBudget: value } });
-                }
-              }}
-            />
-          </div>
-          <div>
-            <p>budgetAlertThreshold</p>
-            <input
-              .value=${budgetAlertThreshold}
-              @change=${(e: Event) => {
-                const value = Number((e.target as HTMLInputElement).value);
-                if (Number.isFinite(value)) {
-                  void this.patchConfig({ llm: { budgetAlertThreshold: value } });
-                }
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Auth</h2>
-        <div class="row">
-          <p>auth.enabled: <strong>${String(authEnabled)}</strong></p>
-          <button class="btn" ?disabled=${this.loading} @click=${() => void this.patchConfig({ auth: { enabled: !authEnabled } })}>
-            Toggle
-          </button>
-        </div>
-        <p>If enabled, API endpoints require either an admin session cookie or a Bearer API key.</p>
-      </div>
     `;
   }
+
+
 
   private renderAudit() {
     return html`
@@ -636,6 +741,10 @@ export class AdminPanel extends LitElement {
     `;
   }
 
+  private renderModels() {
+    return html`<model-selector></model-selector>`;
+  }
+
   private renderAuthed() {
     return html`
       <div class="row">
@@ -651,7 +760,7 @@ export class AdminPanel extends LitElement {
       <div class="row" style="margin-top:0.5rem;">
         <div class="tabs">
           <button class="tab ${this.tab === 'providers' ? 'active' : ''}" @click=${() => void this.switchTab('providers')}>Providers</button>
-          <button class="tab ${this.tab === 'config' ? 'active' : ''}" @click=${() => void this.switchTab('config')}>Config</button>
+          <button class="tab ${this.tab === 'models' ? 'active' : ''}" @click=${() => void this.switchTab('models')}>Models</button>
           <button class="tab ${this.tab === 'audit' ? 'active' : ''}" @click=${() => void this.switchTab('audit')}>Audit</button>
           <button class="tab ${this.tab === 'password' ? 'active' : ''}" @click=${() => void this.switchTab('password')}>Password</button>
         </div>
@@ -659,8 +768,8 @@ export class AdminPanel extends LitElement {
 
       ${this.tab === 'providers'
         ? this.renderProviders()
-        : this.tab === 'config'
-          ? this.renderConfig()
+        : this.tab === 'models'
+          ? this.renderModels()
           : this.tab === 'audit'
             ? this.renderAudit()
             : this.renderPassword()}

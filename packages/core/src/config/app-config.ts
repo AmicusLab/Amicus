@@ -8,11 +8,12 @@ export const ProviderEntrySchema = z.object({
   enabled: z.boolean(),
   package: z.string().min(1),
   envKey: z.string().min(1).optional(),
+  baseURL: z.string().min(1).optional(),
 });
 
 export const LLMConfigSchema = z.object({
   providers: z.array(ProviderEntrySchema).default([]),
-  defaultModel: z.string().min(1).default('anthropic:claude-3-5-sonnet-20241022'),
+  defaultModel: z.string().min(1).nullable().default(null),
   dailyBudget: z.number().finite().nonnegative().default(10.0),
   budgetAlertThreshold: z.number().finite().min(0).max(1).default(0.8),
 });
@@ -40,7 +41,7 @@ export const AmicusConfigSchema = z.object({
   daemon: DaemonConfigSchema.default({ port: 3000 }),
   llm: LLMConfigSchema.default({
     providers: [],
-    defaultModel: 'anthropic:claude-3-5-sonnet-20241022',
+    defaultModel: null,
     dailyBudget: 10.0,
     budgetAlertThreshold: 0.8,
   }),

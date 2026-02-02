@@ -76,8 +76,9 @@ export class ProviderStatus extends LitElement {
       const response = await getProviders();
       
       if (response.success && response.data) {
-        llmProviders.value = response.data;
-        this._providers = response.data;
+        const availableProviders = response.data.filter(p => p.available);
+        llmProviders.value = availableProviders;
+        this._providers = availableProviders;
       }
     } catch (e) {
       console.error('Failed to load providers:', e);

@@ -41,10 +41,11 @@ export const llmProviderConfig: LLMProviderConfig = {
 
     // Community/Compatible providers (disabled by default)
     {
-      id: 'zhipu',
+      id: 'zai',
       enabled: false,
       package: '@ai-sdk/openai', // Uses OpenAI-compatible API
-      envKey: 'ZHIPU_API_KEY',
+      envKey: 'ZAI_API_KEY',
+      baseURL: 'https://api.z.ai/v1',
     },
     {
       id: 'moonshot',

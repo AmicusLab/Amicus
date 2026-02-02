@@ -1,0 +1,49 @@
+name: Validate ZAI Models
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at 00:00 UTC
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  validate-models:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.5
+
+      - name: Cache node_modules
+        uses: actions/cache@v5
+        with:
+          path: |
+            node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'bun.lockb') }}
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Validate ZAI Models
+        env:
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+        run: bun run validate:zai
+
+      - name: Create Pull Request
+        if: always()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: update/zai-model-availability
+          commit-message: "chore: update z.ai model availability"
+          title: "[Automated] Update z.ai model availability"
+          body: |
+            This PR updates z.ai model availability based on automated validation.
+
+            Changes detected by the weekly scheduled validation workflow.
+          labels: automated
+          draft: false

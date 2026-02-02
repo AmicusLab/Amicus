@@ -247,14 +247,49 @@ lsof -i :3000
 PORT=3001 bun run --cwd apps/daemon dev
 ```
 
-### Dashboard가 Daemon에 연결되지 않음
+## z.ai Model Management
 
+### GitHub Actions Weekly Validation
+
+The repository includes an automated workflow that validates z.ai model availability weekly:
+
+**Workflow**: `.github/workflows/validate-models.yml`
+- **Schedule**: Every Sunday at 00:00 UTC
+- **Manual Trigger**: Available via `workflow_dispatch`
+- **Required Secret**: `ZAI_API_KEY` (set in GitHub repository settings)
+
+**What it does**:
+1. Runs `bun run validate:zai` with API key from secrets
+2. Validates all 15 z.ai models using Tokenizer API
+3. Updates `config/models/zai.json` with availability status
+4. Creates a pull request if availability changes are detected
+
+**Usage**:
 ```bash
-# Daemon이 먼저 실행되었는지 확인
-curl http://localhost:3000/health
-
-# vite.config.ts의 proxy 설정 확인
+# Manual validation
+export ZAI_API_KEY="your-api-key"
+bun run validate:zai
 ```
+
+### Model API Endpoints
+
+**Public endpoints**:
+- `GET /api/models/zai` - List all models with availability
+- `GET /api/models/zai/:id` - Get specific model details
+
+**Admin endpoints**:
+- `POST /admin/models/zai/refresh` - Refresh all model availability
+- `POST /admin/models/zai/:id/validate` - Validate specific model
+
+### Documentation
+
+See `docs/implementation/zai-model-management.md` for complete documentation on:
+- Architecture overview
+- Model metadata (15 models)
+- Availability tracking system
+- Usage instructions
+
+### 문제 해결
 
 ### CLI가 TTY 모드로 실행됨
 

@@ -125,6 +125,9 @@ export interface ProviderConfigEntry {
   
   /** 환경변수 키 (기본값: {ID}_API_KEY) */
   envKey?: string;
+  
+  /** 기본 URL (OpenAI 호환 API용) */
+  baseURL?: string;
 }
 
 /**
@@ -135,7 +138,7 @@ export interface LLMProviderConfig {
   providers: ProviderConfigEntry[];
   
   /** 기본 모델 (provider:model 형식) */
-  defaultModel?: string;
+  defaultModel?: string | null;
   
   /** 일일 예산 (USD) */
   dailyBudget?: number;

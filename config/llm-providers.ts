@@ -48,11 +48,19 @@ export const llmProviderConfig: LLMProviderConfig = {
     },
     
     // 커뮤니티/호환 providers
-    { 
-      id: 'zhipu', 
-      enabled: false, 
-      package: 'zhipu-ai-provider',
-      envKey: 'ZHIPU_API_KEY'
+    {
+      id: 'zai',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'ZAI_API_KEY',
+      baseURL: 'https://api.z.ai/api/paas/v4',
+    },
+    {
+      id: 'zai-coding-plan',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'ZAI_CODING_PLAN_API_KEY',
+      baseURL: 'https://api.z.ai/api/coding/paas/v4',
     },
     { 
       id: 'moonshot', 
@@ -76,10 +84,8 @@ export const llmProviderConfig: LLMProviderConfig = {
     // },
   ],
   
-  // 기본 모델 (provider:model 형식)
-  defaultModel: 'anthropic:claude-3-5-sonnet-20241022',
+  defaultModel: null,
   
-  // 일일 예산 (USD)
   dailyBudget: 10.00,
   
   // 예산 알림 임계값 (0.0-1.0)
@@ -96,7 +102,8 @@ export const providerEnvMap: Record<string, string> = {
   openai: 'OPENAI_API_KEY',
   google: 'GOOGLE_API_KEY',
   groq: 'GROQ_API_KEY',
-  zhipu: 'ZHIPU_API_KEY',
+  zai: 'ZAI_API_KEY',
+  'zai-coding-plan': 'ZAI_CODING_PLAN_API_KEY',
   moonshot: 'MOONSHOT_API_KEY',
 };
 
@@ -108,6 +115,7 @@ export const defaultModelsByProvider: Record<string, string> = {
   openai: 'gpt-4-turbo',
   google: 'gemini-1.5-pro',
   groq: 'llama-3.3-70b-versatile',
-  zhipu: 'glm-4-plus',
+  zai: 'glm-4.7',
+  'zai-coding-plan': 'glm-4.7',
   moonshot: 'kimi-k2.5',
 };

@@ -9,5 +9,5 @@
     }
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["dist"]
+  "exclude": ["dist", "src/**/*.test.ts", "src/**/__tests__/**"]
 }

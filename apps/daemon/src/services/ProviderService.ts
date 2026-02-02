@@ -4,7 +4,7 @@ import {
   type ProviderConfigEntry,
   type LLMProviderConfig,
 } from '@amicus/core';
-import type { LLMProviderStatus } from '@amicus/types/dashboard';
+import type { LLMProviderStatus, APIKeyValidationResult } from '@amicus/types/dashboard';
 import { configManager, secretStore } from './ConfigService.js';
 
 class ProviderService {
@@ -149,6 +149,131 @@ class ProviderService {
 
   isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Validate API key for a specific provider
+   * @param providerId Provider ID (e.g., 'zai')
+   * @param apiKey API key to validate
+   * @returns Validation result
+   */
+  async validateApiKey(providerId: string, apiKey: string): Promise<APIKeyValidationResult> {
+    const cfg = configManager.getConfig();
+    const provider = cfg.llm.providers.find((p) => p.id === providerId);
+    
+    if (!provider) {
+      return {
+        valid: false,
+        providerId,
+        error: `Unknown provider: ${providerId}`,
+      };
+    }
+
+    // For z.ai, make a test request to validate the API key
+    if (providerId === 'zai' || providerId === 'zai-coding-plan') {
+      const baseURL = provider.baseURL ?? (providerId === 'zai-coding-plan' ? 'https://api.z.ai/api/coding/paas/v4' : 'https://api.z.ai/api/paas/v4');
+      return this.validateZaiApiKey(apiKey, baseURL, providerId);
+    }
+
+    // For other providers, basic check (non-empty)
+    if (!apiKey || apiKey.trim().length === 0) {
+      return {
+        valid: false,
+        providerId,
+        error: 'API key is empty',
+      };
+    }
+
+    return {
+      valid: true,
+      providerId,
+    };
+  }
+
+  /**
+   * Validate z.ai API key by making a test request to Tokenizer API
+   */
+  private async validateZaiApiKey(apiKey: string, baseURL: string, providerId: 'zai' | 'zai-coding-plan' = 'zai'): Promise<APIKeyValidationResult> {
+
+    try {
+      const response = await fetch(`${baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'glm-4.7',
+          messages: [{ role: 'user', content: 'test' }],
+          max_tokens: 1,
+        }),
+      });
+
+      if (response.status === 200) {
+        return {
+          valid: true,
+          providerId,
+        };
+      } else if (response.status === 401) {
+        return {
+          valid: false,
+          providerId,
+          error: 'Invalid API key',
+          details: {
+            statusCode: response.status,
+            message: 'Authentication failed',
+          },
+        };
+      } else {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        return {
+          valid: false,
+          providerId,
+          error: `API request failed: ${errorText}`,
+          details: {
+            statusCode: response.status,
+            message: errorText,
+          },
+        };
+      }
+    } catch (error) {
+      return {
+        valid: false,
+        providerId,
+        error: `Connection error: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Test connection to a provider
+   * @param providerId Provider ID
+   * @returns Connection test result
+   */
+  async testConnection(providerId: string): Promise<APIKeyValidationResult> {
+    const cfg = configManager.getConfig();
+    const provider = cfg.llm.providers.find((p) => p.id === providerId);
+    
+    if (!provider) {
+      return {
+        valid: false,
+        providerId,
+        error: `Unknown provider: ${providerId}`,
+      };
+    }
+
+    const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
+    const apiKey = process.env[envKey] ?? secretStore.get(envKey);
+
+    if (!apiKey) {
+      return {
+        valid: false,
+        providerId,
+        error: 'API key not configured',
+      };
+    }
+
+    return this.validateApiKey(providerId, apiKey);
   }
 }
 
