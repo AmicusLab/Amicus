@@ -52,7 +52,7 @@ function createAuditEvent(
 modelRoutes.get('/models/:provider', (c) => {
   const provider = c.req.param('provider');
 
-  // Try plugin-based models first (kimi, kimi-code, etc.)
+  // Try plugin-based models first (kimi-for-coding, zai, etc.)
   const pluginModels = providerService.getRegistry().getModelsByProvider(provider);
 
   if (pluginModels.length > 0) {

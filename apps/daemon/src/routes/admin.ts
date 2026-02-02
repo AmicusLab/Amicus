@@ -22,8 +22,7 @@ const defaultModelsByProvider: Record<string, string> = {
   groq: 'llama-3.3-70b-versatile',
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
-  kimi: 'kimi-k2.5',
-  'kimi-code': 'kimi-for-coding',
+  'kimi-for-coding': 'kimi-for-coding',
 };
 
 export const adminRoutes = new Hono();

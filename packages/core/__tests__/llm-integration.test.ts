@@ -28,8 +28,7 @@ function hasApiKey(providerId: string): boolean {
     google: 'GOOGLE_API_KEY',
     groq: 'GROQ_API_KEY',
     zai: 'ZAI_API_KEY',
-    kimi: 'KIMI_API_KEY',
-    'kimi-code': 'KIMI_API_KEY',
+    'kimi-for-coding': 'KIMI_API_KEY',
   };
 
   const envVar = envVarMap[providerId];
