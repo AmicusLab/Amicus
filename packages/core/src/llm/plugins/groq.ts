@@ -32,6 +32,16 @@ export class GroqPlugin implements LLMProviderPlugin {
   getModels(): ModelInfo[] {
     return [
       {
+        id: 'llama-3.1-8b-instant',
+        name: 'Llama 3.1 8B Instant',
+        description: 'Meta의 최신 8B 모델, Groq의 최고 속도',
+        maxTokens: 131072,
+        inputCostPer1K: 0.00005,
+        outputCostPer1K: 0.00008,
+        complexityRange: { min: 10, max: 70 },
+        capabilities: ['text', 'tools', 'streaming'],
+      },
+      {
         id: 'llama-3.3-70b-versatile',
         name: 'Llama 3.3 70B',
         description: 'Groq의 고성능 추론 모델',

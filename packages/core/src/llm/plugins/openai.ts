@@ -33,6 +33,16 @@ export class OpenAIPlugin implements LLMProviderPlugin {
   getModels(): ModelInfo[] {
     return [
       {
+        id: 'gpt-4-turbo',
+        name: 'GPT-4 Turbo',
+        description: '고성능 모델, 멀티모달 지원, 빠른 응답',
+        maxTokens: 128000,
+        inputCostPer1K: 0.01,
+        outputCostPer1K: 0.03,
+        complexityRange: { min: 50, max: 100 },
+        capabilities: ['text', 'vision', 'tools', 'streaming'],
+      },
+      {
         id: 'gpt-4o',
         name: 'GPT-4o',
         description: 'OpenAI의 최신 멀티모달 모델',
@@ -51,6 +61,39 @@ export class OpenAIPlugin implements LLMProviderPlugin {
         outputCostPer1K: 0.0006,
         complexityRange: { min: 0, max: 70 },
         capabilities: ['text', 'vision', 'streaming'],
+      },
+      {
+        id: 'o1',
+        name: 'o1',
+        description: '추론 모델, 복잡한 문제 해결에 최적화',
+        maxTokens: 128000,
+        inputCostPer1K: 0.015,
+        outputCostPer1K: 0.060,
+        complexityRange: { min: 70, max: 100 },
+        capabilities: ['text', 'tools', 'streaming'],
+        supportsReasoning: 'basic',
+      },
+      {
+        id: 'o1-mini',
+        name: 'o1 Mini',
+        description: '경량 추론 모델, 빠르고 저렴한 추론',
+        maxTokens: 128000,
+        inputCostPer1K: 0.003,
+        outputCostPer1K: 0.012,
+        complexityRange: { min: 50, max: 90 },
+        capabilities: ['text', 'tools', 'streaming'],
+        supportsReasoning: 'basic',
+      },
+      {
+        id: 'o3-mini',
+        name: 'o3 Mini',
+        description: '최신 소형 추론 모델, 비용 효율적',
+        maxTokens: 128000,
+        inputCostPer1K: 0.0011,
+        outputCostPer1K: 0.0044,
+        complexityRange: { min: 30, max: 80 },
+        capabilities: ['text', 'tools', 'streaming'],
+        supportsReasoning: 'basic',
       },
     ];
   }

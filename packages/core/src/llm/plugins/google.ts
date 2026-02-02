@@ -52,6 +52,26 @@ export class GooglePlugin implements LLMProviderPlugin {
         complexityRange: { min: 0, max: 60 },
         capabilities: ['text', 'vision', 'streaming'],
       },
+      {
+        id: 'gemini-2.0-flash',
+        name: 'Gemini 2.0 Flash',
+        description: '최신 2.0 플래시 모델, 최고 성능',
+        maxTokens: 8192,
+        inputCostPer1K: 0.000075,
+        outputCostPer1K: 0.0003,
+        complexityRange: { min: 10, max: 70 },
+        capabilities: ['text', 'vision', 'tools', 'streaming'],
+      },
+      {
+        id: 'gemini-2.0-flash-lite',
+        name: 'Gemini 2.0 Flash Lite',
+        description: '최소 리소스 사용, 가장 빠른 응답',
+        maxTokens: 4096,
+        inputCostPer1K: 0.000035,
+        outputCostPer1K: 0.00014,
+        complexityRange: { min: 0, max: 50 },
+        capabilities: ['text', 'vision', 'streaming'],
+      },
     ];
   }
   
