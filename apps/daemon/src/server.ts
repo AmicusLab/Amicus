@@ -1,4 +1,6 @@
 import { Buffer } from 'node:buffer';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -47,6 +49,18 @@ export function createApp(): Hono {
   app.route('/admin', modelAdminRoutes);
   app.route('/admin', oauthRoutes);
   app.route('/oauth', oauthRoutes);
+
+  app.get('/oauth/callback', async (c) => {
+    const publicDir = join(process.cwd(), 'public');
+    const filePath = join(publicDir, 'oauth-callback.html');
+    try {
+      const html = await readFile(filePath, 'utf-8');
+      return c.html(html);
+    } catch (error) {
+      console.error('[OAuth] Failed to serve callback page:', error);
+      return c.html('<h1>OAuth Callback Error</h1><p>Callback page not found</p>', 404);
+    }
+  });
 
   app.get('/', (c) => {
     return c.json({
