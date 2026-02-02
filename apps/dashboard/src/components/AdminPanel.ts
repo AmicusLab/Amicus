@@ -18,6 +18,7 @@ import {
   adminTestProviderConnection,
   adminOAuthStart,
   adminOAuthPoll,
+  adminOAuthCallback,
   adminOAuthDisconnect,
   type AdminProviderView,
 } from '../api/client.js';
@@ -231,10 +232,15 @@ export class AdminPanel extends LitElement {
     open: boolean;
     providerId: string;
     flowId: string;
+    flowType: 'device_code' | 'pkce' | 'code_paste';
     userCode?: string;
     verificationUri?: string;
+    authorizationUrl?: string;
     polling: boolean;
   } | null = null;
+
+  // OAuth method selection state
+  @state() private selectedOAuthMethod: Record<string, string> = {};
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -507,26 +513,46 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async startOAuthFlow(providerId: string): Promise<void> {
+  private async startOAuthFlow(providerId: string, methodId?: string): Promise<void> {
     this.loading = true;
     this.message = null;
     try {
-      const res = await adminOAuthStart(providerId);
+      const res = await adminOAuthStart(providerId, methodId);
       if (res.success && res.data) {
         if (res.data.flowType === 'device_code') {
           this.oauthDialog = {
             open: true,
             providerId,
             flowId: res.data.flowId,
+            flowType: 'device_code',
             userCode: res.data.userCode,
             verificationUri: res.data.verificationUri,
             polling: false,
           };
           void this.pollOAuthFlow();
-        } else {
+        } else if (res.data.flowType === 'pkce') {
+          this.oauthDialog = {
+            open: true,
+            providerId,
+            flowId: res.data.flowId,
+            flowType: 'pkce',
+            polling: false,
+          };
           if (res.data.authorizationUrl) {
-            window.open(res.data.authorizationUrl, '_blank');
+            const popup = window.open(res.data.authorizationUrl, '_blank', 'width=600,height=700');
+            if (popup) {
+              void this.listenForOAuthCallback(res.data.state ?? '');
+            }
           }
+        } else if (res.data.flowType === 'code_paste') {
+          this.oauthDialog = {
+            open: true,
+            providerId,
+            flowId: res.data.flowId,
+            flowType: 'code_paste',
+            authorizationUrl: res.data.authorizationUrl,
+            polling: false,
+          };
         }
       } else {
         this.setMsg('error', res.error?.message ?? 'OAuth start failed');
@@ -576,6 +602,76 @@ export class AdminPanel extends LitElement {
 
   private closeOAuthDialog(): void {
     this.oauthDialog = null;
+  }
+
+  private async listenForOAuthCallback(expectedState: string): Promise<void> {
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
+        const { code, state } = event.data;
+        if (state !== expectedState) {
+          this.setMsg('error', 'OAuth state mismatch');
+          this.oauthDialog = null;
+          return;
+        }
+
+        const { providerId, flowId } = this.oauthDialog;
+        try {
+          const res = await adminOAuthCallback(providerId, flowId, code, state);
+          if (res.success && res.data?.connected) {
+            this.oauthDialog = null;
+            this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+            await this.loadTabData();
+          } else {
+            this.setMsg('error', res.error?.message ?? 'OAuth callback failed');
+            this.oauthDialog = null;
+          }
+        } catch (e) {
+          this.setMsg('error', e instanceof Error ? e.message : 'OAuth callback failed');
+          this.oauthDialog = null;
+        }
+        
+        window.removeEventListener('message', handleMessage);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      if (this.oauthDialog?.flowType === 'pkce') {
+        this.setMsg('error', 'OAuth timeout - no response from popup');
+        this.oauthDialog = null;
+      }
+    }, 5 * 60 * 1000);
+  }
+
+  private pastedCode = '';
+
+  private async submitPastedCode(): Promise<void> {
+    if (!this.oauthDialog || this.oauthDialog.flowType !== 'code_paste') return;
+    if (!this.pastedCode.trim()) {
+      this.setMsg('error', 'Please enter the authorization code');
+      return;
+    }
+
+    this.loading = true;
+    try {
+      const { providerId, flowId } = this.oauthDialog;
+      const res = await adminOAuthCallback(providerId, flowId, this.pastedCode.trim(), '');
+      if (res.success && res.data?.connected) {
+        this.oauthDialog = null;
+        this.pastedCode = '';
+        this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+        await this.loadTabData();
+      } else {
+        this.setMsg('error', res.error?.message ?? 'OAuth callback failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'OAuth callback failed');
+    } finally {
+      this.loading = false;
+    }
   }
 
   private async disconnectOAuth(providerId: string): Promise<void> {
@@ -691,6 +787,8 @@ export class AdminPanel extends LitElement {
 
   private renderProviderCard(p: AdminProviderView) {
     const isOAuth = this.isOAuthProvider(p);
+    const hasMultipleOAuthMethods = p.oauthMethods && p.oauthMethods.length > 1;
+    
     return html`
       <div class="card ${p.error ? 'danger' : ''}">
         <div class="provider">
@@ -749,13 +847,40 @@ export class AdminPanel extends LitElement {
           
           ${isOAuth
             ? html`<div class="provider-controls">
-                <button
-                  class="btn primary"
-                  ?disabled=${this.loading || p.available}
-                  @click=${() => void this.startOAuthFlow(p.id)}
-                >
-                  ${p.available ? 'Connected' : 'Connect with OAuth'}
-                </button>
+                ${hasMultipleOAuthMethods
+                  ? html`
+                      <select
+                        style="min-width:200px;"
+                        @change=${(e: Event) => {
+                          const select = e.target as HTMLSelectElement;
+                          this.selectedOAuthMethod[p.id] = select.value;
+                        }}
+                      >
+                        ${p.oauthMethods?.map((method) => html`
+                          <option value=${method.id}>${method.label}</option>
+                        `)}
+                      </select>
+                      <button
+                        class="btn primary"
+                        ?disabled=${this.loading || p.available}
+                        @click=${() => {
+                          const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
+                          void this.startOAuthFlow(p.id, methodId);
+                        }}
+                      >
+                        ${p.available ? 'Connected' : 'Connect'}
+                      </button>
+                    `
+                  : html`
+                      <button
+                        class="btn primary"
+                        ?disabled=${this.loading || p.available}
+                        @click=${() => void this.startOAuthFlow(p.id, p.oauthMethods?.[0]?.id)}
+                      >
+                        ${p.available ? 'Connected' : 'Connect with OAuth'}
+                      </button>
+                    `
+                }
               </div>`
             : html`<div class="provider-controls">
                 <input
@@ -807,29 +932,89 @@ export class AdminPanel extends LitElement {
 
   private renderOAuthDialog() {
     if (!this.oauthDialog?.open) return nothing;
-    return html`
-      <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
-        <div class="card" style="max-width:400px;background:#111;">
-          <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
-          <p>Step 1: Visit the link below</p>
-          <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
-            <a href="${this.oauthDialog.verificationUri ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
-              ${this.oauthDialog.verificationUri}
-            </a>
-          </div>
-          <p>Step 2: Enter this code</p>
-          <div style="background:#0b0b0b;padding:1rem;border-radius:8px;text-align:center;font-size:1.5rem;font-family:monospace;letter-spacing:0.2em;">
-            ${this.oauthDialog.userCode}
-          </div>
-          <div style="margin-top:1rem;text-align:center;color:#aaa;">
-            ${this.oauthDialog.polling ? 'Waiting for authorization...' : ''}
-          </div>
-          <div style="margin-top:1rem;text-align:right;">
-            <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
+
+    if (this.oauthDialog.flowType === 'device_code') {
+      return html`
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
+          <div class="card" style="max-width:400px;background:#111;">
+            <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
+            <p>Step 1: Visit the link below</p>
+            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
+              <a href="${this.oauthDialog.verificationUri ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
+                ${this.oauthDialog.verificationUri}
+              </a>
+            </div>
+            <p>Step 2: Enter this code</p>
+            <div style="background:#0b0b0b;padding:1rem;border-radius:8px;text-align:center;font-size:1.5rem;font-family:monospace;letter-spacing:0.2em;">
+              ${this.oauthDialog.userCode}
+            </div>
+            <div style="margin-top:1rem;text-align:center;color:#aaa;">
+              ${this.oauthDialog.polling ? 'Waiting for authorization...' : ''}
+            </div>
+            <div style="margin-top:1rem;text-align:right;">
+              <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
+            </div>
           </div>
         </div>
-      </div>
-    `;
+      `;
+    }
+
+    if (this.oauthDialog.flowType === 'pkce') {
+      return html`
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
+          <div class="card" style="max-width:400px;background:#111;">
+            <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
+            <p style="text-align:center;">Opening browser for authorization...</p>
+            <p style="text-align:center;color:#aaa;font-size:0.85rem;">If the popup was blocked, please allow popups for this site.</p>
+            <div style="margin-top:1rem;text-align:center;color:#aaa;">
+              Waiting for authorization...
+            </div>
+            <div style="margin-top:1rem;text-align:right;">
+              <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.oauthDialog.flowType === 'code_paste') {
+      return html`
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
+          <div class="card" style="max-width:500px;background:#111;">
+            <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
+            <p>Step 1: Visit the authorization URL</p>
+            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
+              <a href="${this.oauthDialog.authorizationUrl ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
+                ${this.oauthDialog.authorizationUrl}
+              </a>
+            </div>
+            <p>Step 2: Paste the authorization code below</p>
+            <input
+              type="text"
+              placeholder="Enter authorization code"
+              .value=${this.pastedCode}
+              @input=${(e: InputEvent) => {
+                this.pastedCode = (e.target as HTMLInputElement).value;
+              }}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  void this.submitPastedCode();
+                }
+              }}
+              style="width:100%;margin:0.5rem 0;"
+            />
+            <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:flex-end;">
+              <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
+              <button class="btn primary" ?disabled=${this.loading} @click=${() => void this.submitPastedCode()}>
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    return nothing;
   }
 
   private renderProviders() {

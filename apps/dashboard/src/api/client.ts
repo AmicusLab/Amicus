@@ -69,6 +69,12 @@ export async function getMCPServers(): Promise<APIResponse<MCPServerStatus[]>> {
 
 export type ProviderAuthMethod = 'api_key' | 'oauth' | 'both';
 
+export type OAuthMethodView = {
+  id: string;
+  label: string;
+  flow: 'device_code' | 'pkce' | 'code_paste';
+};
+
 export type AdminProviderView = {
   id: string;
   enabled: boolean;
@@ -78,6 +84,7 @@ export type AdminProviderView = {
   error?: string;
   authMethod?: ProviderAuthMethod;
   oauthStatus?: 'disconnected' | 'connected' | 'expired';
+  oauthMethods?: OAuthMethodView[];
 };
 
 export async function adminGetSession(): Promise<APIResponse<{ role: string }>> {
@@ -181,7 +188,7 @@ export async function adminTestProviderConnection(id: string): Promise<APIRespon
 
 export type OAuthStartResult = {
   flowId: string;
-  flowType: 'device_code' | 'pkce';
+  flowType: 'device_code' | 'pkce' | 'code_paste';
   userCode?: string;
   verificationUri?: string;
   verificationUriComplete?: string;
@@ -202,9 +209,10 @@ export type OAuthStatusResult = {
   scope?: string;
 };
 
-export async function adminOAuthStart(providerId: string): Promise<APIResponse<OAuthStartResult>> {
+export async function adminOAuthStart(providerId: string, methodId?: string): Promise<APIResponse<OAuthStartResult>> {
   return fetchJSONFromBase(ADMIN_BASE, `/providers/${providerId}/oauth/start`, {
     method: 'POST',
+    body: JSON.stringify({ methodId }),
   });
 }
 
