@@ -95,9 +95,11 @@ class TokenRefreshManager {
       if (config.flow === 'device_code') {
         const flow = new DeviceCodeFlow(config);
         tokens = await flow.refresh(credential.refreshToken);
-      } else {
+      } else if (config.flow === 'pkce') {
         const flow = new PKCEFlow(config);
         tokens = await flow.refresh(credential.refreshToken);
+      } else {
+        throw new Error(`Token refresh not supported for flow type: ${config.flow}`);
       }
 
       const newCredential: OAuthCredential = {

@@ -51,11 +51,8 @@ class ProviderService {
         const mergedProvider = {
           ...defaultProvider,
           ...userProvider,
-        };
-        
-        if (defaultAuth) {
-          (mergedProvider as unknown as { auth: ProviderAuthConfig }).auth = userAuth ?? defaultAuth;
-        }
+          auth: userAuth ?? defaultAuth,
+        } as ProviderConfigEntry;
         
         merged.push(mergedProvider);
         userMap.delete(defaultProvider.id);
@@ -97,6 +94,10 @@ class ProviderService {
       const auth = (p as { auth?: ProviderAuthConfig }).auth;
       const authMethod = auth?.method ?? 'api_key';
       
+      if (p.id === 'anthropic' || p.id === 'openai') {
+        console.log(`[ProviderService] ${p.id}: authMethod=${authMethod}, hasAuth=${!!auth}, hasOAuthMethods=${!!auth?.oauthMethods}`);
+      }
+      
       let oauthStatus: 'connected' | 'disconnected' | undefined;
       let oauthMethods: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }> | undefined;
       
@@ -113,7 +114,7 @@ class ProviderService {
         }
       }
       
-      return {
+      const result = {
         id: p.id,
         enabled: p.enabled,
         loaded,
@@ -124,6 +125,12 @@ class ProviderService {
         ...(oauthMethods ? { oauthMethods } : {}),
         ...(failed?.message ? { error: failed.message } : {}),
       };
+      
+      if (p.id === 'anthropic' || p.id === 'openai') {
+        console.log(`[ProviderService] Final ${p.id}:`, JSON.stringify(result, null, 2));
+      }
+      
+      return result;
     });
   }
 
