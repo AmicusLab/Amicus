@@ -8,14 +8,12 @@ import {
   adminGetConfig,
   adminPatchConfig,
   adminListProviders,
-  adminSetProviderEnabled,
   adminSetProviderApiKey,
   adminUnlinkProvider,
   adminGetAudit,
   adminRenewPairing,
   adminSetPassword,
   adminValidateProviderApiKey,
-  adminTestProviderConnection,
   adminOAuthStart,
   adminOAuthPoll,
   adminOAuthCallback,
@@ -295,9 +293,6 @@ export class AdminPanel extends LitElement {
     polling: boolean;
   } | null = null;
 
-  // OAuth method selection state
-  @state() private selectedOAuthMethod: Record<string, string> = {};
-
   private unsubscribeProviderStatus?: () => void;
 
   connectedCallback(): void {
@@ -436,19 +431,6 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async toggleProvider(id: string, enabled: boolean): Promise<void> {
-    this.loading = true;
-    try {
-      await adminSetProviderEnabled(id, enabled);
-      this.setMsg('ok', `Provider ${id} ${enabled ? 'enabled' : 'disabled'}`);
-      await this.loadTabData();
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Update failed');
-    } finally {
-      this.loading = false;
-    }
-  }
-
   private async setProviderKey(id: string, apiKey: string): Promise<void> {
     await adminSetProviderApiKey(id, apiKey);
     await this.loadTabData();
@@ -493,26 +475,6 @@ export class AdminPanel extends LitElement {
       }
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Validation failed');
-    } finally {
-      this.loading = false;
-    }
-  }
-
-  private async testProviderConnection(id: string): Promise<void> {
-    this.loading = true;
-    try {
-      const res = await adminTestProviderConnection(id);
-      if (res.success && res.data) {
-        if (res.data.valid) {
-          this.setMsg('ok', `Connection to ${id} successful`);
-        } else {
-          this.setMsg('error', `Connection test failed: ${res.data.error ?? 'Unknown error'}`);
-        }
-      } else {
-        this.setMsg('error', res.error?.message ?? 'Connection test failed');
-      }
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Connection test failed');
     } finally {
       this.loading = false;
     }
@@ -925,6 +887,128 @@ export class AdminPanel extends LitElement {
     `;
   }
 
+  private renderAddProviderFlow() {
+    const unconnectedProviders = this.providers.filter((p) => !p.available);
+    
+    if (!this.addProviderFlow) {
+      return html`
+        <div class="card add-provider-flow">
+          <h3>Add New Provider - Step 1: Select</h3>
+          <select @change=${(e: Event) => {
+            const providerId = (e.target as HTMLSelectElement).value;
+            if (!providerId) return;
+            const provider = this.providers.find(p => p.id === providerId);
+            if (!provider) return;
+            
+            const methods = [];
+            if (provider.authMethod === 'api_key' || provider.authMethod === 'both') methods.push('apikey');
+            if (provider.authMethod === 'oauth' || provider.authMethod === 'both') methods.push('oauth');
+            
+            if (methods.length === 1) {
+              this.addProviderFlow = {
+                step: 'connect',
+                selectedProviderId: providerId,
+                selectedProvider: provider,
+                selectedMethod: methods[0] as 'apikey' | 'oauth',
+              };
+            } else {
+              this.addProviderFlow = {
+                step: 'method',
+                selectedProviderId: providerId,
+                selectedProvider: provider,
+              };
+            }
+          }}>
+            <option value="">-- Select a provider --</option>
+            ${unconnectedProviders.map(p => html`<option value=${p.id}>${p.id}</option>`)}
+          </select>
+        </div>
+      `;
+    }
+    
+    if (this.addProviderFlow.step === 'method') {
+      return html`
+        <div class="card add-provider-flow step-method">
+          <h3>Step 2: Select Connection Method for ${this.addProviderFlow.selectedProviderId}</h3>
+          <div style="display:flex;gap:0.5rem;">
+            <button class="btn" @click=${() => this.addProviderFlow = null}>이전</button>
+            ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'api_key'
+              ? html`<button class="btn primary" @click=${() => {
+                  if (!this.addProviderFlow) return;
+                  this.addProviderFlow = {
+                    ...this.addProviderFlow,
+                    step: 'connect',
+                    selectedMethod: 'apikey',
+                  };
+                }}>API Key</button>`
+              : nothing}
+            ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'oauth'
+              ? html`<button class="btn primary" @click=${() => {
+                  if (!this.addProviderFlow) return;
+                  this.addProviderFlow = {
+                    ...this.addProviderFlow,
+                    step: 'connect',
+                    selectedMethod: 'oauth',
+                  };
+                }}>OAuth</button>`
+              : nothing}
+          </div>
+        </div>
+      `;
+    }
+    
+    if (this.addProviderFlow.step === 'connect') {
+      const { selectedProviderId, selectedMethod } = this.addProviderFlow;
+      
+      if (selectedMethod === 'apikey') {
+        return html`
+          <div class="card add-provider-flow step-connect">
+            <h3>Step 3: Connect ${selectedProviderId} with API Key</h3>
+            <div class="provider-controls">
+              <button class="btn" @click=${() => this.addProviderFlow = null}>이전</button>
+              <input
+                type="password"
+                placeholder="Enter API key"
+                .value=${this.addProviderFlow.apiKeyInput || ''}
+                @input=${(e: InputEvent) => {
+                  if (!this.addProviderFlow) return;
+                  this.addProviderFlow = {
+                    ...this.addProviderFlow,
+                    apiKeyInput: (e.target as HTMLInputElement).value,
+                  };
+                }}
+              />
+              <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
+                if (!this.addProviderFlow || !this.addProviderFlow.apiKeyInput) {
+                  this.addMsg('error', 'Please enter an API key');
+                  return;
+                }
+                await this.validateAndSaveProviderKey(selectedProviderId!, this.addProviderFlow.apiKeyInput);
+                this.addProviderFlow = null;
+              }}>Validate & Save</button>
+            </div>
+          </div>
+        `;
+      }
+      
+      return html`
+        <div class="card add-provider-flow step-connect">
+          <h3>Step 3: Connect ${selectedProviderId} with OAuth</h3>
+          <div style="display:flex;gap:0.5rem;">
+            <button class="btn" @click=${() => this.addProviderFlow = null}>이전</button>
+            <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
+              if (!this.addProviderFlow) return;
+              await this.startOAuthFlow(this.addProviderFlow.selectedProviderId!, this.addProviderFlow.selectedOAuthMethodId);
+              this.addProviderFlow = null;
+            }}>Connect with OAuth</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    return nothing;
+  }
+
   private renderOAuthDialog() {
     if (!this.oauthDialog?.open) return nothing;
 
@@ -1035,6 +1119,8 @@ export class AdminPanel extends LitElement {
         <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#6aff6a;">Connected Providers (${connected.length})</h3>
         <div class="grid">${connected.map((p) => this.renderProviderCard(p))}</div>
       ` : nothing}
+
+      ${this.renderAddProviderFlow()}
 
       ${this.renderOAuthDialog()}
 
