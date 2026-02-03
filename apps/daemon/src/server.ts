@@ -11,6 +11,7 @@ import { providerRoutes } from './routes/providers.js';
 import { adminRoutes } from './routes/admin.js';
 import { modelRoutes, modelAdminRoutes } from './routes/models.js';
 import { oauthRoutes } from './routes/oauth.js';
+import { testRoutes } from './routes/test.js';
 import { authMiddleware } from './middleware/auth.js';
 import {
   addClient,
@@ -48,6 +49,7 @@ export function createApp(): Hono {
   app.route('/admin', adminRoutes);
   app.route('/admin', modelAdminRoutes);
   app.route('/admin', oauthRoutes);
+  app.route('/admin', testRoutes);
   app.route('/oauth', oauthRoutes);
 
   app.get('/oauth/callback', async (c) => {

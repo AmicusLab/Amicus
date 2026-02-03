@@ -6,7 +6,8 @@
  * Usage: bun run test-claude.ts
  */
 
-import { ProviderRegistry, llmProviderConfig } from '@amicus/core';
+import { ProviderRegistry } from './packages/core/src/llm/ProviderRegistry.js';
+import { llmProviderConfig } from './config/llm-providers.js';
 import { secretStore } from './apps/daemon/src/services/ConfigService.js';
 
 async function testClaude() {
@@ -27,14 +28,20 @@ async function testClaude() {
   console.log('✅ OAuth credential found');
   console.log(`   Type: ${credential.type}`);
   
+  let apiKey: string;
   if (credential.type === 'oauth') {
-    console.log(`   Token: ${credential.accessToken.substring(0, 20)}...`);
+    apiKey = credential.accessToken;
+    console.log(`   Token: ${apiKey.substring(0, 20)}...`);
     console.log(`   Expires: ${credential.expiresAt ? new Date(credential.expiresAt).toISOString() : 'N/A'}\n`);
-    process.env.ANTHROPIC_API_KEY = credential.accessToken;
+  } else if (credential.type === 'api_key') {
+    apiKey = credential.apiKey;
+    console.log(`   API Key: ${apiKey.substring(0, 20)}...\n`);
   } else {
-    console.log(`   API Key: ${credential.apiKey.substring(0, 20)}...\n`);
-    process.env.ANTHROPIC_API_KEY = credential.apiKey;
+    apiKey = credential.token;
+    console.log(`   Token: ${apiKey.substring(0, 20)}...\n`);
   }
+  
+  process.env.ANTHROPIC_API_KEY = apiKey;
   
   // Create registry and load Anthropic
   const registry = new ProviderRegistry();
@@ -70,26 +77,28 @@ async function testClaude() {
   }
   
   try {
-    const result = await plugin.generateText(
-      'claude-3-5-sonnet-20241022',
-      'Say "Hello from Claude!" in a friendly way.',
-      { maxTokens: 50 }
-    );
+    const { generateText } = await import('ai');
+    const anthropic = plugin.createProvider({ apiKey }) as any;
+    
+    const result = await generateText({
+      model: anthropic('claude-3-5-sonnet-20241022'),
+      prompt: 'Say "Hello from Claude!" in a friendly way. Keep it under 30 words.',
+      maxTokens: 50,
+    });
     
     console.log('✅ Inference successful!\n');
     console.log('📝 Response:');
     console.log('   ' + result.text);
     console.log();
     console.log('📊 Usage:');
-    console.log(`   Input tokens: ${result.usage?.inputTokens ?? 0}`);
-    console.log(`   Output tokens: ${result.usage?.outputTokens ?? 0}`);
-    console.log(`   Total tokens: ${result.usage?.totalTokens ?? 0}`);
+    console.log(`   Prompt tokens: ${result.usage.promptTokens}`);
+    console.log(`   Completion tokens: ${result.usage.completionTokens}`);
+    console.log(`   Total tokens: ${result.usage.totalTokens}`);
     
   } catch (error) {
     console.error('❌ Inference failed:', error);
     if (error instanceof Error) {
       console.error('   Message:', error.message);
-      console.error('   Stack:', error.stack);
     }
     process.exit(1);
   }
