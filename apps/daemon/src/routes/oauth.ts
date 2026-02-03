@@ -70,47 +70,33 @@ function getProviderConfig(providerId: string): ProviderWithAuth | undefined {
 oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) => {
   const providerId = c.req.param('id');
   const body = (await c.req.json().catch(() => null)) as { methodId?: string } | null;
-  console.log('[OAuth] Start request:', { providerId, body });
   
   const provider = getProviderConfig(providerId);
 
   if (!provider) {
-    console.log('[OAuth] Provider not found:', providerId);
     return c.json(fail('NOT_FOUND', `Unknown provider: ${providerId}`), 404);
   }
 
   if (!provider.auth) {
-    console.log('[OAuth] Provider has no auth config:', providerId);
     return c.json(fail('NOT_SUPPORTED', `Provider ${providerId} does not support OAuth`), 400);
   }
-
-  console.log('[OAuth] Provider auth config:', { 
-    providerId, 
-    hasOAuthMethods: !!provider.auth.oauthMethods,
-    oauthMethodsCount: provider.auth.oauthMethods?.length,
-    hasOAuth: !!provider.auth.oauth
-  });
 
   let oauthConfig;
   if (provider.auth.oauthMethods && provider.auth.oauthMethods.length > 0) {
     const methodId = body?.methodId;
-    console.log('[OAuth] Looking for method:', { methodId, availableMethods: provider.auth.oauthMethods.map(m => m.id) });
     
     const method = methodId
       ? provider.auth.oauthMethods.find((m) => m.id === methodId)
       : provider.auth.oauthMethods[0];
     
     if (!method) {
-      console.log('[OAuth] Method not found:', { methodId, availableMethods: provider.auth.oauthMethods.map(m => m.id) });
       return c.json(fail('INVALID_METHOD', `OAuth method ${methodId ?? 'default'} not found`), 400);
     }
     
-    console.log('[OAuth] Selected method:', { methodId: method.id, flowType: method.flow.flow });
     oauthConfig = method.flow;
   } else if (provider.auth.oauth) {
     oauthConfig = provider.auth.oauth;
   } else {
-    console.log('[OAuth] No OAuth methods or oauth config found');
     return c.json(fail('NOT_SUPPORTED', `Provider ${providerId} does not support OAuth`), 400);
   }
 
@@ -150,23 +136,19 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
     } else if (oauthConfig.flow === 'pkce') {
       const flow = new PKCEFlow(oauthConfig);
       const { url, state } = flow.generateAuthUrl();
-      
-      console.log('[OAuth] PKCE flow generated URL:', url);
-      console.log('[OAuth] PKCE state:', state);
 
       const flowId = randomUUID();
       pendingFlows.set(flowId, {
         providerId,
         flow,
         state,
-        expiresAt: Date.now() + 5 * 60 * 1000,
+        expiresAt: Date.now() + 3 * 60 * 1000,
       });
 
       flow.startCallbackServer({
         expectedState: state,
-        timeoutMs: 5 * 60 * 1000,
+        timeoutMs: 3 * 60 * 1000,
       }).then(async ({ code, state }) => {
-        console.log('[OAuth] Callback received, exchanging code for token');
         try {
           const credential = await flow.exchangeCode(code, state);
           await secretStore.setCredential(providerId, credential);
@@ -201,8 +183,6 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
             resource: `provider:${providerId}`,
             result: 'success',
           });
-
-          console.log('[OAuth] PKCE flow completed successfully');
         } catch (err) {
           console.error('[OAuth] Token exchange failed:', err);
           pendingFlows.delete(flowId);

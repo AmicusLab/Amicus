@@ -41,17 +41,18 @@ Amicus now supports OAuth authentication for LLM providers in addition to API ke
 **Used by**: OpenAI (browser), Google
 
 **Flow**:
-1. User clicks "Connect" → Backend generates PKCE challenge
+1. User clicks "Connect" → Backend generates PKCE challenge + starts ephemeral callback server on port 1455
 2. UI opens popup window with authorization URL
-3. User authorizes in popup → OAuth redirects to callback URL
-4. Callback page posts message to parent window
-5. Parent window sends code to backend
-6. Backend exchanges code for tokens
+3. User authorizes in popup → OAuth redirects to `http://localhost:1455/auth/callback`
+4. Ephemeral server receives code → automatically exchanges for tokens
+5. Server stores credentials and shuts down (3-minute timeout)
+6. UI polls backend for completion status
 
 **Implementation**:
-- `apps/daemon/src/services/OAuthFlows.ts`: `PKCEFlow` class
-- `apps/daemon/public/oauth-callback.html`: Callback page that posts message
-- `apps/dashboard/src/components/AdminPanel.ts`: `listenForOAuthCallback()` method
+- `apps/daemon/src/services/OAuthFlows.ts`: `PKCEFlow` class with `startCallbackServer()` method
+- Ephemeral HTTP server on port 1455 (based on OpenCode pattern)
+- Auto-shutdown after callback or 3-minute timeout
+- `apps/dashboard/src/components/AdminPanel.ts`: Opens popup window
 
 ### 3. Code Paste Flow (Anthropic)
 **Used by**: Anthropic
@@ -188,7 +189,18 @@ All OAuth client IDs are **public** and safe to commit:
 ### PKCE Security
 - State parameter validated on callback
 - Code verifier/challenge generated per flow
-- Callback only accepts messages from same origin
+- Ephemeral callback server only accepts expected state
+- Server auto-shuts down after callback or 3-minute timeout
+
+### OpenAI OAuth Specifics
+- **Client ID**: `app_EMoamEEZ73f0CkXaXp7hrann` (shared public client, used by OpenCode, claude-code-mux, and others)
+- **Redirect URI**: Fixed to `http://localhost:1455/auth/callback` (hardcoded in OpenAI's OAuth app)
+- **Special Parameters**:
+  - `codex_cli_simplified_flow=true`: Enables CLI-optimized OAuth flow
+  - `id_token_add_organizations=true`: Includes organization info in ID token
+  - `originator=amicus`: Identifies the client application
+- **Port 1455**: Ephemeral HTTP server started only during OAuth flow
+- **Based on**: OpenCode's ephemeral server pattern ([reference](https://github.com/numman-ali/opencode-openai-codex-auth))
 
 ## Testing
 

@@ -94,10 +94,6 @@ class ProviderService {
       const auth = (p as { auth?: ProviderAuthConfig }).auth;
       const authMethod = auth?.method ?? 'api_key';
       
-      if (p.id === 'anthropic' || p.id === 'openai') {
-        console.log(`[ProviderService] ${p.id}: authMethod=${authMethod}, hasAuth=${!!auth}, hasOAuthMethods=${!!auth?.oauthMethods}`);
-      }
-      
       let oauthStatus: 'connected' | 'disconnected' | undefined;
       let oauthMethods: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }> | undefined;
       
