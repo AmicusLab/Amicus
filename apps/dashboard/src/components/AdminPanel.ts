@@ -27,6 +27,22 @@ import './ModelSelector.js';
 
 type AdminTab = 'providers' | 'models' | 'audit' | 'password';
 
+type AddProviderFlow = {
+  step: 'select' | 'method' | 'connect';
+  selectedProviderId?: string;
+  selectedProvider?: AdminProviderView;
+  selectedMethod?: 'apikey' | 'oauth';
+  selectedOAuthMethodId?: string;
+  apiKeyInput?: string;
+};
+
+type ToastMessage = {
+  id: string;
+  kind: 'ok' | 'error';
+  text: string;
+  timestamp: number;
+};
+
 @customElement('admin-panel')
 export class AdminPanel extends LitElement {
   static styles = css`
@@ -247,7 +263,8 @@ export class AdminPanel extends LitElement {
   @state() private authed = false;
   @state() private tab: AdminTab = 'providers';
   @state() private loading = false;
-  @state() private messages: Array<{ id: string; kind: 'ok' | 'error'; text: string; timestamp: number }> = [];
+  @state() private addProviderFlow: AddProviderFlow | null = null;
+  @state() private messages: ToastMessage[] = [];
 
   // login inputs (not persisted)
   @state() private pairingCode = '';
