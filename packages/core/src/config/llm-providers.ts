@@ -104,7 +104,7 @@ export const llmProviderConfig: LLMProviderConfig = {
               clientId: '456324763910-ejpb7ro7k7baenh62uvnoh3isl2gh66r.apps.googleusercontent.com',
               authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
               tokenUrl: 'https://oauth2.googleapis.com/token',
-              callbackUrl: 'http://localhost:3000/oauth/callback',
+              callbackUrl: 'http://localhost:1455/auth/callback',
               scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email',
             },
           },
