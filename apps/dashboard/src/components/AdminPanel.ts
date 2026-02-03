@@ -870,13 +870,12 @@ export class AdminPanel extends LitElement {
 
   private renderProviderCard(p: AdminProviderView) {
     const isOAuth = this.isOAuthProvider(p);
-    const hasMultipleOAuthMethods = p.oauthMethods && p.oauthMethods.length > 1;
     
     return html`
       <div class="card ${p.error ? 'danger' : ''}">
         <div class="provider">
           <div class="provider-header">
-            <strong>${p.id}</strong>
+            <strong>${p.id} (${p.modelCount} model${p.modelCount !== 1 ? 's' : ''})</strong>
             <div class="provider-header-actions">
               ${p.available && !this.currentDefaultModel.startsWith(p.id + ':')
                 ? html`<button
@@ -889,9 +888,6 @@ export class AdminPanel extends LitElement {
                   </button>`
                 : nothing
               }
-              <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
-                ${p.enabled ? 'Disable' : 'Enable'}
-              </button>
               ${isOAuth && p.oauthStatus === 'connected'
                 ? html`<button
                     class="btn danger"
@@ -916,99 +912,14 @@ export class AdminPanel extends LitElement {
           <div class="provider-status">
             ${p.available 
               ? html`<span class="status-badge registered">✓ Connected</span>`
-              : isOAuth
-                ? html`<span class="status-badge not-registered">OAuth Required</span>`
-                : html`<span class="status-badge not-registered">No API Key</span>`
+              : nothing
             }
             ${this.currentDefaultModel.startsWith(p.id + ':')
               ? html`<span class="status-badge default">★ Default Provider</span>`
               : nothing
             }
-            <span class="provider-meta">${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}</span>
           </div>
           ${p.error ? html`<div class="provider-meta" style="color: #ff6a6a;">Error: ${p.error}</div>` : nothing}
-          
-          ${isOAuth
-            ? html`<div class="provider-controls">
-                ${hasMultipleOAuthMethods
-                  ? html`
-                       <select
-                         style="min-width:200px;"
-                         .value=${this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id || ''}
-                         @change=${(e: Event) => {
-                           const select = e.target as HTMLSelectElement;
-                           this.selectedOAuthMethod[p.id] = select.value;
-                         }}
-                       >
-                        ${p.oauthMethods?.map((method) => html`
-                          <option value=${method.id}>${method.label}</option>
-                        `)}
-                      </select>
-                       <button
-                         class="btn primary"
-                         ?disabled=${this.loading || p.available}
-                         @click=${() => {
-                           const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
-                           void this.startOAuthFlow(p.id, methodId);
-                         }}
-                       >
-                        ${p.available ? 'Connected' : 'Connect'}
-                      </button>
-                    `
-                  : html`
-                      <button
-                        class="btn primary"
-                        ?disabled=${this.loading || p.available}
-                        @click=${() => void this.startOAuthFlow(p.id, p.oauthMethods?.[0]?.id)}
-                      >
-                        ${p.available ? 'Connected' : 'Connect with OAuth'}
-                      </button>
-                    `
-                }
-              </div>`
-            : html`<div class="provider-controls">
-                <input
-                  type="password"
-                  placeholder="Enter API key"
-                  data-provider=${p.id}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter') {
-                      const el = e.target as HTMLInputElement;
-                      const key = el.value;
-                      if (key) {
-                        void this.validateAndSaveProviderKey(p.id, key).then(() => {
-                          el.value = '';
-                        });
-                      }
-                    }
-                  }}
-                />
-                <button
-                  class="btn primary"
-                  ?disabled=${this.loading}
-                  @click=${(e: Event) => {
-                    const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
-                    const key = input?.value ?? '';
-                    if (key) {
-                      void this.validateAndSaveProviderKey(p.id, key).then(() => {
-                        if (input) input.value = '';
-                      });
-                    } else {
-                      this.setMsg('error', 'Please enter an API key');
-                    }
-                  }}
-                >
-                  Validate & Save
-                </button>
-                <button
-                  class="btn"
-                  ?disabled=${this.loading}
-                  @click=${() => void this.testProviderConnection(p.id)}
-                >
-                  Test
-                </button>
-              </div>`
-          }
         </div>
       </div>
     `;
@@ -1106,8 +1017,6 @@ export class AdminPanel extends LitElement {
     const filtered = this.providers.filter((p) => p.id.toLowerCase().includes(query));
     
     const connected = filtered.filter((p) => p.available);
-    const apiKeyProviders = filtered.filter((p) => !p.available && !this.isOAuthProvider(p));
-    const oauthProviders = filtered.filter((p) => !p.available && this.isOAuthProvider(p));
 
     return html`
       <div style="margin-bottom:1rem;">
@@ -1123,18 +1032,8 @@ export class AdminPanel extends LitElement {
       </div>
 
       ${connected.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#6aff6a;">Connected (${connected.length})</h3>
+        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#6aff6a;">Connected Providers (${connected.length})</h3>
         <div class="grid">${connected.map((p) => this.renderProviderCard(p))}</div>
-      ` : nothing}
-
-      ${apiKeyProviders.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#aaa;">API Key Providers (${apiKeyProviders.length})</h3>
-        <div class="grid">${apiKeyProviders.map((p) => this.renderProviderCard(p))}</div>
-      ` : nothing}
-
-      ${oauthProviders.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#ffa;">OAuth Providers (${oauthProviders.length})</h3>
-        <div class="grid">${oauthProviders.map((p) => this.renderProviderCard(p))}</div>
       ` : nothing}
 
       ${this.renderOAuthDialog()}
