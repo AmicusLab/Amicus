@@ -414,7 +414,7 @@ export class CodePasteFlow {
       throw new Error('OAuth state mismatch');
     }
 
-    const body = new URLSearchParams({
+    const body = JSON.stringify({
       client_id: this.config.clientId,
       code,
       grant_type: 'authorization_code',
@@ -424,7 +424,7 @@ export class CodePasteFlow {
 
     const res = await fetch(this.config.tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': 'application/json' },
       body,
     });
 
@@ -448,7 +448,7 @@ export class CodePasteFlow {
   }
 
   async refresh(refreshToken: string): Promise<OAuthTokenResponse> {
-    const body = new URLSearchParams({
+    const body = JSON.stringify({
       client_id: this.config.clientId,
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
@@ -456,7 +456,7 @@ export class CodePasteFlow {
 
     const res = await fetch(this.config.tokenUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': 'application/json' },
       body,
     });
 
