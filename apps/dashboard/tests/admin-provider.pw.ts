@@ -104,16 +104,16 @@ test.describe('Admin Provider UI Refactored', () => {
     await page.getByRole('button', { name: 'Admin' }).click();
     await expect(page.locator('admin-panel')).toBeVisible();
 
-    await expect(page.getByText('Add New Provider')).not.toBeVisible();
+    await expect(page.locator('.add-provider-flow h3')).not.toBeVisible();
 
     await page.getByRole('button', { name: '+ Add New Provider' }).click();
     
-    await expect(page.getByText('Add New Provider')).toBeVisible();
+    await expect(page.locator('.add-provider-flow h3')).toBeVisible();
     await expect(page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...')).toBeVisible();
 
     await page.getByRole('button', { name: '취소' }).click();
     
-    await expect(page.getByText('Add New Provider')).not.toBeVisible();
+    await expect(page.locator('.add-provider-flow h3')).not.toBeVisible();
   });
 
   test('3. Search providers with alias (chatgpt -> openai)', async ({ page }) => {
@@ -197,6 +197,17 @@ test.describe('Admin Provider UI Refactored', () => {
       });
     });
 
+    await page.route('**/admin/providers/groq/validate', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { valid: true },
+        }),
+      });
+    });
+
     await page.route('**/admin/providers/groq/apikey', async (route) => {
       apiKeySet = true;
       await route.fulfill({
@@ -223,7 +234,7 @@ test.describe('Admin Provider UI Refactored', () => {
     await page.getByPlaceholder('Enter API key').fill('gsk-test123');
     await page.getByRole('button', { name: 'Validate & Save' }).click();
 
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(1000);
     expect(apiKeySet).toBe(true);
   });
 

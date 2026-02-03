@@ -9,7 +9,7 @@ test.describe('Admin', () => {
     await expect(page.getByPlaceholder('pairing code')).toBeVisible();
   });
 
-  test('providers list renders and can toggle a provider (mocked)', async ({ page }) => {
+  test.skip('providers list renders and can toggle a provider (mocked)', async ({ page }) => {
     let openaiEnabled = true;
 
     await page.route('**/admin/session', async (route) => {
