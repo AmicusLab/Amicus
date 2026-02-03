@@ -281,7 +281,7 @@ export class AdminPanel extends LitElement {
     if (this.tab === 'providers') {
       const res = await adminListProviders();
       if (res.success && res.data) {
-        this.providers = res.data;
+        this.providers = [...res.data];
       }
       
       const configRes = await adminGetConfig();
@@ -633,7 +633,9 @@ export class AdminPanel extends LitElement {
         this.setMsg('ok', `Connected to ${providerId} via OAuth`);
         console.log('[AdminPanel] Loading tab data...');
         await this.loadTabData();
-        console.log('[AdminPanel] Tab data loaded, OAuth complete');
+        console.log('[AdminPanel] Tab data loaded, forcing re-render...');
+        this.requestUpdate();
+        console.log('[AdminPanel] OAuth complete');
         window.removeEventListener('message', handleMessage);
       } else if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
         const { code, state } = event.data;
