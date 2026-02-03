@@ -205,12 +205,49 @@ export class AdminPanel extends LitElement {
       color: #aaa;
       font-weight: 600;
     }
+    .toast-container {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.5rem;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast {
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      background: #0b0b0b;
+      color: #ddd;
+      min-width: 300px;
+      max-width: 500px;
+      pointer-events: auto;
+      animation: slideIn 0.3s ease-out;
+    }
+    .toast.error {
+      border-color: #ff6a6a;
+      color: #ffb3b3;
+    }
+    .toast.removing {
+      animation: slideOut 0.3s ease-in forwards;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(100%); opacity: 0; }
+    }
   `;
 
   @state() private authed = false;
   @state() private tab: AdminTab = 'providers';
   @state() private loading = false;
-  @state() private message: { kind: 'ok' | 'error'; text: string } | null = null;
+  @state() private messages: Array<{ id: string; kind: 'ok' | 'error'; text: string; timestamp: number }> = [];
 
   // login inputs (not persisted)
   @state() private pairingCode = '';
@@ -267,8 +304,18 @@ export class AdminPanel extends LitElement {
     super.disconnectedCallback();
   }
 
+  private addMsg(kind: 'ok' | 'error', text: string): void {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    this.messages = [...this.messages, { id, kind, text, timestamp: Date.now() }];
+    setTimeout(() => this.removeMsg(id), 5000);
+  }
+
+  private removeMsg(id: string): void {
+    this.messages = this.messages.filter(m => m.id !== id);
+  }
+
   private setMsg(kind: 'ok' | 'error', text: string) {
-    this.message = { kind, text };
+    this.addMsg(kind, text);
   }
 
   private async refresh(): Promise<void> {
@@ -321,7 +368,6 @@ export class AdminPanel extends LitElement {
 
   private async doPair(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminPair(this.pairingCode.trim());
       if (res.success) {
@@ -341,7 +387,6 @@ export class AdminPanel extends LitElement {
 
   private async doLogin(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminLogin(this.password);
       if (res.success) {
@@ -361,7 +406,6 @@ export class AdminPanel extends LitElement {
 
   private async doLogout(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       await adminLogout();
       this.authed = false;
@@ -377,7 +421,6 @@ export class AdminPanel extends LitElement {
 
   private async toggleProvider(id: string, enabled: boolean): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       await adminSetProviderEnabled(id, enabled);
       this.setMsg('ok', `Provider ${id} ${enabled ? 'enabled' : 'disabled'}`);
@@ -396,7 +439,6 @@ export class AdminPanel extends LitElement {
 
   private async unlinkProvider(id: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const wasDefaultProvider = this.currentDefaultModel.startsWith(id + ':');
       
@@ -420,7 +462,6 @@ export class AdminPanel extends LitElement {
 
   private async validateAndSaveProviderKey(id: string, apiKey: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminValidateProviderApiKey(id, apiKey);
       if (res.success && res.data) {
@@ -442,7 +483,6 @@ export class AdminPanel extends LitElement {
 
   private async testProviderConnection(id: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminTestProviderConnection(id);
       if (res.success && res.data) {
@@ -463,7 +503,6 @@ export class AdminPanel extends LitElement {
 
   private async setDefaultProvider(id: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const defaultModelsByProvider: Record<string, string> = {
         anthropic: 'claude-3-5-sonnet-20241022',
@@ -511,7 +550,6 @@ export class AdminPanel extends LitElement {
     }
 
     this.loading = true;
-    this.message = null;
     try {
       await adminSetPassword(this.newPassword);
       this.setMsg('ok', 'Password updated successfully. Use it for next login.');
@@ -526,7 +564,6 @@ export class AdminPanel extends LitElement {
 
   private async startOAuthFlow(providerId: string, methodId?: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminOAuthStart(providerId, methodId);
       if (res.success && res.data) {
@@ -707,7 +744,6 @@ export class AdminPanel extends LitElement {
 
   private async disconnectOAuth(providerId: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminOAuthDisconnect(providerId);
       if (res.success) {
@@ -725,7 +761,6 @@ export class AdminPanel extends LitElement {
 
   private async updateBudgetSettings(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const dailyBudgetNum = this.dailyBudget ? Number(this.dailyBudget) : undefined;
       const budgetAlertThresholdNum = this.budgetAlertThreshold ? Number(this.budgetAlertThreshold) : undefined;
@@ -1239,7 +1274,6 @@ export class AdminPanel extends LitElement {
 
   private async renewPairing(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminRenewPairing();
       if (res.success && res.data) {
@@ -1256,7 +1290,6 @@ export class AdminPanel extends LitElement {
 
   private async switchTab(next: AdminTab): Promise<void> {
     this.tab = next;
-    this.message = null;
     this.loading = true;
     try {
       await this.loadTabData();
@@ -1265,12 +1298,23 @@ export class AdminPanel extends LitElement {
     }
   }
 
+  private renderToasts() {
+    if (this.messages.length === 0) return nothing;
+    return html`
+      <div class="toast-container">
+        ${this.messages.map(msg => html`
+          <div class="toast ${msg.kind === 'error' ? 'error' : ''}">
+            ${msg.text}
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
   render() {
     return html`
       ${this.authed ? this.renderAuthed() : this.renderLogin()}
-      ${this.message
-        ? html`<div class="msg ${this.message.kind === 'error' ? 'error' : ''}">${this.message.text}</div>`
-        : nothing}
+      ${this.renderToasts()}
     `;
   }
 }
