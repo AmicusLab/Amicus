@@ -608,11 +608,18 @@ export class AdminPanel extends LitElement {
 
   private async listenForOAuthCallback(expectedState: string): Promise<void> {
     const handleMessage = async (event: MessageEvent) => {
+      console.log('[AdminPanel] postMessage received:', event.origin, event.data);
+      
       const isLocalhost = event.origin.startsWith('http://localhost:') || 
                           event.origin.startsWith('http://127.0.0.1:');
-      if (!isLocalhost) return;
+      if (!isLocalhost) {
+        console.log('[AdminPanel] Rejected: not localhost');
+        return;
+      }
       
       if (event.data?.type === 'oauth_success' && this.oauthDialog) {
+        console.log('[AdminPanel] oauth_success received, state:', event.data.state);
+        console.log('[AdminPanel] expectedState:', expectedState);
         const { state } = event.data;
         if (state !== expectedState) {
           this.setMsg('error', 'OAuth state mismatch');
@@ -621,9 +628,12 @@ export class AdminPanel extends LitElement {
         }
 
         const { providerId } = this.oauthDialog;
+        console.log('[AdminPanel] State validated, updating UI for provider:', providerId);
         this.oauthDialog = null;
         this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+        console.log('[AdminPanel] Loading tab data...');
         await this.loadTabData();
+        console.log('[AdminPanel] Tab data loaded, OAuth complete');
         window.removeEventListener('message', handleMessage);
       } else if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
         const { code, state } = event.data;

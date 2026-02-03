@@ -335,11 +335,16 @@ export class PKCEFlow {
         }
 
         if (state !== opts.expectedState) {
+          console.error('[OAuth] State mismatch!');
+          console.error('[OAuth]   Expected:', opts.expectedState);
+          console.error('[OAuth]   Received:', state);
           res.statusCode = 400;
           res.end('Invalid state');
           finish(new Error('OAuth state mismatch'));
           return;
         }
+        
+        console.log('[OAuth] Callback received - state validated, exchanging code for token...');
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/html');
