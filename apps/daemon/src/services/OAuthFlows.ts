@@ -361,8 +361,15 @@ export class PKCEFlow {
         finish(undefined, { code, state });
       });
 
-      server.once('error', (err) => finish(err));
-      server.listen(port, 'localhost');
+      server.once('error', (err) => {
+        console.error(`[OAuth] Failed to start callback server on port ${port}:`, err);
+        finish(err);
+      });
+      
+      console.log(`[OAuth] Starting callback server on port ${port}...`);
+      server.listen(port, 'localhost', () => {
+        console.log(`[OAuth] Callback server listening on http://localhost:${port}${pathname}`);
+      });
 
       timeout = setTimeout(() => {
         finish(new Error('OAuth callback timeout'));
