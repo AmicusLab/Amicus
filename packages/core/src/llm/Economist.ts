@@ -61,15 +61,6 @@ export class Economist {
 
   private readonly models: ModelConfig[] = [
     {
-      id: 'google:gemini-1.5-flash',
-      provider: 'google',
-      modelId: 'gemini-1.5-flash',
-      inputCostPer1K: 0.000075,
-      outputCostPer1K: 0.0003,
-      complexityRange: { min: 0, max: 30 },
-      description: 'Fast and cost-effective for simple tasks',
-    },
-    {
       id: 'anthropic:claude-3-haiku-20240307',
       provider: 'anthropic',
       modelId: 'claude-3-haiku-20240307',

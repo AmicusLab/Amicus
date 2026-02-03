@@ -211,7 +211,7 @@ describe("Economist", () => {
       const task = createTestTask("t1", "Fix typo quickly");
       const routing = economist.route(task);
       expect(routing.complexity.total).toBeLessThan(30);
-      expect(routing.provider).toBe("openai");
+      expect(routing.provider).toBe("anthropic");
     });
 
     it("should route complex tasks to capable models", () => {
