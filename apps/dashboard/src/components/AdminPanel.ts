@@ -17,7 +17,6 @@ import {
   adminOAuthStart,
   adminOAuthPoll,
   adminOAuthCallback,
-  adminOAuthDisconnect,
   type AdminProviderView,
 } from '../api/client.js';
 import { subscribe } from '../api/websocket.js';
@@ -722,23 +721,6 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async disconnectOAuth(providerId: string): Promise<void> {
-    this.loading = true;
-    try {
-      const res = await adminOAuthDisconnect(providerId);
-      if (res.success) {
-        this.setMsg('ok', `Disconnected ${providerId} OAuth`);
-        await this.loadTabData();
-      } else {
-        this.setMsg('error', res.error?.message ?? 'Disconnect failed');
-      }
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Disconnect failed');
-    } finally {
-      this.loading = false;
-    }
-  }
-
   private async updateBudgetSettings(): Promise<void> {
     this.loading = true;
     try {
@@ -825,10 +807,6 @@ export class AdminPanel extends LitElement {
         </div>
       </div>
     `;
-  }
-
-  private isOAuthProvider(p: AdminProviderView): boolean {
-    return p.authMethod === 'oauth' || p.authMethod === 'both';
   }
 
   private renderProviderRow(p: AdminProviderView) {

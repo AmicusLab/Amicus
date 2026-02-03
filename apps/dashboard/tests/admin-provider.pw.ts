@@ -1,31 +1,67 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Admin Provider UI', () => {
-  test('1. 연결된 provider 목록 표시', async ({ page }) => {
-    let providers = [
-      {
-        id: 'openai',
-        enabled: true,
-        loaded: true,
-        available: true,
-        modelCount: 2,
-      },
-      {
-        id: 'anthropic',
-        enabled: false,
-        loaded: true,
-        available: true,
-        modelCount: 5,
-      },
-    ];
+test.describe('Admin Provider UI Refactored', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/admin/session', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { role: 'admin' },
+        }),
+      });
+    });
 
+    await page.route('**/admin/config', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            llm: {
+              defaultModel: 'openai:gpt-4',
+            },
+          },
+        }),
+      });
+    });
+  });
+
+  test('1. Connected providers displayed in table format', async ({ page }) => {
     await page.route('**/admin/providers', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: providers,
+          data: [
+            {
+              id: 'openai',
+              enabled: true,
+              loaded: true,
+              available: true,
+              modelCount: 12,
+              authMethod: 'both',
+            },
+            {
+              id: 'anthropic',
+              enabled: true,
+              loaded: true,
+              available: true,
+              modelCount: 8,
+              authMethod: 'both',
+            },
+            {
+              id: 'groq',
+              enabled: false,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'api_key',
+            },
+          ],
         }),
       });
     });
@@ -34,22 +70,112 @@ test.describe('Admin Provider UI', () => {
     await page.getByRole('button', { name: 'Admin' }).click();
     await expect(page.locator('admin-panel')).toBeVisible();
 
-    await expect(page.locator('text=openai')).toBeVisible();
-    await expect(page.locator('text=anthropic')).toBeVisible();
-    await expect(page.getByText('2 models')).toBeVisible();
-    await expect(page.getByText('5 models')).toBeVisible();
+    await expect(page.getByText('Connected Providers (2)')).toBeVisible();
+    await expect(page.getByText('openai')).toBeVisible();
+    await expect(page.getByText('anthropic')).toBeVisible();
+    await expect(page.getByText('12 models')).toBeVisible();
+    await expect(page.getByText('8 models')).toBeVisible();
+    
+    await expect(page.getByText('groq')).not.toBeVisible();
   });
 
-  test('2. 새 provider 추가 - API Key만 (Step 2 스킵)', async ({ page }) => {
-    let providers = [
-      {
-        id: 'openai',
-        enabled: true,
-        loaded: true,
-        available: true,
-        modelCount: 2,
-      },
-    ];
+  test('2. Toggle Add New Provider card', async ({ page }) => {
+    await page.route('**/admin/providers', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'openai',
+              enabled: true,
+              loaded: true,
+              available: true,
+              modelCount: 12,
+              authMethod: 'both',
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Admin' }).click();
+    await expect(page.locator('admin-panel')).toBeVisible();
+
+    await expect(page.getByText('Add New Provider')).not.toBeVisible();
+
+    await page.getByRole('button', { name: '+ Add New Provider' }).click();
+    
+    await expect(page.getByText('Add New Provider')).toBeVisible();
+    await expect(page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...')).toBeVisible();
+
+    await page.getByRole('button', { name: '취소' }).click();
+    
+    await expect(page.getByText('Add New Provider')).not.toBeVisible();
+  });
+
+  test('3. Search providers with alias (chatgpt -> openai)', async ({ page }) => {
+    await page.route('**/admin/providers', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'openai',
+              enabled: true,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'both',
+            },
+            {
+              id: 'anthropic',
+              enabled: true,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'both',
+            },
+            {
+              id: 'groq',
+              enabled: false,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'api_key',
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Admin' }).click();
+    await page.getByRole('button', { name: '+ Add New Provider' }).click();
+
+    const searchInput = page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...');
+    
+    await searchInput.fill('chatgpt');
+    await expect(page.getByText('openai').last()).toBeVisible();
+    await expect(page.getByText('anthropic').last()).not.toBeVisible();
+
+    await searchInput.fill('claude');
+    await expect(page.getByText('anthropic').last()).toBeVisible();
+    await expect(page.getByText('openai').last()).not.toBeVisible();
+
+    await searchInput.fill('groq');
+    await expect(page.getByText('groq').last()).toBeVisible();
+    
+    await searchInput.fill('nonexistent');
+    await expect(page.getByText('No providers found for "nonexistent"')).toBeVisible();
+  });
+
+  test('4. Add provider with API Key (single method)', async ({ page }) => {
+    let apiKeySet = false;
 
     await page.route('**/admin/providers', async (route) => {
       await route.fulfill({
@@ -57,7 +183,74 @@ test.describe('Admin Provider UI', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: providers,
+          data: [
+            {
+              id: 'groq',
+              enabled: true,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'api_key',
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route('**/admin/providers/groq/apikey', async (route) => {
+      apiKeySet = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { id: 'groq', updated: true },
+        }),
+      });
+    });
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Admin' }).click();
+    await page.getByRole('button', { name: '+ Add New Provider' }).click();
+
+    await page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...').fill('groq');
+    await page.getByText('groq').last().click();
+
+    await expect(page.getByText('Selected: groq')).toBeVisible();
+    await expect(page.getByText('Connect')).toBeVisible();
+    await expect(page.getByPlaceholder('Enter API key')).toBeVisible();
+
+    await page.getByPlaceholder('Enter API key').fill('gsk-test123');
+    await page.getByRole('button', { name: 'Validate & Save' }).click();
+
+    await page.waitForTimeout(500);
+    expect(apiKeySet).toBe(true);
+  });
+
+  test('5. Add provider with method selection (both)', async ({ page }) => {
+    await page.route('**/admin/providers', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [
+            {
+              id: 'openai',
+              enabled: true,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'both',
+              oauthMethods: [
+                {
+                  id: 'chatgpt-browser',
+                  label: 'ChatGPT Pro/Plus (Browser)',
+                  flow: 'pkce',
+                },
+              ],
+            },
+          ],
         }),
       });
     });
@@ -68,216 +261,118 @@ test.describe('Admin Provider UI', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: { id: 'openai', apiKey: 'sk-test123' },
+          data: { id: 'openai', updated: true },
         }),
       });
     });
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Admin' }).click();
-    await expect(page.locator('admin-panel')).toBeVisible();
+    await page.getByRole('button', { name: '+ Add New Provider' }).click();
 
-    // Provider 목록에서 OpenAI 클릭
-    await page.getByRole('button', { name: 'openai' }).click();
+    await page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...').fill('openai');
+    await page.getByText('openai').last().click();
 
-    // Step 1: API Key 입력
-    await page.getByPlaceholder('sk-').fill('sk-test123');
+    await expect(page.getByText('Select Connection Method')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'API Key' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'OAuth' })).toBeVisible();
 
-    // Step 2 스킵 (다음 버튼을 이미 눌렀다고 가정하거나 생략)
-    // Step 3: "추가하기" 버튼 클릭
-    await page.getByRole('button', { name: '추가하기' }).click();
+    await page.getByRole('button', { name: 'API Key' }).click();
 
-    // 성공 메시지 확인
-    await expect(page.getByText('Provider added successfully')).toBeVisible();
+    await expect(page.getByText('Connect')).toBeVisible();
+    await expect(page.getByPlaceholder('Enter API key')).toBeVisible();
+
+    await page.getByPlaceholder('Enter API key').fill('sk-test123');
+    await page.getByRole('button', { name: 'Validate & Save' }).click();
+
+    await page.waitForTimeout(500);
   });
 
-  test('3. 새 provider 추가 - 여러 방법 (Step 2 표시)', async ({ page }) => {
-    let providers = [
-      {
-        id: 'openai',
-        enabled: true,
-        loaded: true,
-        available: true,
-        modelCount: 2,
-      },
-    ];
-
+  test('6. Back button navigation in flow', async ({ page }) => {
     await page.route('**/admin/providers', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: providers,
-        }),
-      });
-    });
-
-    await page.route('**/admin/providers/openai/apikey', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: { id: 'openai', apiKey: 'sk-test456' },
+          data: [
+            {
+              id: 'openai',
+              enabled: true,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'both',
+            },
+          ],
         }),
       });
     });
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Admin' }).click();
-    await expect(page.locator('admin-panel')).toBeVisible();
+    await page.getByRole('button', { name: '+ Add New Provider' }).click();
 
-    // Provider 목록에서 OpenAI 클릭
-    await page.getByRole('button', { name: 'openai' }).click();
+    await page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...').fill('openai');
+    await page.getByText('openai').last().click();
 
-    // Step 1: API Key 입력
-    await page.getByPlaceholder('sk-').fill('sk-test456');
+    await expect(page.getByText('Select Connection Method')).toBeVisible();
+    
+    await page.getByRole('button', { name: 'API Key' }).click();
+    await expect(page.getByPlaceholder('Enter API key')).toBeVisible();
 
-    // Step 2 표시 확인
-    await expect(page.locator('text=Advanced Configuration')).toBeVisible();
-    await expect(page.getByPlaceholder('Base URL')).toBeVisible();
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByText('Select Connection Method')).toBeVisible();
 
-    // 모델 추가 버튼 클릭
-    await page.getByRole('button', { name: '모델 추가' }).click();
-
-    // Step 3: "추가하기" 버튼 클릭
-    await page.getByRole('button', { name: '추가하기' }).click();
-
-    // 성공 메시지 확인
-    await expect(page.getByText('Provider added successfully')).toBeVisible();
+    await page.getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...')).toBeVisible();
   });
 
-  test('4. "이전" 버튼으로 단계 되돌리기', async ({ page }) => {
+  test('7. Toast notification auto-dismiss after 5 seconds', async ({ page }) => {
     await page.route('**/admin/providers', async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          data: [],
+          data: [
+            {
+              id: 'groq',
+              enabled: true,
+              loaded: false,
+              available: false,
+              modelCount: 0,
+              authMethod: 'api_key',
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route('**/admin/providers/groq/apikey', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: { id: 'groq', updated: true },
         }),
       });
     });
 
     await page.goto('/');
     await page.getByRole('button', { name: 'Admin' }).click();
-    await expect(page.locator('admin-panel')).toBeVisible();
+    await page.getByRole('button', { name: '+ Add New Provider' }).click();
 
-    // 새 Provider 추가 버튼 클릭
-    await page.getByRole('button', { name: '새 Provider 추가' }).click();
+    await page.getByPlaceholder('Search providers (e.g., chatgpt, claude, code)...').fill('groq');
+    await page.getByText('groq').last().click();
+    await page.getByPlaceholder('Enter API key').fill('gsk-test');
+    await page.getByRole('button', { name: 'Validate & Save' }).click();
 
-    // Step 2로 이동 (예: 모델 추가 버튼 클릭)
-    await page.getByRole('button', { name: '모델 추가' }).click();
+    const toast = page.locator('.toast').first();
+    await expect(toast).toBeVisible({ timeout: 2000 });
 
-    // "이전" 버튼 클릭
-    await page.getByRole('button', { name: '이전' }).click();
-
-    // Step 1로 돌아와야 함
-    await expect(page.locator('text=API Key')).toBeVisible();
-  });
-
-  test('5. Toast 알림 5초 후 자동 사라짐', async ({ page }) => {
-    await page.route('**/admin/providers', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: [],
-        }),
-      });
-    });
-
-    await page.route('**/admin/providers/openai/apikey', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: { id: 'openai', apiKey: 'sk-test789' },
-        }),
-      });
-    });
-
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Admin' }).click();
-    await expect(page.locator('admin-panel')).toBeVisible();
-
-    // 새 Provider 추가 버튼 클릭
-    await page.getByRole('button', { name: '새 Provider 추가' }).click();
-
-    // API Key 입력
-    await page.getByPlaceholder('sk-').fill('sk-test789');
-
-    // 모델 추가 버튼 클릭
-    await page.getByRole('button', { name: '모델 추가' }).click();
-
-    // "추가하기" 버튼 클릭
-    await page.getByRole('button', { name: '추가하기' }).click();
-
-    // Toast 메시지가 표시됨
-    const toast = page.getByText('Provider added successfully');
-    await expect(toast).toBeVisible();
-
-    // 5초 후 사라져야 함
     await page.waitForTimeout(5500);
     await expect(toast).not.toBeVisible();
-  });
-
-  test('6. Toast 여러 개 동시 표시 (층층이 쌓임)', async ({ page }) => {
-    await page.route('**/admin/providers', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: [],
-        }),
-      });
-    });
-
-    await page.route('**/admin/providers/openai/apikey', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: { id: 'openai', apiKey: 'sk-test000' },
-        }),
-      });
-    });
-
-    await page.route('**/admin/providers/anthropic/apikey', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          success: true,
-          data: { id: 'anthropic', apiKey: 'sk-test111' },
-        }),
-      });
-    });
-
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Admin' }).click();
-    await expect(page.locator('admin-panel')).toBeVisible();
-
-    // 첫 번째 Provider 추가
-    await page.getByRole('button', { name: '새 Provider 추가' }).click();
-    await page.getByPlaceholder('sk-').fill('sk-test000');
-    await page.getByRole('button', { name: '모델 추가' }).click();
-    await page.getByRole('button', { name: '추가하기' }).click();
-    await expect(page.getByText('Provider added successfully')).toBeVisible();
-
-    // 두 번째 Provider 추가
-    await page.getByRole('button', { name: '새 Provider 추가' }).click();
-    await page.getByPlaceholder('sk-').fill('sk-test111');
-    await page.getByRole('button', { name: '모델 추가' }).click();
-    await page.getByRole('button', { name: '추가하기' }).click();
-    await expect(page.getByText('Provider added successfully')).toBeVisible();
-
-    // 두 개의 Toast가 동시에 표시되어야 함 (층층이 쌓임)
-    await expect(page.locator('text=Provider added successfully')).toHaveCount(2);
   });
 });
