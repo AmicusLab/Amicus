@@ -149,15 +149,17 @@ class ProviderService {
     // Apply persisted secrets into process.env for provider SDKs.
     for (const p of providerCfg.providers) {
       const envKey = p.envKey ?? `${p.id.toUpperCase()}_API_KEY`;
-      if (!process.env[envKey]) {
-        const credential = secretStore.getCredential(p.id);
-        if (credential?.type === 'oauth' && credential.accessToken) {
-          process.env[envKey] = credential.accessToken;
-        } else {
-          const secret = secretStore.get(envKey);
-          if (secret) {
-            process.env[envKey] = secret;
-          }
+      
+      // Check for OAuth credential first
+      const credential = secretStore.getCredential(p.id);
+      if (credential?.type === 'oauth' && credential.accessToken) {
+        // Force overwrite with OAuth token (handles token refresh during reload)
+        process.env[envKey] = credential.accessToken;
+      } else if (!process.env[envKey]) {
+        // Only set API key if no OAuth and env var not already set
+        const secret = secretStore.get(envKey);
+        if (secret) {
+          process.env[envKey] = secret;
         }
       }
     }

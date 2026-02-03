@@ -22,6 +22,7 @@ import {
   adminOAuthDisconnect,
   type AdminProviderView,
 } from '../api/client.js';
+import { subscribe } from '../api/websocket.js';
 import './ModelSelector.js';
 
 type AdminTab = 'providers' | 'models' | 'audit' | 'password';
@@ -242,13 +243,22 @@ export class AdminPanel extends LitElement {
   // OAuth method selection state
   @state() private selectedOAuthMethod: Record<string, string> = {};
 
+  private unsubscribeProviderStatus?: () => void;
+
   connectedCallback(): void {
     super.connectedCallback();
     void this.refresh();
+    
+    this.unsubscribeProviderStatus = subscribe('provider:statusChanged', async () => {
+      if (this.authed && this.tab === 'providers') {
+        await this.loadTabData();
+        this.requestUpdate();
+      }
+    });
   }
 
   disconnectedCallback(): void {
-    // Clear sensitive inputs when component is removed from DOM
+    this.unsubscribeProviderStatus?.();
     this.password = '';
     this.pairingCode = '';
     this.newPassword = '';
@@ -514,12 +524,10 @@ export class AdminPanel extends LitElement {
   }
 
   private async startOAuthFlow(providerId: string, methodId?: string): Promise<void> {
-    console.log('[AdminPanel] startOAuthFlow:', { providerId, methodId });
     this.loading = true;
     this.message = null;
     try {
       const res = await adminOAuthStart(providerId, methodId);
-      console.log('[AdminPanel] OAuth start response:', res);
       if (res.success && res.data) {
         if (res.data.flowType === 'device_code') {
           this.oauthDialog = {
@@ -608,18 +616,13 @@ export class AdminPanel extends LitElement {
 
   private async listenForOAuthCallback(expectedState: string): Promise<void> {
     const handleMessage = async (event: MessageEvent) => {
-      console.log('[AdminPanel] postMessage received:', event.origin, event.data);
-      
-      const isLocalhost = event.origin.startsWith('http://localhost:') || 
+      const isLocalhost = event.origin.startsWith('http://localhost:') ||
                           event.origin.startsWith('http://127.0.0.1:');
       if (!isLocalhost) {
-        console.log('[AdminPanel] Rejected: not localhost');
         return;
       }
-      
+
       if (event.data?.type === 'oauth_success' && this.oauthDialog) {
-        console.log('[AdminPanel] oauth_success received, state:', event.data.state);
-        console.log('[AdminPanel] expectedState:', expectedState);
         const { state } = event.data;
         if (state !== expectedState) {
           this.setMsg('error', 'OAuth state mismatch');
@@ -628,14 +631,10 @@ export class AdminPanel extends LitElement {
         }
 
         const { providerId } = this.oauthDialog;
-        console.log('[AdminPanel] State validated, updating UI for provider:', providerId);
         this.oauthDialog = null;
         this.setMsg('ok', `Connected to ${providerId} via OAuth`);
-        console.log('[AdminPanel] Loading tab data...');
         await this.loadTabData();
-        console.log('[AdminPanel] Tab data loaded, forcing re-render...');
         this.requestUpdate();
-        console.log('[AdminPanel] OAuth complete');
         window.removeEventListener('message', handleMessage);
       } else if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
         const { code, state } = event.data;
@@ -878,28 +877,26 @@ export class AdminPanel extends LitElement {
             ? html`<div class="provider-controls">
                 ${hasMultipleOAuthMethods
                   ? html`
-                      <select
-                        style="min-width:200px;"
-                        .value=${this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id || ''}
-                        @change=${(e: Event) => {
-                          const select = e.target as HTMLSelectElement;
-                          this.selectedOAuthMethod[p.id] = select.value;
-                          console.log('[AdminPanel] OAuth method selected:', { providerId: p.id, methodId: select.value });
-                        }}
-                      >
+                       <select
+                         style="min-width:200px;"
+                         .value=${this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id || ''}
+                         @change=${(e: Event) => {
+                           const select = e.target as HTMLSelectElement;
+                           this.selectedOAuthMethod[p.id] = select.value;
+                         }}
+                       >
                         ${p.oauthMethods?.map((method) => html`
                           <option value=${method.id}>${method.label}</option>
                         `)}
                       </select>
-                      <button
-                        class="btn primary"
-                        ?disabled=${this.loading || p.available}
-                        @click=${() => {
-                          const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
-                          console.log('[AdminPanel] Connect clicked:', { providerId: p.id, methodId, allMethods: p.oauthMethods });
-                          void this.startOAuthFlow(p.id, methodId);
-                        }}
-                      >
+                       <button
+                         class="btn primary"
+                         ?disabled=${this.loading || p.available}
+                         @click=${() => {
+                           const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
+                           void this.startOAuthFlow(p.id, methodId);
+                         }}
+                       >
                         ${p.available ? 'Connected' : 'Connect'}
                       </button>
                     `

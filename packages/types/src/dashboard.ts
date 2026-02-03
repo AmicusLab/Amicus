@@ -211,6 +211,7 @@ export type WSMessageType =
   | 'agent:stateChange'
   | 'system:healthUpdate'
   | 'tokenomics:update'
+  | 'provider:statusChanged'
   | 'error';
 
 /**

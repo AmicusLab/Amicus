@@ -335,16 +335,11 @@ export class PKCEFlow {
         }
 
         if (state !== opts.expectedState) {
-          console.error('[OAuth] State mismatch!');
-          console.error('[OAuth]   Expected:', opts.expectedState);
-          console.error('[OAuth]   Received:', state);
           res.statusCode = 400;
           res.end('Invalid state');
           finish(new Error('OAuth state mismatch'));
           return;
         }
-        
-        console.log('[OAuth] Callback received - state validated, exchanging code for token...');
 
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/html');
@@ -354,27 +349,18 @@ export class PKCEFlow {
             <p>Sending message to parent window...</p>
             <p id="status">Waiting...</p>
             <script>
-              console.log('[OAuth Callback] Starting postMessage...');
-              console.log('[OAuth Callback] window.opener exists:', !!window.opener);
-              console.log('[OAuth Callback] state:', '${state}');
-              
               if (window.opener) {
-                const message = { 
-                  type: 'oauth_success', 
-                  state: '${state}' 
+                const message = {
+                  type: 'oauth_success',
+                  state: '${state}'
                 };
-                console.log('[OAuth Callback] Sending postMessage:', message);
                 window.opener.postMessage(message, '*');
                 document.getElementById('status').textContent = 'Message sent! You can close this window.';
-                console.log('[OAuth Callback] postMessage sent successfully');
-                
                 setTimeout(() => {
-                  console.log('[OAuth Callback] Auto-closing window...');
                   window.close();
-                }, 10000);
+                }, 2000);
               } else {
                 document.getElementById('status').textContent = 'Error: No parent window found';
-                console.error('[OAuth Callback] window.opener is null!');
               }
             </script>
           </body></html>`
@@ -386,10 +372,8 @@ export class PKCEFlow {
         console.error(`[OAuth] Failed to start callback server on port ${port}:`, err);
         finish(err);
       });
-      
-      console.log(`[OAuth] Starting callback server on port ${port}...`);
+
       server.listen(port, 'localhost', () => {
-        console.log(`[OAuth] Callback server listening on http://localhost:${port}${pathname}`);
       });
 
       timeout = setTimeout(() => {

@@ -172,8 +172,12 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
                 ),
               },
             });
-            await providerService.reload();
           }
+          
+          await providerService.reload();
+
+          const { broadcast } = await import('../ws/WebSocketManager.js');
+          broadcast('provider:statusChanged', { providerId });
 
           writeAudit({
             timestamp: new Date().toISOString(),
