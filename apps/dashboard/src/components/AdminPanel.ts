@@ -237,6 +237,7 @@ export class AdminPanel extends LitElement {
     userCode?: string;
     verificationUri?: string;
     authorizationUrl?: string;
+    state?: string;
     polling: boolean;
   } | null = null;
 
@@ -561,6 +562,7 @@ export class AdminPanel extends LitElement {
             flowId: res.data.flowId,
             flowType: 'code_paste',
             authorizationUrl: res.data.authorizationUrl,
+            state: res.data.state,
             polling: false,
           };
         }
@@ -685,8 +687,8 @@ export class AdminPanel extends LitElement {
 
     this.loading = true;
     try {
-      const { providerId, flowId } = this.oauthDialog;
-      const res = await adminOAuthCallback(providerId, flowId, this.pastedCode.trim(), '');
+      const { providerId, flowId, state } = this.oauthDialog;
+      const res = await adminOAuthCallback(providerId, flowId, this.pastedCode.trim(), state ?? '');
       if (res.success && res.data?.connected) {
         this.oauthDialog = null;
         this.pastedCode = '';
