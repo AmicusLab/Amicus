@@ -688,7 +688,8 @@ export class AdminPanel extends LitElement {
     this.loading = true;
     try {
       const { providerId, flowId, state } = this.oauthDialog;
-      const res = await adminOAuthCallback(providerId, flowId, this.pastedCode.trim(), state ?? '');
+      const cleanCode = this.pastedCode.trim().split('#')[0] ?? '';
+      const res = await adminOAuthCallback(providerId, flowId, cleanCode, state ?? '');
       if (res.success && res.data?.connected) {
         this.oauthDialog = null;
         this.pastedCode = '';

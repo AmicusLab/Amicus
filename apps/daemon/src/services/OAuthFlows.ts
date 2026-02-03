@@ -410,6 +410,13 @@ export class CodePasteFlow {
   }
 
   async exchangeCode(code: string, state: string): Promise<OAuthCredential> {
+    console.log('[CodePasteFlow] Exchange code:', {
+      codeLength: code.length,
+      codePreview: code.substring(0, 10) + '...',
+      stateMatch: state === this.verifier,
+      redirectUri: this.config.redirectUri,
+    });
+
     if (state !== this.verifier) {
       throw new Error('OAuth state mismatch');
     }
@@ -422,6 +429,8 @@ export class CodePasteFlow {
       redirect_uri: this.config.redirectUri,
       code_verifier: this.verifier,
     });
+
+    console.log('[CodePasteFlow] Request body:', body);
 
     const res = await fetch(this.config.tokenUrl, {
       method: 'POST',
