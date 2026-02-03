@@ -162,6 +162,74 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
         expiresAt: Date.now() + 5 * 60 * 1000,
       });
 
+      flow.startCallbackServer({
+        expectedState: state,
+        timeoutMs: 5 * 60 * 1000,
+      }).then(async ({ code, state }) => {
+        console.log('[OAuth] Callback received, exchanging code for token');
+        try {
+          const credential = await flow.exchangeCode(code, state);
+          await secretStore.setCredential(providerId, credential);
+          pendingFlows.delete(flowId);
+
+          const provider = getProviderConfig(providerId);
+          if (provider?.auth?.oauth) {
+            tokenRefreshManager.registerProvider(providerId, provider.auth.oauth);
+            if (credential.expiresAt) {
+              tokenRefreshManager.scheduleRefresh(providerId, credential.expiresAt);
+            }
+          }
+
+          const cfg = configManager.getConfig();
+          const providerEntry = cfg.llm.providers.find((p) => p.id === providerId);
+          if (providerEntry && !providerEntry.enabled) {
+            await configManager.update({
+              llm: {
+                providers: cfg.llm.providers.map((p) =>
+                  p.id === providerId ? { ...p, enabled: true } : p
+                ),
+              },
+            });
+            await providerService.reload();
+          }
+
+          writeAudit({
+            timestamp: new Date().toISOString(),
+            eventId: randomUUID(),
+            actor: 'admin',
+            action: 'oauth.complete',
+            resource: `provider:${providerId}`,
+            result: 'success',
+          });
+
+          console.log('[OAuth] PKCE flow completed successfully');
+        } catch (err) {
+          console.error('[OAuth] Token exchange failed:', err);
+          pendingFlows.delete(flowId);
+          writeAudit({
+            timestamp: new Date().toISOString(),
+            eventId: randomUUID(),
+            actor: 'admin',
+            action: 'oauth.callback',
+            resource: `provider:${providerId}`,
+            result: 'failure',
+            message: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }).catch((err) => {
+        console.error('[OAuth] Callback server error:', err);
+        pendingFlows.delete(flowId);
+        writeAudit({
+          timestamp: new Date().toISOString(),
+          eventId: randomUUID(),
+          actor: 'admin',
+          action: 'oauth.start',
+          resource: `provider:${providerId}`,
+          result: 'failure',
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+
       writeAudit({
         timestamp: new Date().toISOString(),
         eventId: randomUUID(),

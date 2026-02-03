@@ -69,7 +69,7 @@ export const llmProviderConfig: LLMProviderConfig = {
               clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
               authorizationUrl: 'https://auth.openai.com/oauth/authorize',
               tokenUrl: 'https://auth.openai.com/oauth/token',
-              callbackUrl: 'http://localhost:3000/oauth/callback',
+              callbackUrl: 'http://localhost:1455/auth/callback',
               scope: 'openid profile email offline_access',
             },
           },
