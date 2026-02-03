@@ -610,7 +610,20 @@ export class AdminPanel extends LitElement {
     const handleMessage = async (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       
-      if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
+      if (event.data?.type === 'oauth_success' && this.oauthDialog) {
+        const { state } = event.data;
+        if (state !== expectedState) {
+          this.setMsg('error', 'OAuth state mismatch');
+          this.oauthDialog = null;
+          return;
+        }
+
+        const { providerId } = this.oauthDialog;
+        this.oauthDialog = null;
+        this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+        await this.loadTabData();
+        window.removeEventListener('message', handleMessage);
+      } else if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
         const { code, state } = event.data;
         if (state !== expectedState) {
           this.setMsg('error', 'OAuth state mismatch');

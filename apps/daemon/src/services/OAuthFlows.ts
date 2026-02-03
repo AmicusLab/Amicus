@@ -344,8 +344,19 @@ export class PKCEFlow {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'text/html');
         res.end(
-          '<!DOCTYPE html><html><body><h2>Authorization complete</h2>' +
-            '<p>You can close this window.</p></body></html>'
+          `<!DOCTYPE html><html><body>
+            <h2>✅ Authorization Complete</h2>
+            <p>You can close this window.</p>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({ 
+                  type: 'oauth_success', 
+                  state: '${state}' 
+                }, '*');
+              }
+              setTimeout(() => window.close(), 2000);
+            </script>
+          </body></html>`
         );
         finish(undefined, { code, state });
       });
