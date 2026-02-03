@@ -8,24 +8,38 @@ import {
   adminGetConfig,
   adminPatchConfig,
   adminListProviders,
-  adminSetProviderEnabled,
   adminSetProviderApiKey,
   adminUnlinkProvider,
   adminGetAudit,
   adminRenewPairing,
   adminSetPassword,
   adminValidateProviderApiKey,
-  adminTestProviderConnection,
   adminOAuthStart,
   adminOAuthPoll,
   adminOAuthCallback,
-  adminOAuthDisconnect,
   type AdminProviderView,
 } from '../api/client.js';
 import { subscribe } from '../api/websocket.js';
 import './ModelSelector.js';
 
 type AdminTab = 'providers' | 'models' | 'audit' | 'password';
+
+type AddProviderFlow = {
+  step: 'select' | 'method' | 'connect';
+  selectedProviderId?: string;
+  selectedProvider?: AdminProviderView;
+  selectedMethod?: 'apikey' | 'oauth';
+  selectedOAuthMethodId?: string;
+  apiKeyInput?: string;
+};
+
+type ToastMessage = {
+  id: string;
+  kind: 'ok' | 'error';
+  text: string;
+  timestamp: number;
+  removing?: boolean;
+};
 
 @customElement('admin-panel')
 export class AdminPanel extends LitElement {
@@ -76,8 +90,8 @@ export class AdminPanel extends LitElement {
     .card {
       border: 1px solid #333;
       border-radius: 12px;
-      padding: 0.75rem;
-      margin-top: 0.75rem;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
     }
     .danger {
       border-color: #7a2e2e;
@@ -120,7 +134,7 @@ export class AdminPanel extends LitElement {
     .provider {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
     .provider-header {
       display: flex;
@@ -205,12 +219,87 @@ export class AdminPanel extends LitElement {
       color: #aaa;
       font-weight: 600;
     }
+    .toast-container {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 0.5rem;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast {
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      background: #0b0b0b;
+      color: #ddd;
+      min-width: 300px;
+      max-width: 500px;
+      pointer-events: auto;
+      animation: slideIn 0.3s ease-out;
+    }
+    .toast.error {
+      border-color: #ff6a6a;
+      color: #ffb3b3;
+    }
+    .toast.removing {
+      animation: slideOut 0.3s ease-in forwards;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(100%); opacity: 0; }
+    }
+    .provider-row {
+      border-bottom: 1px solid #222;
+    }
+    .provider-cell {
+      padding: 0.75rem 0.5rem;
+    }
+    .provider-cell-actions {
+      text-align: right;
+    }
+    .provider-name-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .provider-error {
+      color: #ff6a6a;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+    }
+    .models-cell {
+      color: #aaa;
+    }
+    .actions-wrapper {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+    .action-button {
+      padding: 0.35rem 0.6rem;
+      font-size: 0.85rem;
+    }
   `;
+
+  private static readonly TOAST_TIMEOUT_MS = 5000;
+  private static readonly PROVIDER_ALIASES: Record<string, string[]> = {
+    'openai': ['openai', 'chatgpt'],
+    'anthropic': ['anthropic', 'claude', 'code'],
+  };
 
   @state() private authed = false;
   @state() private tab: AdminTab = 'providers';
   @state() private loading = false;
-  @state() private message: { kind: 'ok' | 'error'; text: string } | null = null;
+  @state() private addProviderFlow: AddProviderFlow | null = null;
+  @state() private messages: ToastMessage[] = [];
 
   // login inputs (not persisted)
   @state() private pairingCode = '';
@@ -226,7 +315,8 @@ export class AdminPanel extends LitElement {
   @state() private currentDefaultModel = '';
   @state() private dailyBudget = '';
   @state() private budgetAlertThreshold = '';
-  @state() private searchQuery = '';
+  @state() private providerSearchQuery = '';
+  @state() private showAddProviderCard = false;
 
   // OAuth dialog state
   @state() private oauthDialog: {
@@ -241,15 +331,12 @@ export class AdminPanel extends LitElement {
     polling: boolean;
   } | null = null;
 
-  // OAuth method selection state
-  @state() private selectedOAuthMethod: Record<string, string> = {};
-
   private unsubscribeProviderStatus?: () => void;
 
   connectedCallback(): void {
     super.connectedCallback();
     void this.refresh();
-    
+
     this.unsubscribeProviderStatus = subscribe('provider:statusChanged', async () => {
       if (this.authed && this.tab === 'providers') {
         await this.loadTabData();
@@ -267,8 +354,26 @@ export class AdminPanel extends LitElement {
     super.disconnectedCallback();
   }
 
+  private addMsg(kind: 'ok' | 'error', text: string): void {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    this.messages = [...this.messages, { id, kind, text, timestamp: Date.now() }];
+    setTimeout(() => this.removeMsg(id), AdminPanel.TOAST_TIMEOUT_MS);
+  }
+
+  private removeMsg(id: string): void {
+    const message = this.messages.find(m => m.id === id);
+    if (!message) return;
+
+    message.removing = true;
+    this.requestUpdate();
+
+    setTimeout(() => {
+      this.messages = this.messages.filter(m => m.id !== id);
+    }, 300);
+  }
+
   private setMsg(kind: 'ok' | 'error', text: string) {
-    this.message = { kind, text };
+    this.addMsg(kind, text);
   }
 
   private async refresh(): Promise<void> {
@@ -294,7 +399,7 @@ export class AdminPanel extends LitElement {
       if (res.success && res.data) {
         this.providers = [...res.data];
       }
-      
+
       const configRes = await adminGetConfig();
       if (configRes.success && configRes.data) {
         const llm = configRes.data['llm'] as Record<string, unknown> | undefined;
@@ -321,7 +426,6 @@ export class AdminPanel extends LitElement {
 
   private async doPair(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminPair(this.pairingCode.trim());
       if (res.success) {
@@ -341,7 +445,6 @@ export class AdminPanel extends LitElement {
 
   private async doLogin(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminLogin(this.password);
       if (res.success) {
@@ -361,7 +464,6 @@ export class AdminPanel extends LitElement {
 
   private async doLogout(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       await adminLogout();
       this.authed = false;
@@ -375,20 +477,6 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async toggleProvider(id: string, enabled: boolean): Promise<void> {
-    this.loading = true;
-    this.message = null;
-    try {
-      await adminSetProviderEnabled(id, enabled);
-      this.setMsg('ok', `Provider ${id} ${enabled ? 'enabled' : 'disabled'}`);
-      await this.loadTabData();
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Update failed');
-    } finally {
-      this.loading = false;
-    }
-  }
-
   private async setProviderKey(id: string, apiKey: string): Promise<void> {
     await adminSetProviderApiKey(id, apiKey);
     await this.loadTabData();
@@ -396,12 +484,11 @@ export class AdminPanel extends LitElement {
 
   private async unlinkProvider(id: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const wasDefaultProvider = this.currentDefaultModel.startsWith(id + ':');
-      
+
       await adminUnlinkProvider(id);
-      
+
       if (wasDefaultProvider) {
         await adminPatchConfig({ llm: { defaultModel: null } });
         this.currentDefaultModel = '';
@@ -409,7 +496,7 @@ export class AdminPanel extends LitElement {
       } else {
         this.setMsg('ok', `Provider ${id} unlinked`);
       }
-      
+
       await this.loadTabData();
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Unlink failed');
@@ -420,7 +507,6 @@ export class AdminPanel extends LitElement {
 
   private async validateAndSaveProviderKey(id: string, apiKey: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminValidateProviderApiKey(id, apiKey);
       if (res.success && res.data) {
@@ -440,30 +526,8 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async testProviderConnection(id: string): Promise<void> {
-    this.loading = true;
-    this.message = null;
-    try {
-      const res = await adminTestProviderConnection(id);
-      if (res.success && res.data) {
-        if (res.data.valid) {
-          this.setMsg('ok', `Connection to ${id} successful`);
-        } else {
-          this.setMsg('error', `Connection test failed: ${res.data.error ?? 'Unknown error'}`);
-        }
-      } else {
-        this.setMsg('error', res.error?.message ?? 'Connection test failed');
-      }
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Connection test failed');
-    } finally {
-      this.loading = false;
-    }
-  }
-
   private async setDefaultProvider(id: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const defaultModelsByProvider: Record<string, string> = {
         anthropic: 'claude-3-5-sonnet-20241022',
@@ -511,7 +575,6 @@ export class AdminPanel extends LitElement {
     }
 
     this.loading = true;
-    this.message = null;
     try {
       await adminSetPassword(this.newPassword);
       this.setMsg('ok', 'Password updated successfully. Use it for next login.');
@@ -526,7 +589,6 @@ export class AdminPanel extends LitElement {
 
   private async startOAuthFlow(providerId: string, methodId?: string): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminOAuthStart(providerId, methodId);
       if (res.success && res.data) {
@@ -619,7 +681,7 @@ export class AdminPanel extends LitElement {
   private async listenForOAuthCallback(expectedState: string): Promise<void> {
     const handleMessage = async (event: MessageEvent) => {
       const isLocalhost = event.origin.startsWith('http://localhost:') ||
-                          event.origin.startsWith('http://127.0.0.1:');
+        event.origin.startsWith('http://127.0.0.1:');
       if (!isLocalhost) {
         return;
       }
@@ -661,7 +723,7 @@ export class AdminPanel extends LitElement {
           this.setMsg('error', e instanceof Error ? e.message : 'OAuth callback failed');
           this.oauthDialog = null;
         }
-        
+
         window.removeEventListener('message', handleMessage);
       }
     };
@@ -705,27 +767,8 @@ export class AdminPanel extends LitElement {
     }
   }
 
-  private async disconnectOAuth(providerId: string): Promise<void> {
-    this.loading = true;
-    this.message = null;
-    try {
-      const res = await adminOAuthDisconnect(providerId);
-      if (res.success) {
-        this.setMsg('ok', `Disconnected ${providerId} OAuth`);
-        await this.loadTabData();
-      } else {
-        this.setMsg('error', res.error?.message ?? 'Disconnect failed');
-      }
-    } catch (e) {
-      this.setMsg('error', e instanceof Error ? e.message : 'Disconnect failed');
-    } finally {
-      this.loading = false;
-    }
-  }
-
   private async updateBudgetSettings(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const dailyBudgetNum = this.dailyBudget ? Number(this.dailyBudget) : undefined;
       const budgetAlertThresholdNum = this.budgetAlertThreshold ? Number(this.budgetAlertThreshold) : undefined;
@@ -776,8 +819,8 @@ export class AdminPanel extends LitElement {
               placeholder="pairing code"
               .value=${this.pairingCode}
               @input=${(e: InputEvent) => {
-                this.pairingCode = (e.target as HTMLInputElement).value;
-              }}
+        this.pairingCode = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
           <button class="btn primary" ?disabled=${this.loading} @click=${() => void this.doPair()}>
@@ -795,13 +838,13 @@ export class AdminPanel extends LitElement {
               placeholder="admin password"
               .value=${this.password}
               @input=${(e: InputEvent) => {
-                this.password = (e.target as HTMLInputElement).value;
-              }}
+        this.password = (e.target as HTMLInputElement).value;
+      }}
               @keydown=${(e: KeyboardEvent) => {
-                if (e.key === 'Enter') {
-                  void this.doLogin();
-                }
-              }}
+        if (e.key === 'Enter') {
+          void this.doLogin();
+        }
+      }}
             />
           </div>
           <button class="btn" ?disabled=${this.loading} @click=${() => void this.doLogin()}>
@@ -812,152 +855,244 @@ export class AdminPanel extends LitElement {
     `;
   }
 
-  private isOAuthProvider(p: AdminProviderView): boolean {
-    return p.authMethod === 'oauth' || p.authMethod === 'both';
+  private renderProviderRow(p: AdminProviderView) {
+    const isDefault = this.currentDefaultModel.startsWith(p.id + ':');
+
+    return html`
+      <tr class="provider-row">
+        <td class="provider-cell">
+          <div class="provider-name-wrapper">
+            <strong>${p.id}</strong>
+            ${isDefault ? html`<span class="status-badge default" style="font-size:0.7rem;">★ Default</span>` : nothing}
+          </div>
+          ${p.error ? html`<div class="provider-error">Error: ${p.error}</div>` : nothing}
+        </td>
+        <td class="provider-cell models-cell">
+          ${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}
+        </td>
+        <td class="provider-cell provider-cell-actions">
+          <div class="actions-wrapper">
+            ${!isDefault && p.available
+        ? html`<button
+                  class="btn primary action-button"
+                  ?disabled=${this.loading}
+                  @click=${() => void this.setDefaultProvider(p.id)}
+                  title="Set as default provider"
+                >
+                  Set as Default
+                </button>`
+        : nothing
+      }
+            <button
+              class="btn danger action-button"
+              ?disabled=${this.loading}
+              @click=${() => void this.unlinkProvider(p.id)}
+              title="Unlink provider"
+            >
+              Unlink
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
   }
 
-  private renderProviderCard(p: AdminProviderView) {
-    const isOAuth = this.isOAuthProvider(p);
-    const hasMultipleOAuthMethods = p.oauthMethods && p.oauthMethods.length > 1;
-    
+  private renderAddProviderFlow() {
+    const unconnectedProviders = this.providers.filter((p) => !p.available);
+
+    const query = this.providerSearchQuery.toLowerCase().trim();
+    const filteredProviders = query
+      ? unconnectedProviders.filter((p) => {
+        const aliases = AdminPanel.PROVIDER_ALIASES[p.id] || [p.id];
+        return aliases.some(alias => alias.toLowerCase().includes(query));
+      })
+      : unconnectedProviders;
+
+    if (!this.addProviderFlow) {
+      return html`
+        <div class="card add-provider-flow">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h3 style="margin:0;">Add New Provider</h3>
+            <button
+              class="btn"
+              @click=${() => {
+          this.showAddProviderCard = false;
+          this.providerSearchQuery = '';
+          this.addProviderFlow = null;
+        }}
+              style="padding:0.35rem 0.75rem;"
+            >
+              취소
+            </button>
+          </div>
+          
+          <input
+            type="text"
+            placeholder="Search providers (e.g., chatgpt, claude, code)..."
+            .value=${this.providerSearchQuery}
+            @input=${(e: Event) => {
+          this.providerSearchQuery = (e.target as HTMLInputElement).value;
+        }}
+            style="width:100%;margin-bottom:0.75rem;box-sizing:border-box;"
+          />
+          
+          ${filteredProviders.length > 0 ? html`
+            <div style="max-height:${4 * 40}px;overflow-y:auto;border:1px solid #333;border-radius:8px;padding:0.5rem;">
+              ${filteredProviders.map(p => html`
+                <div
+                  style="padding:0.1rem 0.5rem;cursor:pointer;border-radius:4px;transition:background 0.2s;min-height:40px;display:flex;align-items:center;"
+                  @click=${() => {
+            this.providerSearchQuery = '';
+            const provider = p;
+
+            const methods = [];
+            if (provider.authMethod === 'api_key' || provider.authMethod === 'both') methods.push('apikey');
+            if (provider.authMethod === 'oauth' || provider.authMethod === 'both') methods.push('oauth');
+
+            if (methods.length === 1) {
+              this.addProviderFlow = {
+                step: 'connect',
+                selectedProviderId: provider.id,
+                selectedProvider: provider,
+                selectedMethod: methods[0] as 'apikey' | 'oauth',
+              };
+            } else {
+              this.addProviderFlow = {
+                step: 'method',
+                selectedProviderId: provider.id,
+                selectedProvider: provider,
+              };
+            }
+          }}
+                  @mouseenter=${(e: MouseEvent) => {
+            (e.target as HTMLElement).style.background = '#1a1a1a';
+          }}
+                  @mouseleave=${(e: MouseEvent) => {
+            (e.target as HTMLElement).style.background = 'transparent';
+          }}
+                >
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <div style="width:8px;height:8px;border-radius:50%;border:2px solid #6aa7ff;flex-shrink:0;"></div>
+                    <strong>${p.id}</strong>
+                  </div>
+                </div>
+              `)}
+            </div>
+          ` : html`
+            <div style="padding:2rem;text-align:center;color:#aaa;border:1px solid #333;border-radius:8px;">
+              ${query ? `No providers found for "${this.providerSearchQuery}"` : 'Start typing to search providers'}
+            </div>
+          `}
+        </div>
+      `;
+    }
+
     return html`
-      <div class="card ${p.error ? 'danger' : ''}">
-        <div class="provider">
-          <div class="provider-header">
-            <strong>${p.id}</strong>
-            <div class="provider-header-actions">
-              ${p.available && !this.currentDefaultModel.startsWith(p.id + ':')
-                ? html`<button
-                    class="btn primary"
-                    ?disabled=${this.loading}
-                    @click=${() => void this.setDefaultProvider(p.id)}
-                    title="Set as default provider"
-                  >
-                    Set as Default
-                  </button>`
-                : nothing
-              }
-              <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
-                ${p.enabled ? 'Disable' : 'Enable'}
-              </button>
-              ${isOAuth && p.oauthStatus === 'connected'
-                ? html`<button
-                    class="btn danger"
-                    ?disabled=${this.loading}
-                    @click=${() => void this.disconnectOAuth(p.id)}
-                    title="Disconnect OAuth"
-                  >
-                    Disconnect
-                  </button>`
-                : html`<button
-                    class="btn danger"
-                    ?disabled=${this.loading}
-                    @click=${() => void this.unlinkProvider(p.id)}
-                    title="Disable and delete persisted key"
-                  >
-                    Unlink
-                  </button>`
-              }
+      <div class="card add-provider-flow">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <h3 style="margin:0;">Add New Provider</h3>
+          <button
+            class="btn"
+            @click=${() => {
+        this.showAddProviderCard = false;
+        this.providerSearchQuery = '';
+        this.addProviderFlow = null;
+      }}
+            style="padding:0.35rem 0.75rem;"
+          >
+            취소
+          </button>
+        </div>
+        
+        <div style="padding:0.5rem;background:#1a1a1a;border-radius:4px;margin-bottom:0.75rem;">
+          <strong>Selected: ${this.addProviderFlow.selectedProviderId}</strong>
+        </div>
+        
+        ${this.addProviderFlow.step === 'method' ? html`
+          <div style="border-top:1px solid #333;padding-top:0.75rem;margin-top:0.75rem;">
+            <h4 style="margin:0 0 0.5rem 0;">Select Connection Method</h4>
+            <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.85rem;">Choose how to connect ${this.addProviderFlow.selectedProviderId}</p>
+            <div style="display:flex;gap:0.5rem;">
+              <button class="btn" @click=${() => this.addProviderFlow = null}>Back</button>
+              ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'api_key'
+          ? html`<button class="btn primary" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'connect',
+              selectedMethod: 'apikey',
+            };
+          }}>API Key</button>`
+          : nothing}
+              ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'oauth'
+          ? html`<button class="btn primary" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'connect',
+              selectedMethod: 'oauth',
+            };
+          }}>OAuth</button>`
+          : nothing}
             </div>
           </div>
-          
-          <div class="provider-status">
-            ${p.available 
-              ? html`<span class="status-badge registered">✓ Connected</span>`
-              : isOAuth
-                ? html`<span class="status-badge not-registered">OAuth Required</span>`
-                : html`<span class="status-badge not-registered">No API Key</span>`
-            }
-            ${this.currentDefaultModel.startsWith(p.id + ':')
-              ? html`<span class="status-badge default">★ Default Provider</span>`
-              : nothing
-            }
-            <span class="provider-meta">${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}</span>
-          </div>
-          ${p.error ? html`<div class="provider-meta" style="color: #ff6a6a;">Error: ${p.error}</div>` : nothing}
-          
-          ${isOAuth
-            ? html`<div class="provider-controls">
-                ${hasMultipleOAuthMethods
-                  ? html`
-                       <select
-                         style="min-width:200px;"
-                         .value=${this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id || ''}
-                         @change=${(e: Event) => {
-                           const select = e.target as HTMLSelectElement;
-                           this.selectedOAuthMethod[p.id] = select.value;
-                         }}
-                       >
-                        ${p.oauthMethods?.map((method) => html`
-                          <option value=${method.id}>${method.label}</option>
-                        `)}
-                      </select>
-                       <button
-                         class="btn primary"
-                         ?disabled=${this.loading || p.available}
-                         @click=${() => {
-                           const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
-                           void this.startOAuthFlow(p.id, methodId);
-                         }}
-                       >
-                        ${p.available ? 'Connected' : 'Connect'}
-                      </button>
-                    `
-                  : html`
-                      <button
-                        class="btn primary"
-                        ?disabled=${this.loading || p.available}
-                        @click=${() => void this.startOAuthFlow(p.id, p.oauthMethods?.[0]?.id)}
-                      >
-                        ${p.available ? 'Connected' : 'Connect with OAuth'}
-                      </button>
-                    `
-                }
-              </div>`
-            : html`<div class="provider-controls">
+        ` : nothing}
+        
+        ${this.addProviderFlow.step === 'connect' ? html`
+          <div style="border-top:1px solid #333;padding-top:0.75rem;margin-top:0.75rem;">
+            <h4 style="margin:0 0 0.5rem 0;">Connect</h4>
+            ${this.addProviderFlow.selectedMethod === 'apikey' ? html`
+              <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.85rem;">Enter your ${this.addProviderFlow.selectedProviderId} API key</p>
+              <div class="provider-controls">
+                <button class="btn" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'method',
+            };
+          }}>Back</button>
                 <input
                   type="password"
                   placeholder="Enter API key"
-                  data-provider=${p.id}
-                  @keydown=${(e: KeyboardEvent) => {
-                    if (e.key === 'Enter') {
-                      const el = e.target as HTMLInputElement;
-                      const key = el.value;
-                      if (key) {
-                        void this.validateAndSaveProviderKey(p.id, key).then(() => {
-                          el.value = '';
-                        });
-                      }
-                    }
-                  }}
+                  .value=${this.addProviderFlow.apiKeyInput || ''}
+                  @input=${(e: InputEvent) => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              apiKeyInput: (e.target as HTMLInputElement).value,
+            };
+          }}
                 />
-                <button
-                  class="btn primary"
-                  ?disabled=${this.loading}
-                  @click=${(e: Event) => {
-                    const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
-                    const key = input?.value ?? '';
-                    if (key) {
-                      void this.validateAndSaveProviderKey(p.id, key).then(() => {
-                        if (input) input.value = '';
-                      });
-                    } else {
-                      this.setMsg('error', 'Please enter an API key');
-                    }
-                  }}
-                >
-                  Validate & Save
-                </button>
-                <button
-                  class="btn"
-                  ?disabled=${this.loading}
-                  @click=${() => void this.testProviderConnection(p.id)}
-                >
-                  Test
-                </button>
-              </div>`
-          }
-        </div>
+                <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
+            if (!this.addProviderFlow || !this.addProviderFlow.apiKeyInput) {
+              this.addMsg('error', 'Please enter an API key');
+              return;
+            }
+            await this.validateAndSaveProviderKey(this.addProviderFlow.selectedProviderId!, this.addProviderFlow.apiKeyInput);
+            this.addProviderFlow = null;
+            this.showAddProviderCard = false;
+          }}>Validate & Save</button>
+              </div>
+            ` : html`
+              <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.85rem;">Authorize ${this.addProviderFlow.selectedProviderId} via OAuth</p>
+              <div style="display:flex;gap:0.5rem;">
+                <button class="btn" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'method',
+            };
+          }}>Back</button>
+                <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
+            if (!this.addProviderFlow) return;
+            await this.startOAuthFlow(this.addProviderFlow.selectedProviderId!, this.addProviderFlow.selectedOAuthMethodId);
+            this.addProviderFlow = null;
+            this.showAddProviderCard = false;
+          }}>Connect with OAuth</button>
+              </div>
+            `}
+          </div>
+        ` : nothing}
       </div>
     `;
   }
@@ -1012,10 +1147,10 @@ export class AdminPanel extends LitElement {
     if (this.oauthDialog.flowType === 'code_paste') {
       return html`
         <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
-          <div class="card" style="max-width:500px;background:#111;">
+          <div class="card" style="max-width:500px;width:90%;background:#111;">
             <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
             <p>Step 1: Visit the authorization URL</p>
-            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
+            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;word-wrap:break-word;overflow-wrap:break-word;">
               <a href="${this.oauthDialog.authorizationUrl ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
                 ${this.oauthDialog.authorizationUrl}
               </a>
@@ -1026,14 +1161,14 @@ export class AdminPanel extends LitElement {
               placeholder="Enter authorization code"
               .value=${this.pastedCode}
               @input=${(e: InputEvent) => {
-                this.pastedCode = (e.target as HTMLInputElement).value;
-              }}
+          this.pastedCode = (e.target as HTMLInputElement).value;
+        }}
               @keydown=${(e: KeyboardEvent) => {
-                if (e.key === 'Enter') {
-                  void this.submitPastedCode();
-                }
-              }}
-              style="width:100%;margin:0.5rem 0;"
+          if (e.key === 'Enter') {
+            void this.submitPastedCode();
+          }
+        }}
+              style="width:100%;margin:0.5rem 0;box-sizing:border-box;"
             />
             <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:flex-end;">
               <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
@@ -1050,40 +1185,44 @@ export class AdminPanel extends LitElement {
   }
 
   private renderProviders() {
-    const query = this.searchQuery.toLowerCase();
-    const filtered = this.providers.filter((p) => p.id.toLowerCase().includes(query));
-    
-    const connected = filtered.filter((p) => p.available);
-    const apiKeyProviders = filtered.filter((p) => !p.available && !this.isOAuthProvider(p));
-    const oauthProviders = filtered.filter((p) => !p.available && this.isOAuthProvider(p));
+    const connected = this.providers.filter((p) => p.available);
 
     return html`
-      <div style="margin-bottom:1rem;">
-        <input
-          type="text"
-          placeholder="Search providers..."
-          .value=${this.searchQuery}
-          @input=${(e: InputEvent) => {
-            this.searchQuery = (e.target as HTMLInputElement).value;
-          }}
-          style="width:100%;max-width:300px;"
-        />
-      </div>
-
       ${connected.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#6aff6a;">Connected (${connected.length})</h3>
-        <div class="grid">${connected.map((p) => this.renderProviderCard(p))}</div>
+        <div class="card">
+          <h3 style="margin:0 0 1rem 0;color:#6aff6a;">Connected Providers (${connected.length})</h3>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:2px solid #333;">
+                <th style="text-align:left;padding:0.5rem;color:#aaa;font-weight:600;">Provider</th>
+                <th style="text-align:left;padding:0.5rem;color:#aaa;font-weight:600;">Models</th>
+                <th style="text-align:right;padding:0.5rem;color:#aaa;font-weight:600;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${connected.map((p) => this.renderProviderRow(p))}
+            </tbody>
+          </table>
+        </div>
       ` : nothing}
 
-      ${apiKeyProviders.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#aaa;">API Key Providers (${apiKeyProviders.length})</h3>
-        <div class="grid">${apiKeyProviders.map((p) => this.renderProviderCard(p))}</div>
-      ` : nothing}
-
-      ${oauthProviders.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#ffa;">OAuth Providers (${oauthProviders.length})</h3>
-        <div class="grid">${oauthProviders.map((p) => this.renderProviderCard(p))}</div>
-      ` : nothing}
+      ${this.showAddProviderCard
+        ? this.renderAddProviderFlow()
+        : html`
+            <div style="text-align:center;margin-top:0.75rem;">
+              <button
+                class="btn primary"
+                @click=${() => {
+            this.showAddProviderCard = true;
+            this.providerSearchQuery = '';
+            this.addProviderFlow = null;
+          }}
+              >
+                + Add New Provider
+              </button>
+            </div>
+          `
+      }
 
       ${this.renderOAuthDialog()}
 
@@ -1098,8 +1237,8 @@ export class AdminPanel extends LitElement {
               placeholder="e.g., 1000000"
               .value=${this.dailyBudget}
               @input=${(e: InputEvent) => {
-                this.dailyBudget = (e.target as HTMLInputElement).value;
-              }}
+        this.dailyBudget = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
           <div>
@@ -1109,8 +1248,8 @@ export class AdminPanel extends LitElement {
               placeholder="e.g., 800000"
               .value=${this.budgetAlertThreshold}
               @input=${(e: InputEvent) => {
-                this.budgetAlertThreshold = (e.target as HTMLInputElement).value;
-              }}
+        this.budgetAlertThreshold = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
           <button 
@@ -1175,8 +1314,8 @@ export class AdminPanel extends LitElement {
               placeholder="at least 8 characters"
               .value=${this.newPassword}
               @input=${(e: InputEvent) => {
-                this.newPassword = (e.target as HTMLInputElement).value;
-              }}
+        this.newPassword = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
         </div>
@@ -1188,8 +1327,8 @@ export class AdminPanel extends LitElement {
               placeholder="re-enter password"
               .value=${this.confirmPassword}
               @input=${(e: InputEvent) => {
-                this.confirmPassword = (e.target as HTMLInputElement).value;
-              }}
+        this.confirmPassword = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
         </div>
@@ -1239,7 +1378,6 @@ export class AdminPanel extends LitElement {
 
   private async renewPairing(): Promise<void> {
     this.loading = true;
-    this.message = null;
     try {
       const res = await adminRenewPairing();
       if (res.success && res.data) {
@@ -1256,7 +1394,6 @@ export class AdminPanel extends LitElement {
 
   private async switchTab(next: AdminTab): Promise<void> {
     this.tab = next;
-    this.message = null;
     this.loading = true;
     try {
       await this.loadTabData();
@@ -1265,12 +1402,23 @@ export class AdminPanel extends LitElement {
     }
   }
 
+  private renderToasts() {
+    if (this.messages.length === 0) return nothing;
+    return html`
+      <div class="toast-container">
+        ${this.messages.map(msg => html`
+          <div class="toast ${msg.kind === 'error' ? 'error' : ''} ${msg.removing ? 'removing' : ''}">
+            ${msg.text}
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
   render() {
     return html`
       ${this.authed ? this.renderAuthed() : this.renderLogin()}
-      ${this.message
-        ? html`<div class="msg ${this.message.kind === 'error' ? 'error' : ''}">${this.message.text}</div>`
-        : nothing}
+      ${this.renderToasts()}
     `;
   }
 }
