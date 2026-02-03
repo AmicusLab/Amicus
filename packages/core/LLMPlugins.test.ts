@@ -22,13 +22,6 @@ describe('LLM Plugins - Basic Functionality', () => {
       const cost = plugin.calculateCost('claude-opus-4-5-20251101', 1000, 500);
 
       expect(cost).toBeGreaterThan(0);
-    });
-    
-    it('should calculate cost correctly', async () => {
-      const plugin = new (await import('./src/llm/plugins/anthropic.js')).AnthropicPlugin({}, 'ANTHROPIC_API_KEY');
-      const cost = plugin.calculateCost('claude-opus-4-5-20251101', 1000, 500);
-
-      expect(cost).toBeGreaterThan(0);
       expect(typeof cost).toBe('number');
     });
   });

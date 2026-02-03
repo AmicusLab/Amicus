@@ -110,7 +110,7 @@ class ProviderService {
         }
       }
       
-      const result = {
+      return {
         id: p.id,
         enabled: p.enabled,
         loaded,
@@ -121,12 +121,6 @@ class ProviderService {
         ...(oauthMethods ? { oauthMethods } : {}),
         ...(failed?.message ? { error: failed.message } : {}),
       };
-      
-      if (p.id === 'anthropic' || p.id === 'openai') {
-        console.log(`[ProviderService] Final ${p.id}:`, JSON.stringify(result, null, 2));
-      }
-      
-      return result;
     });
   }
 

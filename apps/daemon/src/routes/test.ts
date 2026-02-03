@@ -38,7 +38,8 @@ testRoutes.post('/test/claude', adminAuthMiddleware, async (c) => {
     }
 
     const { generateText } = await import('ai');
-    const anthropic = plugin.createProvider({ apiKey }) as any;
+    type ProviderFactory = (modelId: string) => any;
+    const anthropic = plugin.createProvider({ apiKey }) as ProviderFactory;
     
     const result = await generateText({
       model: anthropic('claude-3-5-sonnet-20241022'),
