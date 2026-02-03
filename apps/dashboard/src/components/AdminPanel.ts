@@ -90,8 +90,8 @@ export class AdminPanel extends LitElement {
     .card {
       border: 1px solid #333;
       border-radius: 12px;
-      padding: 0.75rem;
-      margin-top: 0.75rem;
+      padding: 0.5rem;
+      margin-top: 0.5rem;
     }
     .danger {
       border-color: #7a2e2e;
@@ -134,7 +134,7 @@ export class AdminPanel extends LitElement {
     .provider {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
     .provider-header {
       display: flex;
@@ -278,7 +278,8 @@ export class AdminPanel extends LitElement {
   @state() private currentDefaultModel = '';
   @state() private dailyBudget = '';
   @state() private budgetAlertThreshold = '';
-  @state() private searchQuery = '';
+  @state() private providerSearchQuery = '';
+  @state() private showAddProviderCard = false;
 
   // OAuth dialog state
   @state() private oauthDialog: {
@@ -298,7 +299,7 @@ export class AdminPanel extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     void this.refresh();
-    
+
     this.unsubscribeProviderStatus = subscribe('provider:statusChanged', async () => {
       if (this.authed && this.tab === 'providers') {
         await this.loadTabData();
@@ -353,7 +354,7 @@ export class AdminPanel extends LitElement {
       if (res.success && res.data) {
         this.providers = [...res.data];
       }
-      
+
       const configRes = await adminGetConfig();
       if (configRes.success && configRes.data) {
         const llm = configRes.data['llm'] as Record<string, unknown> | undefined;
@@ -440,9 +441,9 @@ export class AdminPanel extends LitElement {
     this.loading = true;
     try {
       const wasDefaultProvider = this.currentDefaultModel.startsWith(id + ':');
-      
+
       await adminUnlinkProvider(id);
-      
+
       if (wasDefaultProvider) {
         await adminPatchConfig({ llm: { defaultModel: null } });
         this.currentDefaultModel = '';
@@ -450,7 +451,7 @@ export class AdminPanel extends LitElement {
       } else {
         this.setMsg('ok', `Provider ${id} unlinked`);
       }
-      
+
       await this.loadTabData();
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Unlink failed');
@@ -635,7 +636,7 @@ export class AdminPanel extends LitElement {
   private async listenForOAuthCallback(expectedState: string): Promise<void> {
     const handleMessage = async (event: MessageEvent) => {
       const isLocalhost = event.origin.startsWith('http://localhost:') ||
-                          event.origin.startsWith('http://127.0.0.1:');
+        event.origin.startsWith('http://127.0.0.1:');
       if (!isLocalhost) {
         return;
       }
@@ -677,7 +678,7 @@ export class AdminPanel extends LitElement {
           this.setMsg('error', e instanceof Error ? e.message : 'OAuth callback failed');
           this.oauthDialog = null;
         }
-        
+
         window.removeEventListener('message', handleMessage);
       }
     };
@@ -790,8 +791,8 @@ export class AdminPanel extends LitElement {
               placeholder="pairing code"
               .value=${this.pairingCode}
               @input=${(e: InputEvent) => {
-                this.pairingCode = (e.target as HTMLInputElement).value;
-              }}
+        this.pairingCode = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
           <button class="btn primary" ?disabled=${this.loading} @click=${() => void this.doPair()}>
@@ -809,13 +810,13 @@ export class AdminPanel extends LitElement {
               placeholder="admin password"
               .value=${this.password}
               @input=${(e: InputEvent) => {
-                this.password = (e.target as HTMLInputElement).value;
-              }}
+        this.password = (e.target as HTMLInputElement).value;
+      }}
               @keydown=${(e: KeyboardEvent) => {
-                if (e.key === 'Enter') {
-                  void this.doLogin();
-                }
-              }}
+        if (e.key === 'Enter') {
+          void this.doLogin();
+        }
+      }}
             />
           </div>
           <button class="btn" ?disabled=${this.loading} @click=${() => void this.doLogin()}>
@@ -830,183 +831,262 @@ export class AdminPanel extends LitElement {
     return p.authMethod === 'oauth' || p.authMethod === 'both';
   }
 
-  private renderProviderCard(p: AdminProviderView) {
-    const isOAuth = this.isOAuthProvider(p);
-    
+  private renderProviderRow(p: AdminProviderView) {
+    const isDefault = this.currentDefaultModel.startsWith(p.id + ':');
+
     return html`
-      <div class="card ${p.error ? 'danger' : ''}">
-        <div class="provider">
-          <div class="provider-header">
-            <strong>${p.id} (${p.modelCount} model${p.modelCount !== 1 ? 's' : ''})</strong>
-            <div class="provider-header-actions">
-              ${p.available && !this.currentDefaultModel.startsWith(p.id + ':')
-                ? html`<button
-                    class="btn primary"
-                    ?disabled=${this.loading}
-                    @click=${() => void this.setDefaultProvider(p.id)}
-                    title="Set as default provider"
-                  >
-                    Set as Default
-                  </button>`
-                : nothing
-              }
-              ${isOAuth && p.oauthStatus === 'connected'
-                ? html`<button
-                    class="btn danger"
-                    ?disabled=${this.loading}
-                    @click=${() => void this.disconnectOAuth(p.id)}
-                    title="Disconnect OAuth"
-                  >
-                    Disconnect
-                  </button>`
-                : html`<button
-                    class="btn danger"
-                    ?disabled=${this.loading}
-                    @click=${() => void this.unlinkProvider(p.id)}
-                    title="Disable and delete persisted key"
-                  >
-                    Unlink
-                  </button>`
-              }
-            </div>
+      <tr style="border-bottom:1px solid #222;">
+        <td style="padding:0.75rem 0.5rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <strong>${p.id}</strong>
+            ${isDefault ? html`<span class="status-badge default" style="font-size:0.7rem;">★ Default</span>` : nothing}
           </div>
-          
-          <div class="provider-status">
-            ${p.available 
-              ? html`<span class="status-badge registered">✓ Connected</span>`
-              : nothing
-            }
-            ${this.currentDefaultModel.startsWith(p.id + ':')
-              ? html`<span class="status-badge default">★ Default Provider</span>`
-              : nothing
-            }
+          ${p.error ? html`<div style="color:#ff6a6a;font-size:0.8rem;margin-top:0.25rem;">Error: ${p.error}</div>` : nothing}
+        </td>
+        <td style="padding:0.75rem 0.5rem;color:#aaa;">
+          ${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}
+        </td>
+        <td style="padding:0.75rem 0.5rem;text-align:right;">
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+            ${!isDefault && p.available
+        ? html`<button
+                  class="btn primary"
+                  style="padding:0.35rem 0.6rem;font-size:0.85rem;"
+                  ?disabled=${this.loading}
+                  @click=${() => void this.setDefaultProvider(p.id)}
+                  title="Set as default provider"
+                >
+                  Set as Default
+                </button>`
+        : nothing
+      }
+            <button
+              class="btn danger"
+              style="padding:0.35rem 0.6rem;font-size:0.85rem;"
+              ?disabled=${this.loading}
+              @click=${() => void this.unlinkProvider(p.id)}
+              title="Unlink provider"
+            >
+              Unlink
+            </button>
           </div>
-          ${p.error ? html`<div class="provider-meta" style="color: #ff6a6a;">Error: ${p.error}</div>` : nothing}
-        </div>
-      </div>
+        </td>
+      </tr>
     `;
   }
 
   private renderAddProviderFlow() {
     const unconnectedProviders = this.providers.filter((p) => !p.available);
-    
+
+    // Debug: Log provider data
+    console.log('[AdminPanel] All providers:', this.providers.map(p => ({ id: p.id, available: p.available })));
+    console.log('[AdminPanel] Unconnected providers:', unconnectedProviders.map(p => p.id));
+
+    const providerAliases: Record<string, string[]> = {
+      'openai': ['openai', 'chatgpt'],
+      'anthropic': ['anthropic', 'claude', 'code'],
+    };
+
+    const query = this.providerSearchQuery.toLowerCase().trim();
+    const filteredProviders = query
+      ? unconnectedProviders.filter((p) => {
+        const aliases = providerAliases[p.id] || [p.id];
+        const matches = aliases.some(alias => alias.toLowerCase().includes(query));
+        console.log(`[AdminPanel] Provider ${p.id}, aliases: [${aliases.join(', ')}], query: "${query}", matches: ${matches}`);
+        return matches;
+      })
+      : unconnectedProviders;
+
+    console.log('[AdminPanel] Search query:', query);
+    console.log('[AdminPanel] Filtered providers:', filteredProviders.map(p => p.id));
+
     if (!this.addProviderFlow) {
       return html`
         <div class="card add-provider-flow">
-          <h3>Add New Provider - Step 1: Select</h3>
-          <select @change=${(e: Event) => {
-            const providerId = (e.target as HTMLSelectElement).value;
-            if (!providerId) return;
-            const provider = this.providers.find(p => p.id === providerId);
-            if (!provider) return;
-            
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h3 style="margin:0;">Add New Provider</h3>
+            <button
+              class="btn"
+              @click=${() => {
+          this.showAddProviderCard = false;
+          this.providerSearchQuery = '';
+          this.addProviderFlow = null;
+        }}
+              style="padding:0.35rem 0.75rem;"
+            >
+              취소
+            </button>
+          </div>
+          
+          <input
+            type="text"
+            placeholder="Search providers (e.g., chatgpt, claude, code)..."
+            .value=${this.providerSearchQuery}
+            @input=${(e: Event) => {
+          this.providerSearchQuery = (e.target as HTMLInputElement).value;
+        }}
+            style="width:100%;margin-bottom:0.75rem;box-sizing:border-box;"
+          />
+          
+          ${filteredProviders.length > 0 ? html`
+            <div style="max-height:${4 * 40}px;overflow-y:auto;border:1px solid #333;border-radius:8px;padding:0.5rem;">
+              ${filteredProviders.map(p => html`
+                <div
+                  style="padding:0.1rem 0.5rem;cursor:pointer;border-radius:4px;transition:background 0.2s;min-height:40px;display:flex;align-items:center;"
+                  @click=${() => {
+            this.providerSearchQuery = '';
+            const provider = p;
+
             const methods = [];
             if (provider.authMethod === 'api_key' || provider.authMethod === 'both') methods.push('apikey');
             if (provider.authMethod === 'oauth' || provider.authMethod === 'both') methods.push('oauth');
-            
+
             if (methods.length === 1) {
               this.addProviderFlow = {
                 step: 'connect',
-                selectedProviderId: providerId,
+                selectedProviderId: provider.id,
                 selectedProvider: provider,
                 selectedMethod: methods[0] as 'apikey' | 'oauth',
               };
             } else {
               this.addProviderFlow = {
                 step: 'method',
-                selectedProviderId: providerId,
+                selectedProviderId: provider.id,
                 selectedProvider: provider,
               };
             }
-          }}>
-            <option value="">-- Select a provider --</option>
-            ${unconnectedProviders.map(p => html`<option value=${p.id}>${p.id}</option>`)}
-          </select>
+          }}
+                  @mouseenter=${(e: MouseEvent) => {
+            (e.target as HTMLElement).style.background = '#1a1a1a';
+          }}
+                  @mouseleave=${(e: MouseEvent) => {
+            (e.target as HTMLElement).style.background = 'transparent';
+          }}
+                >
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <div style="width:8px;height:8px;border-radius:50%;border:2px solid #6aa7ff;flex-shrink:0;"></div>
+                    <strong>${p.id}</strong>
+                  </div>
+                </div>
+              `)}
+            </div>
+          ` : html`
+            <div style="padding:2rem;text-align:center;color:#aaa;border:1px solid #333;border-radius:8px;">
+              ${query ? `No providers found for "${this.providerSearchQuery}"` : 'Start typing to search providers'}
+            </div>
+          `}
         </div>
       `;
     }
-    
-    if (this.addProviderFlow.step === 'method') {
-      return html`
-        <div class="card add-provider-flow step-method">
-          <h3>Step 2: Select Connection Method for ${this.addProviderFlow.selectedProviderId}</h3>
-          <div style="display:flex;gap:0.5rem;">
-            <button class="btn" @click=${() => this.addProviderFlow = null}>이전</button>
-            ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'api_key'
-              ? html`<button class="btn primary" @click=${() => {
-                  if (!this.addProviderFlow) return;
-                  this.addProviderFlow = {
-                    ...this.addProviderFlow,
-                    step: 'connect',
-                    selectedMethod: 'apikey',
-                  };
-                }}>API Key</button>`
-              : nothing}
-            ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'oauth'
-              ? html`<button class="btn primary" @click=${() => {
-                  if (!this.addProviderFlow) return;
-                  this.addProviderFlow = {
-                    ...this.addProviderFlow,
-                    step: 'connect',
-                    selectedMethod: 'oauth',
-                  };
-                }}>OAuth</button>`
-              : nothing}
-          </div>
+
+    return html`
+      <div class="card add-provider-flow">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <h3 style="margin:0;">Add New Provider</h3>
+          <button
+            class="btn"
+            @click=${() => {
+        this.showAddProviderCard = false;
+        this.providerSearchQuery = '';
+        this.addProviderFlow = null;
+      }}
+            style="padding:0.35rem 0.75rem;"
+          >
+            취소
+          </button>
         </div>
-      `;
-    }
-    
-    if (this.addProviderFlow.step === 'connect') {
-      const { selectedProviderId, selectedMethod } = this.addProviderFlow;
-      
-      if (selectedMethod === 'apikey') {
-        return html`
-          <div class="card add-provider-flow step-connect">
-            <h3>Step 3: Connect ${selectedProviderId} with API Key</h3>
-            <div class="provider-controls">
-              <button class="btn" @click=${() => this.addProviderFlow = null}>이전</button>
-              <input
-                type="password"
-                placeholder="Enter API key"
-                .value=${this.addProviderFlow.apiKeyInput || ''}
-                @input=${(e: InputEvent) => {
-                  if (!this.addProviderFlow) return;
-                  this.addProviderFlow = {
-                    ...this.addProviderFlow,
-                    apiKeyInput: (e.target as HTMLInputElement).value,
-                  };
-                }}
-              />
-              <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
-                if (!this.addProviderFlow || !this.addProviderFlow.apiKeyInput) {
-                  this.addMsg('error', 'Please enter an API key');
-                  return;
-                }
-                await this.validateAndSaveProviderKey(selectedProviderId!, this.addProviderFlow.apiKeyInput);
-                this.addProviderFlow = null;
-              }}>Validate & Save</button>
+        
+        <div style="padding:0.5rem;background:#1a1a1a;border-radius:4px;margin-bottom:0.75rem;">
+          <strong>Selected: ${this.addProviderFlow.selectedProviderId}</strong>
+        </div>
+        
+        ${this.addProviderFlow.step === 'method' ? html`
+          <div style="border-top:1px solid #333;padding-top:0.75rem;margin-top:0.75rem;">
+            <h4 style="margin:0 0 0.5rem 0;">Select Connection Method</h4>
+            <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.85rem;">Choose how to connect ${this.addProviderFlow.selectedProviderId}</p>
+            <div style="display:flex;gap:0.5rem;">
+              <button class="btn" @click=${() => this.addProviderFlow = null}>Back</button>
+              ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'api_key'
+          ? html`<button class="btn primary" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'connect',
+              selectedMethod: 'apikey',
+            };
+          }}>API Key</button>`
+          : nothing}
+              ${this.addProviderFlow.selectedProvider?.authMethod === 'both' || this.addProviderFlow.selectedProvider?.authMethod === 'oauth'
+          ? html`<button class="btn primary" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'connect',
+              selectedMethod: 'oauth',
+            };
+          }}>OAuth</button>`
+          : nothing}
             </div>
           </div>
-        `;
-      }
-      
-      return html`
-        <div class="card add-provider-flow step-connect">
-          <h3>Step 3: Connect ${selectedProviderId} with OAuth</h3>
-          <div style="display:flex;gap:0.5rem;">
-            <button class="btn" @click=${() => this.addProviderFlow = null}>이전</button>
-            <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
-              if (!this.addProviderFlow) return;
-              await this.startOAuthFlow(this.addProviderFlow.selectedProviderId!, this.addProviderFlow.selectedOAuthMethodId);
-              this.addProviderFlow = null;
-            }}>Connect with OAuth</button>
+        ` : nothing}
+        
+        ${this.addProviderFlow.step === 'connect' ? html`
+          <div style="border-top:1px solid #333;padding-top:0.75rem;margin-top:0.75rem;">
+            <h4 style="margin:0 0 0.5rem 0;">Connect</h4>
+            ${this.addProviderFlow.selectedMethod === 'apikey' ? html`
+              <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.85rem;">Enter your ${this.addProviderFlow.selectedProviderId} API key</p>
+              <div class="provider-controls">
+                <button class="btn" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'method',
+            };
+          }}>Back</button>
+                <input
+                  type="password"
+                  placeholder="Enter API key"
+                  .value=${this.addProviderFlow.apiKeyInput || ''}
+                  @input=${(e: InputEvent) => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              apiKeyInput: (e.target as HTMLInputElement).value,
+            };
+          }}
+                />
+                <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
+            if (!this.addProviderFlow || !this.addProviderFlow.apiKeyInput) {
+              this.addMsg('error', 'Please enter an API key');
+              return;
+            }
+            await this.validateAndSaveProviderKey(this.addProviderFlow.selectedProviderId!, this.addProviderFlow.apiKeyInput);
+            this.addProviderFlow = null;
+            this.showAddProviderCard = false;
+          }}>Validate & Save</button>
+              </div>
+            ` : html`
+              <p style="color:#aaa;margin-bottom:0.5rem;font-size:0.85rem;">Authorize ${this.addProviderFlow.selectedProviderId} via OAuth</p>
+              <div style="display:flex;gap:0.5rem;">
+                <button class="btn" @click=${() => {
+            if (!this.addProviderFlow) return;
+            this.addProviderFlow = {
+              ...this.addProviderFlow,
+              step: 'method',
+            };
+          }}>Back</button>
+                <button class="btn primary" ?disabled=${this.loading} @click=${async () => {
+            if (!this.addProviderFlow) return;
+            await this.startOAuthFlow(this.addProviderFlow.selectedProviderId!, this.addProviderFlow.selectedOAuthMethodId);
+            this.addProviderFlow = null;
+            this.showAddProviderCard = false;
+          }}>Connect with OAuth</button>
+              </div>
+            `}
           </div>
-        </div>
-      `;
-    }
-    
-    return nothing;
+        ` : nothing}
+      </div>
+    `;
   }
 
   private renderOAuthDialog() {
@@ -1059,10 +1139,10 @@ export class AdminPanel extends LitElement {
     if (this.oauthDialog.flowType === 'code_paste') {
       return html`
         <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
-          <div class="card" style="max-width:500px;background:#111;">
+          <div class="card" style="max-width:500px;width:90%;background:#111;">
             <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
             <p>Step 1: Visit the authorization URL</p>
-            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
+            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;word-wrap:break-word;overflow-wrap:break-word;">
               <a href="${this.oauthDialog.authorizationUrl ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
                 ${this.oauthDialog.authorizationUrl}
               </a>
@@ -1073,14 +1153,14 @@ export class AdminPanel extends LitElement {
               placeholder="Enter authorization code"
               .value=${this.pastedCode}
               @input=${(e: InputEvent) => {
-                this.pastedCode = (e.target as HTMLInputElement).value;
-              }}
+          this.pastedCode = (e.target as HTMLInputElement).value;
+        }}
               @keydown=${(e: KeyboardEvent) => {
-                if (e.key === 'Enter') {
-                  void this.submitPastedCode();
-                }
-              }}
-              style="width:100%;margin:0.5rem 0;"
+          if (e.key === 'Enter') {
+            void this.submitPastedCode();
+          }
+        }}
+              style="width:100%;margin:0.5rem 0;box-sizing:border-box;"
             />
             <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:flex-end;">
               <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
@@ -1097,30 +1177,44 @@ export class AdminPanel extends LitElement {
   }
 
   private renderProviders() {
-    const query = this.searchQuery.toLowerCase();
-    const filtered = this.providers.filter((p) => p.id.toLowerCase().includes(query));
-    
-    const connected = filtered.filter((p) => p.available);
+    const connected = this.providers.filter((p) => p.available);
 
     return html`
-      <div style="margin-bottom:1rem;">
-        <input
-          type="text"
-          placeholder="Search providers..."
-          .value=${this.searchQuery}
-          @input=${(e: InputEvent) => {
-            this.searchQuery = (e.target as HTMLInputElement).value;
-          }}
-          style="width:100%;max-width:300px;"
-        />
-      </div>
-
       ${connected.length > 0 ? html`
-        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#6aff6a;">Connected Providers (${connected.length})</h3>
-        <div class="grid">${connected.map((p) => this.renderProviderCard(p))}</div>
+        <div class="card">
+          <h3 style="margin:0 0 1rem 0;color:#6aff6a;">Connected Providers (${connected.length})</h3>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="border-bottom:2px solid #333;">
+                <th style="text-align:left;padding:0.5rem;color:#aaa;font-weight:600;">Provider</th>
+                <th style="text-align:left;padding:0.5rem;color:#aaa;font-weight:600;">Models</th>
+                <th style="text-align:right;padding:0.5rem;color:#aaa;font-weight:600;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${connected.map((p) => this.renderProviderRow(p))}
+            </tbody>
+          </table>
+        </div>
       ` : nothing}
 
-      ${this.renderAddProviderFlow()}
+      ${this.showAddProviderCard
+        ? this.renderAddProviderFlow()
+        : html`
+            <div style="text-align:center;margin-top:0.75rem;">
+              <button
+                class="btn primary"
+                @click=${() => {
+            this.showAddProviderCard = true;
+            this.providerSearchQuery = '';
+            this.addProviderFlow = null;
+          }}
+              >
+                + Add New Provider
+              </button>
+            </div>
+          `
+      }
 
       ${this.renderOAuthDialog()}
 
@@ -1135,8 +1229,8 @@ export class AdminPanel extends LitElement {
               placeholder="e.g., 1000000"
               .value=${this.dailyBudget}
               @input=${(e: InputEvent) => {
-                this.dailyBudget = (e.target as HTMLInputElement).value;
-              }}
+        this.dailyBudget = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
           <div>
@@ -1146,8 +1240,8 @@ export class AdminPanel extends LitElement {
               placeholder="e.g., 800000"
               .value=${this.budgetAlertThreshold}
               @input=${(e: InputEvent) => {
-                this.budgetAlertThreshold = (e.target as HTMLInputElement).value;
-              }}
+        this.budgetAlertThreshold = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
           <button 
@@ -1212,8 +1306,8 @@ export class AdminPanel extends LitElement {
               placeholder="at least 8 characters"
               .value=${this.newPassword}
               @input=${(e: InputEvent) => {
-                this.newPassword = (e.target as HTMLInputElement).value;
-              }}
+        this.newPassword = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
         </div>
@@ -1225,8 +1319,8 @@ export class AdminPanel extends LitElement {
               placeholder="re-enter password"
               .value=${this.confirmPassword}
               @input=${(e: InputEvent) => {
-                this.confirmPassword = (e.target as HTMLInputElement).value;
-              }}
+        this.confirmPassword = (e.target as HTMLInputElement).value;
+      }}
             />
           </div>
         </div>
