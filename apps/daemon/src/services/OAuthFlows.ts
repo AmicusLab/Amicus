@@ -417,6 +417,7 @@ export class CodePasteFlow {
     const body = JSON.stringify({
       client_id: this.config.clientId,
       code,
+      state,
       grant_type: 'authorization_code',
       redirect_uri: this.config.redirectUri,
       code_verifier: this.verifier,
