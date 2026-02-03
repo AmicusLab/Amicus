@@ -5,6 +5,7 @@ import {
   type LLMProviderConfig,
 } from '@amicus/core';
 import type { LLMProviderStatus, APIKeyValidationResult } from '@amicus/types/dashboard';
+import type { ProviderAuthConfig } from '@amicus/types';
 import { configManager, secretStore } from './ConfigService.js';
 
 class ProviderService {
@@ -34,40 +35,90 @@ class ProviderService {
     this.initialized = true;
   }
 
+  private mergeProviders(
+    defaults: ProviderConfigEntry[],
+    userConfig: ProviderConfigEntry[]
+  ): ProviderConfigEntry[] {
+    const userMap = new Map(userConfig.map((p) => [p.id, p]));
+    const merged: ProviderConfigEntry[] = [];
+
+    for (const defaultProvider of defaults) {
+      const userProvider = userMap.get(defaultProvider.id);
+      if (userProvider) {
+        const defaultAuth = (defaultProvider as unknown as { auth?: ProviderAuthConfig }).auth;
+        const userAuth = (userProvider as unknown as { auth?: ProviderAuthConfig }).auth;
+        
+        const mergedProvider = {
+          ...defaultProvider,
+          ...userProvider,
+          auth: userAuth ?? defaultAuth,
+        } as ProviderConfigEntry;
+        
+        merged.push(mergedProvider);
+        userMap.delete(defaultProvider.id);
+      } else {
+        merged.push(defaultProvider);
+      }
+    }
+
+    for (const remaining of userMap.values()) {
+      merged.push(remaining);
+    }
+
+    return merged;
+  }
+
   getAdminProviderView(): Array<{
     id: string;
     enabled: boolean;
     loaded: boolean;
     available: boolean;
     modelCount: number;
+    authMethod?: 'api_key' | 'oauth' | 'both';
+    oauthStatus?: 'connected' | 'disconnected';
+    oauthMethods?: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }>;
     error?: string;
   }> {
     const cfg = configManager.getConfig();
-    const config: LLMProviderConfig = cfg.llm.providers.length > 0
-      ? {
-          providers: cfg.llm.providers.map((p) => ({
-            id: p.id,
-            enabled: p.enabled,
-            package: p.package,
-            ...(p.envKey ? { envKey: p.envKey } : {}),
-          })),
-          defaultModel: cfg.llm.defaultModel,
-          dailyBudget: cfg.llm.dailyBudget,
-          budgetAlertThreshold: cfg.llm.budgetAlertThreshold,
-        }
-      : llmProviderConfig;
+    const rawProviders = this.mergeProviders(
+      llmProviderConfig.providers,
+      cfg.llm.providers as ProviderConfigEntry[]
+    );
 
     const state = this.registry.getState();
-    return config.providers.map((p) => {
+    return rawProviders.map((p) => {
       const loaded = state.loadedProviders.includes(p.id);
       const available = state.availableProviders.includes(p.id);
       const failed = state.failedProviders.find((fp) => fp.providerId === p.id);
+      
+      const auth = (p as { auth?: ProviderAuthConfig }).auth;
+      const authMethod = auth?.method ?? 'api_key';
+      
+      let oauthStatus: 'connected' | 'disconnected' | undefined;
+      let oauthMethods: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }> | undefined;
+      
+      if (authMethod === 'oauth' || authMethod === 'both') {
+        const credential = secretStore.getCredential(p.id);
+        oauthStatus = credential?.type === 'oauth' ? 'connected' : 'disconnected';
+        
+        if (auth?.oauthMethods && auth.oauthMethods.length > 0) {
+          oauthMethods = auth.oauthMethods.map((method) => ({
+            id: method.id,
+            label: method.label,
+            flow: method.flow.flow,
+          }));
+        }
+      }
+      
       return {
         id: p.id,
         enabled: p.enabled,
         loaded,
         available,
         modelCount: this.registry.getModelsByProvider(p.id).length,
+        authMethod,
+        ...(oauthStatus ? { oauthStatus } : {}),
+        ...(oauthMethods ? { oauthMethods } : {}),
         ...(failed?.message ? { error: failed.message } : {}),
       };
     });
@@ -92,7 +143,14 @@ class ProviderService {
     // Apply persisted secrets into process.env for provider SDKs.
     for (const p of providerCfg.providers) {
       const envKey = p.envKey ?? `${p.id.toUpperCase()}_API_KEY`;
-      if (!process.env[envKey]) {
+      
+      // Check for OAuth credential first
+      const credential = secretStore.getCredential(p.id);
+      if (credential?.type === 'oauth' && credential.accessToken) {
+        // Force overwrite with OAuth token (handles token refresh during reload)
+        process.env[envKey] = credential.accessToken;
+      } else if (!process.env[envKey]) {
+        // Only set API key if no OAuth and env var not already set
         const secret = secretStore.get(envKey);
         if (secret) {
           process.env[envKey] = secret;

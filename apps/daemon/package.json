@@ -17,6 +17,7 @@
     "@amicus/types": "workspace:*",
     "@hono/node-server": "^1.19.9",
     "@hono/node-ws": "^1.1.0",
+    "ai": "^3.0.0",
     "hono": "^4.11.7"
   },
   "devDependencies": {

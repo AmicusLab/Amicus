@@ -1,11 +1,5 @@
-/**
- * LLM Provider Configuration
- * 
- * LLM Provider 플러그인 설정 파일
- * 이 파일을 수정하여 Provider를 활성화/비활성화할 수 있습니다.
- */
-
 import type { LLMProviderConfig } from '../packages/core/src/llm/plugins/types.js';
+import type { ProviderAuthConfig } from '../packages/types/src/auth.js';
 
 /**
  * LLM Provider 기본 설정
@@ -26,19 +20,72 @@ export const llmProviderConfig: LLMProviderConfig = {
       id: 'anthropic', 
       enabled: true, 
       package: '@ai-sdk/anthropic',
-      envKey: 'ANTHROPIC_API_KEY'
+      envKey: 'ANTHROPIC_API_KEY',
+      auth: {
+        method: 'both',
+        envKey: 'ANTHROPIC_API_KEY',
+        oauthMethods: [
+          {
+            id: 'claude-pro',
+            label: 'Claude Pro/Max',
+            flow: {
+              flow: 'code_paste',
+              clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+              authorizationUrl: 'https://claude.ai/oauth/authorize',
+              tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
+              redirectUri: 'https://console.anthropic.com/oauth/code/callback',
+              scope: 'org:create_api_key user:profile user:inference',
+            },
+          },
+          {
+            id: 'create-api-key',
+            label: 'Create an API Key',
+            flow: {
+              flow: 'code_paste',
+              clientId: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
+              authorizationUrl: 'https://console.anthropic.com/oauth/authorize',
+              tokenUrl: 'https://console.anthropic.com/v1/oauth/token',
+              redirectUri: 'https://console.anthropic.com/oauth/code/callback',
+              scope: 'org:create_api_key user:profile',
+            },
+          },
+        ],
+      } as ProviderAuthConfig,
     },
     { 
       id: 'openai', 
       enabled: true, 
       package: '@ai-sdk/openai',
-      envKey: 'OPENAI_API_KEY'
-    },
-    { 
-      id: 'google', 
-      enabled: true, 
-      package: '@ai-sdk/google',
-      envKey: 'GOOGLE_API_KEY'
+      envKey: 'OPENAI_API_KEY',
+      auth: {
+        method: 'both',
+        envKey: 'OPENAI_API_KEY',
+        oauthMethods: [
+          {
+            id: 'chatgpt-browser',
+            label: 'ChatGPT Pro/Plus (Browser)',
+            flow: {
+              flow: 'pkce',
+              clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+              authorizationUrl: 'https://auth.openai.com/oauth/authorize',
+              tokenUrl: 'https://auth.openai.com/oauth/token',
+              callbackUrl: 'http://localhost:1455/auth/callback',
+              scope: 'openid profile email offline_access',
+            },
+          },
+          {
+            id: 'chatgpt-headless',
+            label: 'ChatGPT Pro/Plus (Headless)',
+            flow: {
+              flow: 'device_code',
+              clientId: 'app_EMoamEEZ73f0CkXaXp7hrann',
+              deviceCodeUrl: 'https://auth.openai.com/api/accounts/deviceauth/usercode',
+              tokenUrl: 'https://auth.openai.com/api/accounts/deviceauth/token',
+              scope: 'openid profile email offline_access',
+            },
+          },
+        ],
+      } as ProviderAuthConfig,
     },
     { 
       id: 'groq', 
@@ -68,20 +115,27 @@ export const llmProviderConfig: LLMProviderConfig = {
       package: '@ai-sdk/openai',
       envKey: 'KIMI_API_KEY'
     },
-    
-    // 향후 추가될 providers 예시
-    // { 
-    //   id: 'mistral', 
-    //   enabled: false, 
-    //   package: '@ai-sdk/mistral',
-    //   envKey: 'MISTRAL_API_KEY'
-    // },
-    // { 
-    //   id: 'cohere', 
-    //   enabled: false, 
-    //   package: '@ai-sdk/cohere',
-    //   envKey: 'COHERE_API_KEY'
-    // },
+    {
+      id: 'openrouter',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'OPENROUTER_API_KEY',
+      baseURL: 'https://openrouter.ai/api/v1',
+    },
+    {
+      id: 'moonshot',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'MOONSHOT_API_KEY',
+      baseURL: 'https://api.moonshot.cn/v1',
+    },
+    {
+      id: 'minimax',
+      enabled: false,
+      package: '@ai-sdk/openai',
+      envKey: 'MINIMAX_API_KEY',
+      baseURL: 'https://api.minimax.chat/v1',
+    },
   ],
   
   defaultModel: null,
@@ -100,11 +154,13 @@ export const llmProviderConfig: LLMProviderConfig = {
 export const providerEnvMap: Record<string, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
   openai: 'OPENAI_API_KEY',
-  google: 'GOOGLE_API_KEY',
   groq: 'GROQ_API_KEY',
   zai: 'ZAI_API_KEY',
   'zai-coding-plan': 'ZAI_CODING_PLAN_API_KEY',
   'kimi-for-coding': 'KIMI_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
+  moonshot: 'MOONSHOT_API_KEY',
+  minimax: 'MINIMAX_API_KEY',
 };
 
 /**
@@ -113,9 +169,21 @@ export const providerEnvMap: Record<string, string> = {
 export const defaultModelsByProvider: Record<string, string> = {
   anthropic: 'claude-3-5-sonnet-20241022',
   openai: 'gpt-4-turbo',
-  google: 'gemini-1.5-pro',
   groq: 'llama-3.3-70b-versatile',
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
   'kimi-for-coding': 'kimi-for-coding',
+  openrouter: 'openai/gpt-4-turbo',
+  moonshot: 'moonshot-v1-128k',
+  minimax: 'abab5.5-chat',
+  'openai-codex': 'gpt-4o',
+  'anthropic-max': 'claude-3-5-sonnet-20241022',
 };
+
+export function getEnabledProviders(config: LLMProviderConfig = llmProviderConfig) {
+  return config.providers.filter((p) => p.enabled);
+}
+
+export function getProviderConfig(id: string, config: LLMProviderConfig = llmProviderConfig) {
+  return config.providers.find((p) => p.id === id);
+}

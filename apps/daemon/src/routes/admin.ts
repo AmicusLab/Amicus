@@ -23,6 +23,9 @@ const defaultModelsByProvider: Record<string, string> = {
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
   'kimi-for-coding': 'kimi-for-coding',
+  openrouter: 'openai/gpt-4-turbo',
+  moonshot: 'moonshot-v1-128k',
+  minimax: 'abab5.5-chat',
 };
 
 export const adminRoutes = new Hono();
@@ -363,6 +366,21 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }
+  
+  const validationResult = await providerService.validateApiKey(id, apiKey);
+  if (!validationResult.valid) {
+    writeAudit({
+      timestamp: new Date().toISOString(),
+      eventId: randomUUID(),
+      actor: 'admin',
+      action: 'provider.setApiKey',
+      resource: `provider:${id}`,
+      result: 'failure',
+      message: `Invalid API key: ${validationResult.error ?? 'Unknown error'}`,
+    });
+    return c.json(fail('INVALID_API_KEY', validationResult.error ?? 'Invalid API key'), 400);
+  }
+  
   const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
   try {
     await secretStore.set(envKey, apiKey);

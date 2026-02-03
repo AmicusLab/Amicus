@@ -74,6 +74,18 @@ export interface ModelInfo {
   
   /** 지원 기능 */
   capabilities: ('text' | 'vision' | 'tools' | 'streaming')[];
+  
+  /** 입력 컨텍스트 창 크기 (토큰 단위, maxTokens와 별도) */
+  contextWindow?: number;
+  
+  /** 모델 모달리티 타입 */
+  modality?: 'text' | 'multimodal' | 'vision' | 'audio';
+  
+  /** 추론 능력 지원 여부 (o1, o3 등의 reasoning 모델) */
+  supportsReasoning?: boolean | 'basic' | 'extended';
+  
+  /** 모델 출시일 (YYYY-MM-DD 형식) */
+  releaseDate?: string;
 }
 
 /**
@@ -128,6 +140,9 @@ export interface ProviderConfigEntry {
   
   /** 기본 URL (OpenAI 호환 API용) */
   baseURL?: string;
+  
+  /** 인증 설정 (OAuth support) */
+  auth?: import('@amicus/types').ProviderAuthConfig;
 }
 
 /**

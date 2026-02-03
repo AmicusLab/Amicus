@@ -8,10 +8,17 @@ import type {
   ProviderLoadingError,
   ProviderConfig,
 } from './plugins/types.js';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { KimiPlugin, ZaiPlugin, ZaiCodingPlanPlugin } from './plugins/index.js';
+import {
+  AnthropicPlugin,
+  OpenAIPlugin,
+  GroqPlugin,
+  KimiPlugin,
+  ZaiPlugin,
+  ZaiCodingPlanPlugin,
+  OpenRouterPlugin,
+  MoonshotPlugin,
+  MiniMaxPlugin,
+} from './plugins/index.js';
 
 /**
  * Provider 레지스트리
@@ -95,8 +102,6 @@ export class ProviderRegistry {
         return new AnthropicPlugin(module, apiKeyEnv);
       case 'openai':
         return new OpenAIPlugin(module, apiKeyEnv);
-      case 'google':
-        return new GooglePlugin(module, apiKeyEnv);
       case 'groq':
         return new GroqPlugin(module, apiKeyEnv);
       case 'kimi-for-coding':
@@ -105,6 +110,12 @@ export class ProviderRegistry {
         return new ZaiPlugin(module, apiKeyEnv);
       case 'zai-coding-plan':
         return new ZaiCodingPlanPlugin(module, apiKeyEnv);
+      case 'openrouter':
+        return new OpenRouterPlugin(module, apiKeyEnv);
+      case 'moonshot':
+        return new MoonshotPlugin(module, apiKeyEnv);
+      case 'minimax':
+        return new MiniMaxPlugin(module, apiKeyEnv);
       default:
         throw new Error(`Unknown provider: ${id}`);
     }
@@ -279,227 +290,3 @@ export class ProviderRegistry {
     return { provider: parts[0]!, model: parts[1]! };
   }
 }
-
-// Provider 플러그인 구현체들 (임시 - Task 2에서 실제 구현)
-
-class AnthropicPlugin implements LLMProviderPlugin {
-  readonly name = 'Anthropic';
-  readonly id = 'anthropic';
-
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(config?: ProviderConfig): unknown {
-    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
-    if (!apiKey) {
-      throw new Error(`${this.apiKeyEnv} not set`);
-    }
-    const provider = createAnthropic({ apiKey });
-    return provider('claude-3-5-sonnet-20241022');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'claude-3-5-sonnet-20241022',
-        name: 'Claude 3.5 Sonnet',
-        description: 'Best for complex reasoning tasks',
-        maxTokens: 8192,
-        inputCostPer1K: 0.003,
-        outputCostPer1K: 0.015,
-        complexityRange: { min: 70, max: 100 },
-        capabilities: ['text', 'vision', 'tools', 'streaming'],
-      },
-      {
-        id: 'claude-3-haiku-20240307',
-        name: 'Claude 3 Haiku',
-        description: 'Fast and efficient',
-        maxTokens: 4096,
-        inputCostPer1K: 0.00025,
-        outputCostPer1K: 0.00125,
-        complexityRange: { min: 0, max: 70 },
-        capabilities: ['text', 'vision', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}
-
-class OpenAIPlugin implements LLMProviderPlugin {
-  readonly name = 'OpenAI';
-  readonly id = 'openai';
-
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(config?: ProviderConfig): unknown {
-    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
-    if (!apiKey) {
-      throw new Error(`${this.apiKeyEnv} not set`);
-    }
-    const provider = createOpenAI({ apiKey });
-    return provider('gpt-4-turbo');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'gpt-4-turbo',
-        name: 'GPT-4 Turbo',
-        description: 'Latest GPT-4 with improved capabilities',
-        maxTokens: 4096,
-        inputCostPer1K: 0.01,
-        outputCostPer1K: 0.03,
-        complexityRange: { min: 70, max: 100 },
-        capabilities: ['text', 'vision', 'tools', 'streaming'],
-      },
-      {
-        id: 'gpt-3.5-turbo',
-        name: 'GPT-3.5 Turbo',
-        description: 'Balanced performance and cost',
-        maxTokens: 4096,
-        inputCostPer1K: 0.0005,
-        outputCostPer1K: 0.0015,
-        complexityRange: { min: 30, max: 70 },
-        capabilities: ['text', 'tools', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}
-
-class GooglePlugin implements LLMProviderPlugin {
-  readonly name = 'Google';
-  readonly id = 'google';
-
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(config?: ProviderConfig): unknown {
-    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
-    if (!apiKey) {
-      throw new Error(`${this.apiKeyEnv} not set`);
-    }
-    const provider = createGoogleGenerativeAI({ apiKey });
-    return provider('gemini-1.5-pro');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'gemini-1.5-pro',
-        name: 'Gemini 1.5 Pro',
-        description: 'High performance',
-        maxTokens: 8192,
-        inputCostPer1K: 0.0035,
-        outputCostPer1K: 0.0105,
-        complexityRange: { min: 70, max: 100 },
-        capabilities: ['text', 'vision', 'tools', 'streaming'],
-      },
-      {
-        id: 'gemini-1.5-flash',
-        name: 'Gemini 1.5 Flash',
-        description: 'Ultra-low cost for simple tasks',
-        maxTokens: 8192,
-        inputCostPer1K: 0.000075,
-        outputCostPer1K: 0.0003,
-        complexityRange: { min: 0, max: 30 },
-        capabilities: ['text', 'vision', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}
-
-class GroqPlugin implements LLMProviderPlugin {
-  readonly name = 'Groq';
-  readonly id = 'groq';
-
-  constructor(
-    private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
-
-  createProvider(config?: ProviderConfig): unknown {
-    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
-    if (!apiKey) {
-      throw new Error(`${this.apiKeyEnv} not set`);
-    }
-    const provider = createOpenAI({
-      baseURL: 'https://api.groq.com/openai/v1',
-      apiKey,
-    });
-    return provider('llama-3.3-70b-versatile');
-  }
-
-  isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
-  }
-
-  getModels(): ModelInfo[] {
-    return [
-      {
-        id: 'llama-3.3-70b-versatile',
-        name: 'Llama 3.3 70B',
-        description: 'High-speed inference',
-        maxTokens: 8192,
-        inputCostPer1K: 0.00059,
-        outputCostPer1K: 0.00079,
-        complexityRange: { min: 30, max: 100 },
-        capabilities: ['text', 'tools', 'streaming'],
-      },
-    ];
-  }
-
-  calculateCost(modelId: string, inputTokens: number, outputTokens: number): number {
-    const model = this.getModels().find((m) => m.id === modelId);
-    if (!model) return 0;
-    return (
-      (inputTokens / 1000) * model.inputCostPer1K +
-      (outputTokens / 1000) * model.outputCostPer1K
-    );
-  }
-}
-

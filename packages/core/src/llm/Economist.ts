@@ -61,15 +61,6 @@ export class Economist {
 
   private readonly models: ModelConfig[] = [
     {
-      id: 'google:gemini-1.5-flash',
-      provider: 'google',
-      modelId: 'gemini-1.5-flash',
-      inputCostPer1K: 0.000075,
-      outputCostPer1K: 0.0003,
-      complexityRange: { min: 0, max: 30 },
-      description: 'Fast and cost-effective for simple tasks',
-    },
-    {
       id: 'anthropic:claude-3-haiku-20240307',
       provider: 'anthropic',
       modelId: 'claude-3-haiku-20240307',
@@ -159,11 +150,6 @@ export class Economist {
     try {
       const openai = await import('@ai-sdk/openai');
       providers.openai = openai.openai;
-    } catch {}
-
-    try {
-      const google = await import('@ai-sdk/google');
-      providers.google = google.google;
     } catch {}
 
     if (Object.keys(providers).length > 0) {
@@ -308,7 +294,7 @@ export class Economist {
     }
 
     if (!this.providerRegistry) {
-      throw new Error('No AI providers available. Please install @ai-sdk/anthropic, @ai-sdk/openai, or @ai-sdk/google');
+      throw new Error('No AI providers available. Please install @ai-sdk/anthropic or @ai-sdk/openai');
     }
 
     const routing = this.route(task);
@@ -336,7 +322,7 @@ export class Economist {
     }
 
     if (!this.providerRegistry) {
-      throw new Error('No AI providers available. Please install @ai-sdk/anthropic, @ai-sdk/openai, or @ai-sdk/google');
+      throw new Error('No AI providers available. Please install @ai-sdk/anthropic or @ai-sdk/openai');
     }
 
     const routing = this.route(task);

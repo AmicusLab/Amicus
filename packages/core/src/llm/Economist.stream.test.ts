@@ -27,7 +27,7 @@ describe('Economist Streaming', () => {
 
   beforeEach(() => {
     economist = new Economist({
-      defaultModel: 'google:gemini-1.5-flash',
+      defaultModel: 'openai:gpt-3.5-turbo',
       budget: 1.0,
     });
 
@@ -94,7 +94,7 @@ describe('Economist Streaming', () => {
 
   test('should respect budget limits', async () => {
     const limitedEconomist = new Economist({
-      defaultModel: 'google:gemini-1.5-flash',
+      defaultModel: 'openai:gpt-3.5-turbo',
       budget: 0.000001,
     });
 

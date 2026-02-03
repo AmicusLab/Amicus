@@ -16,8 +16,13 @@ import {
   adminSetPassword,
   adminValidateProviderApiKey,
   adminTestProviderConnection,
+  adminOAuthStart,
+  adminOAuthPoll,
+  adminOAuthCallback,
+  adminOAuthDisconnect,
   type AdminProviderView,
 } from '../api/client.js';
+import { subscribe } from '../api/websocket.js';
 import './ModelSelector.js';
 
 type AdminTab = 'providers' | 'models' | 'audit' | 'password';
@@ -221,14 +226,40 @@ export class AdminPanel extends LitElement {
   @state() private currentDefaultModel = '';
   @state() private dailyBudget = '';
   @state() private budgetAlertThreshold = '';
+  @state() private searchQuery = '';
+
+  // OAuth dialog state
+  @state() private oauthDialog: {
+    open: boolean;
+    providerId: string;
+    flowId: string;
+    flowType: 'device_code' | 'pkce' | 'code_paste';
+    userCode?: string;
+    verificationUri?: string;
+    authorizationUrl?: string;
+    state?: string;
+    polling: boolean;
+  } | null = null;
+
+  // OAuth method selection state
+  @state() private selectedOAuthMethod: Record<string, string> = {};
+
+  private unsubscribeProviderStatus?: () => void;
 
   connectedCallback(): void {
     super.connectedCallback();
     void this.refresh();
+    
+    this.unsubscribeProviderStatus = subscribe('provider:statusChanged', async () => {
+      if (this.authed && this.tab === 'providers') {
+        await this.loadTabData();
+        this.requestUpdate();
+      }
+    });
   }
 
   disconnectedCallback(): void {
-    // Clear sensitive inputs when component is removed from DOM
+    this.unsubscribeProviderStatus?.();
     this.password = '';
     this.pairingCode = '';
     this.newPassword = '';
@@ -261,7 +292,7 @@ export class AdminPanel extends LitElement {
     if (this.tab === 'providers') {
       const res = await adminListProviders();
       if (res.success && res.data) {
-        this.providers = res.data;
+        this.providers = [...res.data];
       }
       
       const configRes = await adminGetConfig();
@@ -442,6 +473,9 @@ export class AdminPanel extends LitElement {
         zai: 'glm-4.7',
         'zai-coding-plan': 'glm-4.7',
         'kimi-for-coding': 'kimi-for-coding',
+        openrouter: 'openai/gpt-4-turbo',
+        moonshot: 'moonshot-v1-128k',
+        minimax: 'abab5.5-chat',
       };
 
       const defaultModelName = defaultModelsByProvider[id];
@@ -485,6 +519,205 @@ export class AdminPanel extends LitElement {
       this.confirmPassword = '';
     } catch (e) {
       this.setMsg('error', e instanceof Error ? e.message : 'Password update failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async startOAuthFlow(providerId: string, methodId?: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const res = await adminOAuthStart(providerId, methodId);
+      if (res.success && res.data) {
+        if (res.data.flowType === 'device_code') {
+          this.oauthDialog = {
+            open: true,
+            providerId,
+            flowId: res.data.flowId,
+            flowType: 'device_code',
+            userCode: res.data.userCode,
+            verificationUri: res.data.verificationUri,
+            polling: false,
+          };
+          void this.pollOAuthFlow();
+        } else if (res.data.flowType === 'pkce') {
+          this.oauthDialog = {
+            open: true,
+            providerId,
+            flowId: res.data.flowId,
+            flowType: 'pkce',
+            polling: false,
+          };
+          if (res.data.authorizationUrl) {
+            const popup = window.open(res.data.authorizationUrl, '_blank', 'width=600,height=700');
+            if (popup) {
+              void this.listenForOAuthCallback(res.data.state ?? '');
+            }
+          }
+        } else if (res.data.flowType === 'code_paste') {
+          this.oauthDialog = {
+            open: true,
+            providerId,
+            flowId: res.data.flowId,
+            flowType: 'code_paste',
+            authorizationUrl: res.data.authorizationUrl,
+            state: res.data.state,
+            polling: false,
+          };
+        }
+      } else {
+        this.setMsg('error', res.error?.message ?? 'OAuth start failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'OAuth start failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async pollOAuthFlow(): Promise<void> {
+    if (!this.oauthDialog) return;
+    this.oauthDialog = { ...this.oauthDialog, polling: true };
+
+    const { providerId, flowId } = this.oauthDialog;
+    const maxAttempts = 60;
+    let attempts = 0;
+
+    while (this.oauthDialog?.open && attempts < maxAttempts) {
+      try {
+        const res = await adminOAuthPoll(providerId, flowId);
+        if (res.success && res.data) {
+          if (res.data.status === 'success') {
+            this.oauthDialog = null;
+            this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+            await this.loadTabData();
+            return;
+          }
+          if (res.data.status === 'expired' || res.data.status === 'access_denied') {
+            this.oauthDialog = null;
+            this.setMsg('error', `OAuth ${res.data.status === 'expired' ? 'expired' : 'denied'}`);
+            return;
+          }
+        }
+      } catch {
+      }
+      attempts++;
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+
+    if (this.oauthDialog) {
+      this.oauthDialog = null;
+      this.setMsg('error', 'OAuth timeout');
+    }
+  }
+
+  private closeOAuthDialog(): void {
+    this.oauthDialog = null;
+  }
+
+  private async listenForOAuthCallback(expectedState: string): Promise<void> {
+    const handleMessage = async (event: MessageEvent) => {
+      const isLocalhost = event.origin.startsWith('http://localhost:') ||
+                          event.origin.startsWith('http://127.0.0.1:');
+      if (!isLocalhost) {
+        return;
+      }
+
+      if (event.data?.type === 'oauth_success' && this.oauthDialog) {
+        const { state } = event.data;
+        if (state !== expectedState) {
+          this.setMsg('error', 'OAuth state mismatch');
+          this.oauthDialog = null;
+          return;
+        }
+
+        const { providerId } = this.oauthDialog;
+        this.oauthDialog = null;
+        this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+        await this.loadTabData();
+        this.requestUpdate();
+        window.removeEventListener('message', handleMessage);
+      } else if (event.data?.type === 'oauth_callback' && this.oauthDialog) {
+        const { code, state } = event.data;
+        if (state !== expectedState) {
+          this.setMsg('error', 'OAuth state mismatch');
+          this.oauthDialog = null;
+          return;
+        }
+
+        const { providerId, flowId } = this.oauthDialog;
+        try {
+          const res = await adminOAuthCallback(providerId, flowId, code, state);
+          if (res.success && res.data?.connected) {
+            this.oauthDialog = null;
+            this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+            await this.loadTabData();
+          } else {
+            this.setMsg('error', res.error?.message ?? 'OAuth callback failed');
+            this.oauthDialog = null;
+          }
+        } catch (e) {
+          this.setMsg('error', e instanceof Error ? e.message : 'OAuth callback failed');
+          this.oauthDialog = null;
+        }
+        
+        window.removeEventListener('message', handleMessage);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      if (this.oauthDialog?.flowType === 'pkce') {
+        this.setMsg('error', 'OAuth timeout - no response from popup');
+        this.oauthDialog = null;
+      }
+    }, 5 * 60 * 1000);
+  }
+
+  private pastedCode = '';
+
+  private async submitPastedCode(): Promise<void> {
+    if (!this.oauthDialog || this.oauthDialog.flowType !== 'code_paste') return;
+    if (!this.pastedCode.trim()) {
+      this.setMsg('error', 'Please enter the authorization code');
+      return;
+    }
+
+    this.loading = true;
+    try {
+      const { providerId, flowId, state } = this.oauthDialog;
+      const cleanCode = this.pastedCode.trim().split('#')[0] ?? '';
+      const res = await adminOAuthCallback(providerId, flowId, cleanCode, state ?? '');
+      if (res.success && res.data?.connected) {
+        this.oauthDialog = null;
+        this.pastedCode = '';
+        this.setMsg('ok', `Connected to ${providerId} via OAuth`);
+        await this.loadTabData();
+      } else {
+        this.setMsg('error', res.error?.message ?? 'OAuth callback failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'OAuth callback failed');
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private async disconnectOAuth(providerId: string): Promise<void> {
+    this.loading = true;
+    this.message = null;
+    try {
+      const res = await adminOAuthDisconnect(providerId);
+      if (res.success) {
+        this.setMsg('ok', `Disconnected ${providerId} OAuth`);
+        await this.loadTabData();
+      } else {
+        this.setMsg('error', res.error?.message ?? 'Disconnect failed');
+      }
+    } catch (e) {
+      this.setMsg('error', e instanceof Error ? e.message : 'Disconnect failed');
     } finally {
       this.loading = false;
     }
@@ -579,54 +812,109 @@ export class AdminPanel extends LitElement {
     `;
   }
 
-  private renderProviders() {
+  private isOAuthProvider(p: AdminProviderView): boolean {
+    return p.authMethod === 'oauth' || p.authMethod === 'both';
+  }
+
+  private renderProviderCard(p: AdminProviderView) {
+    const isOAuth = this.isOAuthProvider(p);
+    const hasMultipleOAuthMethods = p.oauthMethods && p.oauthMethods.length > 1;
+    
     return html`
-      <div class="grid">
-        ${this.providers.map((p) => html`
-          <div class="card ${p.error ? 'danger' : ''}">
-            <div class="provider">
-              <div class="provider-header">
-                <strong>${p.id}</strong>
-                <div class="provider-header-actions">
-                  ${p.available && !this.currentDefaultModel.startsWith(p.id + ':')
-                    ? html`<button
-                        class="btn primary"
-                        ?disabled=${this.loading}
-                        @click=${() => void this.setDefaultProvider(p.id)}
-                        title="Set as default provider"
-                      >
-                        Set as Default
-                      </button>`
-                    : nothing
-                  }
-                  <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
-                    ${p.enabled ? 'Disable' : 'Enable'}
-                  </button>
-                  <button
+      <div class="card ${p.error ? 'danger' : ''}">
+        <div class="provider">
+          <div class="provider-header">
+            <strong>${p.id}</strong>
+            <div class="provider-header-actions">
+              ${p.available && !this.currentDefaultModel.startsWith(p.id + ':')
+                ? html`<button
+                    class="btn primary"
+                    ?disabled=${this.loading}
+                    @click=${() => void this.setDefaultProvider(p.id)}
+                    title="Set as default provider"
+                  >
+                    Set as Default
+                  </button>`
+                : nothing
+              }
+              <button class="btn" ?disabled=${this.loading} @click=${() => void this.toggleProvider(p.id, !p.enabled)}>
+                ${p.enabled ? 'Disable' : 'Enable'}
+              </button>
+              ${isOAuth && p.oauthStatus === 'connected'
+                ? html`<button
+                    class="btn danger"
+                    ?disabled=${this.loading}
+                    @click=${() => void this.disconnectOAuth(p.id)}
+                    title="Disconnect OAuth"
+                  >
+                    Disconnect
+                  </button>`
+                : html`<button
                     class="btn danger"
                     ?disabled=${this.loading}
                     @click=${() => void this.unlinkProvider(p.id)}
                     title="Disable and delete persisted key"
                   >
                     Unlink
-                  </button>
-                </div>
-              </div>
-              
-              <div class="provider-status">
-                ${p.available 
-                  ? html`<span class="status-badge registered">✓ Registered</span>`
-                  : html`<span class="status-badge not-registered">No API Key</span>`
+                  </button>`
+              }
+            </div>
+          </div>
+          
+          <div class="provider-status">
+            ${p.available 
+              ? html`<span class="status-badge registered">✓ Connected</span>`
+              : isOAuth
+                ? html`<span class="status-badge not-registered">OAuth Required</span>`
+                : html`<span class="status-badge not-registered">No API Key</span>`
+            }
+            ${this.currentDefaultModel.startsWith(p.id + ':')
+              ? html`<span class="status-badge default">★ Default Provider</span>`
+              : nothing
+            }
+            <span class="provider-meta">${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}</span>
+          </div>
+          ${p.error ? html`<div class="provider-meta" style="color: #ff6a6a;">Error: ${p.error}</div>` : nothing}
+          
+          ${isOAuth
+            ? html`<div class="provider-controls">
+                ${hasMultipleOAuthMethods
+                  ? html`
+                       <select
+                         style="min-width:200px;"
+                         .value=${this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id || ''}
+                         @change=${(e: Event) => {
+                           const select = e.target as HTMLSelectElement;
+                           this.selectedOAuthMethod[p.id] = select.value;
+                         }}
+                       >
+                        ${p.oauthMethods?.map((method) => html`
+                          <option value=${method.id}>${method.label}</option>
+                        `)}
+                      </select>
+                       <button
+                         class="btn primary"
+                         ?disabled=${this.loading || p.available}
+                         @click=${() => {
+                           const methodId = this.selectedOAuthMethod[p.id] || p.oauthMethods?.[0]?.id;
+                           void this.startOAuthFlow(p.id, methodId);
+                         }}
+                       >
+                        ${p.available ? 'Connected' : 'Connect'}
+                      </button>
+                    `
+                  : html`
+                      <button
+                        class="btn primary"
+                        ?disabled=${this.loading || p.available}
+                        @click=${() => void this.startOAuthFlow(p.id, p.oauthMethods?.[0]?.id)}
+                      >
+                        ${p.available ? 'Connected' : 'Connect with OAuth'}
+                      </button>
+                    `
                 }
-                ${this.currentDefaultModel.startsWith(p.id + ':')
-                  ? html`<span class="status-badge default">★ Default Provider</span>`
-                  : nothing
-                }
-                <span class="provider-meta">${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}</span>
-              </div>
-              ${p.error ? html`<div class="provider-meta" style="color: #ff6a6a;">Error: ${p.error}</div>` : nothing}
-              
-              <div class="provider-controls">
+              </div>`
+            : html`<div class="provider-controls">
                 <input
                   type="password"
                   placeholder="Enter API key"
@@ -667,11 +955,137 @@ export class AdminPanel extends LitElement {
                 >
                   Test
                 </button>
-              </div>
+              </div>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderOAuthDialog() {
+    if (!this.oauthDialog?.open) return nothing;
+
+    if (this.oauthDialog.flowType === 'device_code') {
+      return html`
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
+          <div class="card" style="max-width:400px;background:#111;">
+            <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
+            <p>Step 1: Visit the link below</p>
+            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
+              <a href="${this.oauthDialog.verificationUri ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
+                ${this.oauthDialog.verificationUri}
+              </a>
+            </div>
+            <p>Step 2: Enter this code</p>
+            <div style="background:#0b0b0b;padding:1rem;border-radius:8px;text-align:center;font-size:1.5rem;font-family:monospace;letter-spacing:0.2em;">
+              ${this.oauthDialog.userCode}
+            </div>
+            <div style="margin-top:1rem;text-align:center;color:#aaa;">
+              ${this.oauthDialog.polling ? 'Waiting for authorization...' : ''}
+            </div>
+            <div style="margin-top:1rem;text-align:right;">
+              <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
             </div>
           </div>
-        `)}
+        </div>
+      `;
+    }
+
+    if (this.oauthDialog.flowType === 'pkce') {
+      return html`
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
+          <div class="card" style="max-width:400px;background:#111;">
+            <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
+            <p style="text-align:center;">Opening browser for authorization...</p>
+            <p style="text-align:center;color:#aaa;font-size:0.85rem;">If the popup was blocked, please allow popups for this site.</p>
+            <div style="margin-top:1rem;text-align:center;color:#aaa;">
+              Waiting for authorization...
+            </div>
+            <div style="margin-top:1rem;text-align:right;">
+              <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    if (this.oauthDialog.flowType === 'code_paste') {
+      return html`
+        <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:1000;">
+          <div class="card" style="max-width:500px;background:#111;">
+            <h3 style="margin:0 0 1rem 0;">Connect to ${this.oauthDialog.providerId}</h3>
+            <p>Step 1: Visit the authorization URL</p>
+            <div style="background:#0b0b0b;padding:0.5rem;border-radius:8px;margin:0.5rem 0;">
+              <a href="${this.oauthDialog.authorizationUrl ?? '#'}" target="_blank" style="color:#6aa7ff;word-break:break-all;">
+                ${this.oauthDialog.authorizationUrl}
+              </a>
+            </div>
+            <p>Step 2: Paste the authorization code below</p>
+            <input
+              type="text"
+              placeholder="Enter authorization code"
+              .value=${this.pastedCode}
+              @input=${(e: InputEvent) => {
+                this.pastedCode = (e.target as HTMLInputElement).value;
+              }}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') {
+                  void this.submitPastedCode();
+                }
+              }}
+              style="width:100%;margin:0.5rem 0;"
+            />
+            <div style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:flex-end;">
+              <button class="btn" @click=${() => this.closeOAuthDialog()}>Cancel</button>
+              <button class="btn primary" ?disabled=${this.loading} @click=${() => void this.submitPastedCode()}>
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    return nothing;
+  }
+
+  private renderProviders() {
+    const query = this.searchQuery.toLowerCase();
+    const filtered = this.providers.filter((p) => p.id.toLowerCase().includes(query));
+    
+    const connected = filtered.filter((p) => p.available);
+    const apiKeyProviders = filtered.filter((p) => !p.available && !this.isOAuthProvider(p));
+    const oauthProviders = filtered.filter((p) => !p.available && this.isOAuthProvider(p));
+
+    return html`
+      <div style="margin-bottom:1rem;">
+        <input
+          type="text"
+          placeholder="Search providers..."
+          .value=${this.searchQuery}
+          @input=${(e: InputEvent) => {
+            this.searchQuery = (e.target as HTMLInputElement).value;
+          }}
+          style="width:100%;max-width:300px;"
+        />
       </div>
+
+      ${connected.length > 0 ? html`
+        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#6aff6a;">Connected (${connected.length})</h3>
+        <div class="grid">${connected.map((p) => this.renderProviderCard(p))}</div>
+      ` : nothing}
+
+      ${apiKeyProviders.length > 0 ? html`
+        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#aaa;">API Key Providers (${apiKeyProviders.length})</h3>
+        <div class="grid">${apiKeyProviders.map((p) => this.renderProviderCard(p))}</div>
+      ` : nothing}
+
+      ${oauthProviders.length > 0 ? html`
+        <h3 style="margin:1rem 0 0.5rem 0;font-size:0.9rem;color:#ffa;">OAuth Providers (${oauthProviders.length})</h3>
+        <div class="grid">${oauthProviders.map((p) => this.renderProviderCard(p))}</div>
+      ` : nothing}
+
+      ${this.renderOAuthDialog()}
 
       <div class="card" style="margin-top: 1rem;">
         <h3 style="margin: 0 0 0.75rem 0; font-size: 1rem;">Usage & Budget</h3>
