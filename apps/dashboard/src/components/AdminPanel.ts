@@ -608,7 +608,9 @@ export class AdminPanel extends LitElement {
 
   private async listenForOAuthCallback(expectedState: string): Promise<void> {
     const handleMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      const isLocalhost = event.origin.startsWith('http://localhost:') || 
+                          event.origin.startsWith('http://127.0.0.1:');
+      if (!isLocalhost) return;
       
       if (event.data?.type === 'oauth_success' && this.oauthDialog) {
         const { state } = event.data;
