@@ -38,6 +38,7 @@ type ToastMessage = {
   kind: 'ok' | 'error';
   text: string;
   timestamp: number;
+  removing?: boolean;
 };
 
 @customElement('admin-panel')
@@ -255,7 +256,44 @@ export class AdminPanel extends LitElement {
       from { transform: translateY(0); opacity: 1; }
       to { transform: translateY(100%); opacity: 0; }
     }
+    .provider-row {
+      border-bottom: 1px solid #222;
+    }
+    .provider-cell {
+      padding: 0.75rem 0.5rem;
+    }
+    .provider-cell-actions {
+      text-align: right;
+    }
+    .provider-name-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .provider-error {
+      color: #ff6a6a;
+      font-size: 0.8rem;
+      margin-top: 0.25rem;
+    }
+    .models-cell {
+      color: #aaa;
+    }
+    .actions-wrapper {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: flex-end;
+    }
+    .action-button {
+      padding: 0.35rem 0.6rem;
+      font-size: 0.85rem;
+    }
   `;
+
+  private static readonly TOAST_TIMEOUT_MS = 5000;
+  private static readonly PROVIDER_ALIASES: Record<string, string[]> = {
+    'openai': ['openai', 'chatgpt'],
+    'anthropic': ['anthropic', 'claude', 'code'],
+  };
 
   @state() private authed = false;
   @state() private tab: AdminTab = 'providers';
@@ -319,11 +357,19 @@ export class AdminPanel extends LitElement {
   private addMsg(kind: 'ok' | 'error', text: string): void {
     const id = `toast-${Date.now()}-${Math.random()}`;
     this.messages = [...this.messages, { id, kind, text, timestamp: Date.now() }];
-    setTimeout(() => this.removeMsg(id), 5000);
+    setTimeout(() => this.removeMsg(id), AdminPanel.TOAST_TIMEOUT_MS);
   }
 
   private removeMsg(id: string): void {
-    this.messages = this.messages.filter(m => m.id !== id);
+    const message = this.messages.find(m => m.id === id);
+    if (!message) return;
+
+    message.removing = true;
+    this.requestUpdate();
+
+    setTimeout(() => {
+      this.messages = this.messages.filter(m => m.id !== id);
+    }, 300);
   }
 
   private setMsg(kind: 'ok' | 'error', text: string) {
@@ -813,23 +859,22 @@ export class AdminPanel extends LitElement {
     const isDefault = this.currentDefaultModel.startsWith(p.id + ':');
 
     return html`
-      <tr style="border-bottom:1px solid #222;">
-        <td style="padding:0.75rem 0.5rem;">
-          <div style="display:flex;align-items:center;gap:0.5rem;">
+      <tr class="provider-row">
+        <td class="provider-cell">
+          <div class="provider-name-wrapper">
             <strong>${p.id}</strong>
             ${isDefault ? html`<span class="status-badge default" style="font-size:0.7rem;">★ Default</span>` : nothing}
           </div>
-          ${p.error ? html`<div style="color:#ff6a6a;font-size:0.8rem;margin-top:0.25rem;">Error: ${p.error}</div>` : nothing}
+          ${p.error ? html`<div class="provider-error">Error: ${p.error}</div>` : nothing}
         </td>
-        <td style="padding:0.75rem 0.5rem;color:#aaa;">
+        <td class="provider-cell models-cell">
           ${p.modelCount} model${p.modelCount !== 1 ? 's' : ''}
         </td>
-        <td style="padding:0.75rem 0.5rem;text-align:right;">
-          <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+        <td class="provider-cell provider-cell-actions">
+          <div class="actions-wrapper">
             ${!isDefault && p.available
         ? html`<button
-                  class="btn primary"
-                  style="padding:0.35rem 0.6rem;font-size:0.85rem;"
+                  class="btn primary action-button"
                   ?disabled=${this.loading}
                   @click=${() => void this.setDefaultProvider(p.id)}
                   title="Set as default provider"
@@ -839,8 +884,7 @@ export class AdminPanel extends LitElement {
         : nothing
       }
             <button
-              class="btn danger"
-              style="padding:0.35rem 0.6rem;font-size:0.85rem;"
+              class="btn danger action-button"
               ?disabled=${this.loading}
               @click=${() => void this.unlinkProvider(p.id)}
               title="Unlink provider"
@@ -856,27 +900,13 @@ export class AdminPanel extends LitElement {
   private renderAddProviderFlow() {
     const unconnectedProviders = this.providers.filter((p) => !p.available);
 
-    // Debug: Log provider data
-    console.log('[AdminPanel] All providers:', this.providers.map(p => ({ id: p.id, available: p.available })));
-    console.log('[AdminPanel] Unconnected providers:', unconnectedProviders.map(p => p.id));
-
-    const providerAliases: Record<string, string[]> = {
-      'openai': ['openai', 'chatgpt'],
-      'anthropic': ['anthropic', 'claude', 'code'],
-    };
-
     const query = this.providerSearchQuery.toLowerCase().trim();
     const filteredProviders = query
       ? unconnectedProviders.filter((p) => {
-        const aliases = providerAliases[p.id] || [p.id];
-        const matches = aliases.some(alias => alias.toLowerCase().includes(query));
-        console.log(`[AdminPanel] Provider ${p.id}, aliases: [${aliases.join(', ')}], query: "${query}", matches: ${matches}`);
-        return matches;
+        const aliases = AdminPanel.PROVIDER_ALIASES[p.id] || [p.id];
+        return aliases.some(alias => alias.toLowerCase().includes(query));
       })
       : unconnectedProviders;
-
-    console.log('[AdminPanel] Search query:', query);
-    console.log('[AdminPanel] Filtered providers:', filteredProviders.map(p => p.id));
 
     if (!this.addProviderFlow) {
       return html`
@@ -1377,7 +1407,7 @@ export class AdminPanel extends LitElement {
     return html`
       <div class="toast-container">
         ${this.messages.map(msg => html`
-          <div class="toast ${msg.kind === 'error' ? 'error' : ''}">
+          <div class="toast ${msg.kind === 'error' ? 'error' : ''} ${msg.removing ? 'removing' : ''}">
             ${msg.text}
           </div>
         `)}
