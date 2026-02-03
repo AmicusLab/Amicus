@@ -351,15 +351,31 @@ export class PKCEFlow {
         res.end(
           `<!DOCTYPE html><html><body>
             <h2>✅ Authorization Complete</h2>
-            <p>You can close this window.</p>
+            <p>Sending message to parent window...</p>
+            <p id="status">Waiting...</p>
             <script>
+              console.log('[OAuth Callback] Starting postMessage...');
+              console.log('[OAuth Callback] window.opener exists:', !!window.opener);
+              console.log('[OAuth Callback] state:', '${state}');
+              
               if (window.opener) {
-                window.opener.postMessage({ 
+                const message = { 
                   type: 'oauth_success', 
                   state: '${state}' 
-                }, '*');
+                };
+                console.log('[OAuth Callback] Sending postMessage:', message);
+                window.opener.postMessage(message, '*');
+                document.getElementById('status').textContent = 'Message sent! You can close this window.';
+                console.log('[OAuth Callback] postMessage sent successfully');
+                
+                setTimeout(() => {
+                  console.log('[OAuth Callback] Auto-closing window...');
+                  window.close();
+                }, 10000);
+              } else {
+                document.getElementById('status').textContent = 'Error: No parent window found';
+                console.error('[OAuth Callback] window.opener is null!');
               }
-              setTimeout(() => window.close(), 2000);
             </script>
           </body></html>`
         );

@@ -150,9 +150,14 @@ class ProviderService {
     for (const p of providerCfg.providers) {
       const envKey = p.envKey ?? `${p.id.toUpperCase()}_API_KEY`;
       if (!process.env[envKey]) {
-        const secret = secretStore.get(envKey);
-        if (secret) {
-          process.env[envKey] = secret;
+        const credential = secretStore.getCredential(p.id);
+        if (credential?.type === 'oauth' && credential.accessToken) {
+          process.env[envKey] = credential.accessToken;
+        } else {
+          const secret = secretStore.get(envKey);
+          if (secret) {
+            process.env[envKey] = secret;
+          }
         }
       }
     }
