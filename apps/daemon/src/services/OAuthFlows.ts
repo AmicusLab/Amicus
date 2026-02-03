@@ -139,11 +139,7 @@ export class DeviceCodeFlow {
       const result = await this.poll(deviceCode);
 
       if (result.status === 'success') {
-        let accessToken = result.tokens.accessToken;
-
-        if (this.config.copilotTokenUrl) {
-          accessToken = await this.getCopilotToken(accessToken);
-        }
+        const accessToken = result.tokens.accessToken;
 
         const cred: OAuthCredential = {
           type: 'oauth',
@@ -170,26 +166,6 @@ export class DeviceCodeFlow {
     }
 
     throw new Error('Device code expired');
-  }
-
-  private async getCopilotToken(githubToken: string): Promise<string> {
-    if (!this.config.copilotTokenUrl) {
-      throw new Error('Copilot token URL not configured');
-    }
-
-    const res = await fetch(this.config.copilotTokenUrl, {
-      headers: {
-        Authorization: `token ${githubToken}`,
-        Accept: 'application/json',
-      },
-    });
-
-    if (!res.ok) {
-      throw new Error(`Copilot token request failed: ${res.status}`);
-    }
-
-    const json = (await res.json()) as Record<string, unknown>;
-    return String(json.token ?? '');
   }
 }
 

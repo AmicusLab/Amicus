@@ -6,7 +6,6 @@ const testConfig: LLMProviderConfig = {
   providers: [
     { id: 'anthropic', enabled: true, package: '@ai-sdk/anthropic' },
     { id: 'openai', enabled: true, package: '@ai-sdk/openai' },
-    { id: 'google', enabled: true, package: '@ai-sdk/google' },
   ],
   defaultModel: 'anthropic:claude-3-5-sonnet-20241022',
   dailyBudget: 10.0,
@@ -21,7 +20,6 @@ describe('ProviderRegistry', () => {
     
     process.env.ANTHROPIC_API_KEY = 'test-key-anthropic';
     process.env.OPENAI_API_KEY = 'test-key-openai';
-    process.env.GOOGLE_API_KEY = 'test-key-google';
   });
 
   beforeEach(async () => {
@@ -36,7 +34,6 @@ describe('ProviderRegistry', () => {
       const loadedProviders = globalRegistry.getLoadedProviders();
       expect(loadedProviders).toContain('anthropic');
       expect(loadedProviders).toContain('openai');
-      expect(loadedProviders).toContain('google');
     });
 
     it('should skip disabled providers', async () => {
@@ -61,9 +58,6 @@ describe('ProviderRegistry', () => {
       
       const openaiModels = models.filter(m => m.providerId === 'openai');
       expect(openaiModels.length).toBeGreaterThan(0);
-      
-      const googleModels = models.filter(m => m.providerId === 'google');
-      expect(googleModels.length).toBeGreaterThan(0);
     });
 
     it('should include providerId in model info', async () => {
@@ -84,7 +78,7 @@ describe('ProviderRegistry', () => {
       const result = globalRegistry.selectModel(50);
 
       expect(result).toBeDefined();
-      expect(result.model).toMatch(/^(anthropic|openai|google):/);
+      expect(result.model).toMatch(/^(anthropic|openai):/);
       expect(result.estimatedCost).toBeGreaterThan(0);
       expect(result.modelInfo).toBeDefined();
     });

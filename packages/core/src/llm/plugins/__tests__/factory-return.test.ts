@@ -7,7 +7,6 @@
 
 import { AnthropicPlugin } from '../anthropic.js';
 import { OpenAIPlugin } from '../openai.js';
-import { GooglePlugin } from '../google.js';
 import { GroqPlugin } from '../groq.js';
 
 describe('Provider Factory Return Tests', () => {
@@ -15,7 +14,6 @@ describe('Provider Factory Return Tests', () => {
     // Clear any existing environment variables for test isolation
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.OPENAI_API_KEY;
-    delete process.env.GOOGLE_API_KEY;
     delete process.env.GROQ_API_KEY;
   });
 
@@ -48,22 +46,6 @@ describe('Provider Factory Return Tests', () => {
     it('should throw error when no API key provided', () => {
       const plugin = new OpenAIPlugin({}, 'TEST_API_KEY');
       expect(() => plugin.createProvider({})).toThrow('OpenAI API key not found');
-    });
-  });
-
-  describe('GooglePlugin', () => {
-    it('should return provider factory, not model instance', () => {
-      const plugin = new GooglePlugin({}, 'TEST_API_KEY');
-      process.env.TEST_API_KEY = 'test-key';
-      const provider = plugin.createProvider({ apiKey: 'test-key' });
-      expect(provider).toBeDefined();
-      expect(typeof provider).toBe('function');
-      delete process.env.TEST_API_KEY;
-    });
-
-    it('should throw error when no API key provided', () => {
-      const plugin = new GooglePlugin({}, 'TEST_API_KEY');
-      expect(() => plugin.createProvider({})).toThrow('Google API key not found');
     });
   });
 

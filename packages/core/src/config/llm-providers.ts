@@ -88,30 +88,6 @@ export const llmProviderConfig: LLMProviderConfig = {
       } as ProviderAuthConfig,
     },
     { 
-      id: 'google', 
-      enabled: true, 
-      package: '@ai-sdk/google',
-      envKey: 'GOOGLE_API_KEY',
-      auth: {
-        method: 'both',
-        envKey: 'GOOGLE_API_KEY',
-        oauthMethods: [
-          {
-            id: 'gemini-browser',
-            label: 'Google Gemini (Browser)',
-            flow: {
-              flow: 'pkce',
-              clientId: '456324763910-ejpb7ro7k7baenh62uvnoh3isl2gh66r.apps.googleusercontent.com',
-              authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-              tokenUrl: 'https://oauth2.googleapis.com/token',
-              callbackUrl: 'http://localhost:1455/auth/callback',
-              scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email',
-            },
-          },
-        ],
-      } as ProviderAuthConfig,
-    },
-    { 
       id: 'groq', 
       enabled: true, 
       package: '@ai-sdk/groq',
@@ -160,30 +136,6 @@ export const llmProviderConfig: LLMProviderConfig = {
       envKey: 'MINIMAX_API_KEY',
       baseURL: 'https://api.minimax.chat/v1',
     },
-    
-    {
-      id: 'github-copilot',
-      enabled: false,
-      package: '@ai-sdk/openai',
-      baseURL: 'https://api.githubcopilot.com',
-      auth: {
-        method: 'oauth',
-        oauthMethods: [
-          {
-            id: 'copilot-device',
-            label: 'GitHub Copilot',
-            flow: {
-              flow: 'device_code',
-              clientId: 'Ov23li8tweQw6odWQebz',
-              deviceCodeUrl: 'https://github.com/login/device/code',
-              tokenUrl: 'https://github.com/login/oauth/access_token',
-              scope: 'read:user',
-              copilotTokenUrl: 'https://api.github.com/copilot_internal/v2/token',
-            },
-          },
-        ],
-      } as ProviderAuthConfig,
-    },
   ],
   
   defaultModel: null,
@@ -202,7 +154,6 @@ export const llmProviderConfig: LLMProviderConfig = {
 export const providerEnvMap: Record<string, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
   openai: 'OPENAI_API_KEY',
-  google: 'GOOGLE_API_KEY',
   groq: 'GROQ_API_KEY',
   zai: 'ZAI_API_KEY',
   'zai-coding-plan': 'ZAI_CODING_PLAN_API_KEY',
@@ -210,7 +161,6 @@ export const providerEnvMap: Record<string, string> = {
   openrouter: 'OPENROUTER_API_KEY',
   moonshot: 'MOONSHOT_API_KEY',
   minimax: 'MINIMAX_API_KEY',
-  'google-gemini': 'GOOGLE_API_KEY',
 };
 
 /**
@@ -219,7 +169,6 @@ export const providerEnvMap: Record<string, string> = {
 export const defaultModelsByProvider: Record<string, string> = {
   anthropic: 'claude-3-5-sonnet-20241022',
   openai: 'gpt-4-turbo',
-  google: 'gemini-1.5-pro',
   groq: 'llama-3.3-70b-versatile',
   zai: 'glm-4.7',
   'zai-coding-plan': 'glm-4.7',
@@ -229,8 +178,6 @@ export const defaultModelsByProvider: Record<string, string> = {
   minimax: 'abab5.5-chat',
   'openai-codex': 'gpt-4o',
   'anthropic-max': 'claude-3-5-sonnet-20241022',
-  'github-copilot': 'gpt-4o',
-  'google-gemini': 'gemini-1.5-pro',
 };
 
 export function getEnabledProviders(config: LLMProviderConfig = llmProviderConfig) {

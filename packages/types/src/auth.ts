@@ -34,7 +34,6 @@ export interface DeviceCodeFlowConfig {
   deviceCodeUrl: string;
   tokenUrl: string;
   scope?: string;
-  copilotTokenUrl?: string;
 }
 
 export interface PKCEFlowConfig {

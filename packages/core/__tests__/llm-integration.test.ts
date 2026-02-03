@@ -25,7 +25,6 @@ function hasApiKey(providerId: string): boolean {
   const envVarMap: Record<string, string> = {
     anthropic: 'ANTHROPIC_API_KEY',
     openai: 'OPENAI_API_KEY',
-    google: 'GOOGLE_API_KEY',
     groq: 'GROQ_API_KEY',
     zai: 'ZAI_API_KEY',
     'kimi-for-coding': 'KIMI_API_KEY',
@@ -51,7 +50,6 @@ function hasApiKey(providerId: string): boolean {
   const minLengths: Record<string, number> = {
     anthropic: 20,
     openai: 20,
-    google: 20,
     groq: 20,
     zai: 20,
     moonshot: 20,
@@ -171,7 +169,6 @@ describe('ProviderRegistry Integration', () => {
     const testCases = [
       { input: 'anthropic:claude-3-5-sonnet-20241022', expected: { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' } },
       { input: 'openai:gpt-4-turbo', expected: { provider: 'openai', model: 'gpt-4-turbo' } },
-      { input: 'google:gemini-1.5-pro', expected: { provider: 'google', model: 'gemini-1.5-pro' } },
     ];
 
     for (const { input, expected } of testCases) {
@@ -203,7 +200,6 @@ describe('LLM Provider Integration', () => {
   const providers = [
     { id: 'anthropic', model: 'claude-3-haiku-20240307', package: '@ai-sdk/anthropic' },
     { id: 'openai', model: 'gpt-3.5-turbo', package: '@ai-sdk/openai' },
-    { id: 'google', model: 'gemini-1.5-flash', package: '@ai-sdk/google' },
     { id: 'groq', model: 'llama-3.3-70b-versatile', package: '@ai-sdk/groq' },
     { id: 'zai', model: 'glm-4.7', package: '@ai-sdk/openai' },
     { id: 'moonshot', model: 'kimi-k2.5', package: '@ai-sdk/openai' },
@@ -449,7 +445,7 @@ describe('End-to-End LLM Integration', () => {
     'should complete full workflow with real API call when keys are available',
     async () => {
       // Check if any provider is available
-      const availableProviders = ['anthropic', 'openai', 'google', 'groq'].filter(hasApiKey);
+      const availableProviders = ['anthropic', 'openai', 'groq'].filter(hasApiKey);
 
       if (availableProviders.length === 0) {
         console.log('Skipping E2E test - no API keys available');

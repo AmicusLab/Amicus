@@ -161,11 +161,6 @@ export class Economist {
       providers.openai = openai.openai;
     } catch {}
 
-    try {
-      const google = await import('@ai-sdk/google');
-      providers.google = google.google;
-    } catch {}
-
     if (Object.keys(providers).length > 0) {
       this.providerRegistry = experimental_createProviderRegistry(providers as Parameters<typeof experimental_createProviderRegistry>[0]);
     }
@@ -308,7 +303,7 @@ export class Economist {
     }
 
     if (!this.providerRegistry) {
-      throw new Error('No AI providers available. Please install @ai-sdk/anthropic, @ai-sdk/openai, or @ai-sdk/google');
+      throw new Error('No AI providers available. Please install @ai-sdk/anthropic or @ai-sdk/openai');
     }
 
     const routing = this.route(task);
@@ -336,7 +331,7 @@ export class Economist {
     }
 
     if (!this.providerRegistry) {
-      throw new Error('No AI providers available. Please install @ai-sdk/anthropic, @ai-sdk/openai, or @ai-sdk/google');
+      throw new Error('No AI providers available. Please install @ai-sdk/anthropic or @ai-sdk/openai');
     }
 
     const routing = this.route(task);

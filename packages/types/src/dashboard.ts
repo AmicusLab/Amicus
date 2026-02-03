@@ -95,7 +95,7 @@ export interface TokenCost {
 /**
  * LLM provider/model identifier
  */
-export type LLMProvider = 'anthropic' | 'openai' | 'google' | 'local';
+export type LLMProvider = 'anthropic' | 'openai' | 'local';
 
 /**
  * Usage statistics for a specific model

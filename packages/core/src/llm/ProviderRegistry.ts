@@ -11,7 +11,6 @@ import type {
 import {
   AnthropicPlugin,
   OpenAIPlugin,
-  GooglePlugin,
   GroqPlugin,
   KimiPlugin,
   ZaiPlugin,
@@ -103,8 +102,6 @@ export class ProviderRegistry {
         return new AnthropicPlugin(module, apiKeyEnv);
       case 'openai':
         return new OpenAIPlugin(module, apiKeyEnv);
-      case 'google':
-        return new GooglePlugin(module, apiKeyEnv);
       case 'groq':
         return new GroqPlugin(module, apiKeyEnv);
       case 'kimi-for-coding':

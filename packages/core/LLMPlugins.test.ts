@@ -49,21 +49,4 @@ describe('LLM Plugins - Basic Functionality', () => {
       expect(models[0].id).toBe('gpt-4-turbo');
     });
   });
-
-  describe('Google Plugin', () => {
-    it('should have correct provider name and id', async () => {
-      const plugin = new (await import('./src/llm/plugins/google.js')).GooglePlugin({}, 'GOOGLE_API_KEY');
-      
-      expect(plugin.name).toBe('Google');
-      expect(plugin.id).toBe('google');
-    });
-    
-    it('should return correct models', async () => {
-      const plugin = new (await import('./src/llm/plugins/google.js')).GooglePlugin({}, 'GOOGLE_API_KEY');
-      const models = plugin.getModels();
-      
-      expect(models.length).toBeGreaterThan(0);
-      expect(models[0].id).toBe('gemini-1.5-pro-latest');
-    });
-  });
 });
