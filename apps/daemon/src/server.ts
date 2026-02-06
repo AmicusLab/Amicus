@@ -7,6 +7,7 @@ import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api.js';
+import { chatRoutes } from './routes/chat.js';
 import { providerRoutes } from './routes/providers.js';
 import { adminRoutes } from './routes/admin.js';
 import { modelRoutes, modelAdminRoutes } from './routes/models.js';
@@ -43,6 +44,7 @@ export function createApp(): Hono {
   app.use('*', authMiddleware);
 
   app.route('/health', healthRoutes);
+  app.route('/chat', chatRoutes);
   app.route('/api', apiRoutes);
   app.route('/api', providerRoutes);
   app.route('/api', modelRoutes);
