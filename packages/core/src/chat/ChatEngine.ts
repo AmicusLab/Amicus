@@ -21,7 +21,15 @@ export class ChatEngine {
     }
   }
 
-  async chat(messages: Message[], config?: ChatConfig): Promise<ChatResult> {
+  async chat(messages: Message[], config?: ChatConfig, depth = 0): Promise<ChatResult> {
+    // #2: Prevent infinite recursion
+    if (depth >= 10) {
+      throw new Error('Maximum tool call depth (10) exceeded');
+    }
+
+    // #6: Prevent mutation of original messages array
+    const workingMessages = [...messages];
+
     const systemPrompt = config?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
 
     let modelId: string;
@@ -52,7 +60,7 @@ export class ChatEngine {
     const generateConfig: Parameters<typeof generateText>[0] = {
       model,
       system: systemPrompt,
-      messages: messages.map(msg => ({
+      messages: workingMessages.map(msg => ({
         role: msg.role,
         content: msg.content,
       })),
@@ -100,7 +108,7 @@ export class ChatEngine {
         arguments: tc.args ?? {}
       }));
 
-      messages.push({
+      workingMessages.push({
         role: 'assistant',
         content: result.text || '',
         tool_calls: toolCalls
@@ -109,7 +117,7 @@ export class ChatEngine {
       for (const call of toolCalls) {
         const tool = this.toolRegistry?.get(call.name);
         if (!tool) {
-          messages.push({
+          workingMessages.push({
             role: 'tool',
             tool_call_id: call.id,
             content: `Error: Unknown tool '${call.name}'`
@@ -118,15 +126,17 @@ export class ChatEngine {
         }
 
         try {
-          const toolResult = await tool.execute(call.arguments);
-          messages.push({
+          // #5: Validate tool arguments with Zod schema before execution
+          const validatedArgs = tool.schema.parse(call.arguments);
+          const toolResult = await tool.execute(validatedArgs);
+          workingMessages.push({
             role: 'tool',
             tool_call_id: call.id,
             content: toolResult
           });
         } catch (error: unknown) {
           const errorMessage = error instanceof Error ? error.message : String(error);
-          messages.push({
+          workingMessages.push({
             role: 'tool',
             tool_call_id: call.id,
             content: `Error executing tool: ${errorMessage}`
@@ -134,7 +144,7 @@ export class ChatEngine {
         }
       }
 
-      return this.chat(messages, config);
+      return this.chat(workingMessages, config, depth + 1);
     }
 
     return {
