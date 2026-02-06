@@ -22,5 +22,4 @@ export { ModelValidator } from './llm/model/ModelValidator.js';
 export type { ValidationResult, ModelValidationResult, ProviderValidationResult } from './llm/model/ModelValidator.js';
 export { ZaiPlugin } from './llm/plugins/zai.js';
 export { ZaiCodingPlanPlugin } from './llm/plugins/zai-coding-plan.js';
-export { ChatEngine } from './chat/ChatEngine.js';
-export type { ChatEngineOptions } from './chat/ChatEngine.js';
+export * from './chat/index.js';
