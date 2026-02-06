@@ -60,10 +60,34 @@ export class ChatEngine {
     const generateConfig: Parameters<typeof generateText>[0] = {
       model,
       system: systemPrompt,
-      messages: workingMessages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      })),
+      messages: workingMessages.map(msg => {
+        if (msg.role === 'assistant' && msg.tool_calls?.length) {
+          return {
+            role: 'assistant' as const,
+            content: [
+              ...(msg.content ? [{ type: 'text' as const, text: msg.content }] : []),
+              ...msg.tool_calls.map(tc => ({
+                type: 'tool-call' as const,
+                toolCallId: tc.id,
+                toolName: tc.name,
+                args: tc.arguments,
+              })),
+            ],
+          };
+        }
+        if (msg.role === 'tool' && msg.tool_call_id) {
+          return {
+            role: 'tool' as const,
+            content: [{
+              type: 'tool-result' as const,
+              toolCallId: msg.tool_call_id,
+              toolName: '',
+              result: msg.content,
+            }],
+          };
+        }
+        return { role: msg.role as 'user' | 'system', content: msg.content };
+      }),
     };
 
     if (config?.maxTokens !== undefined) {
