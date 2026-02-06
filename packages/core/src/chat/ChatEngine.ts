@@ -1,18 +1,24 @@
 import { generateText, jsonSchema } from 'ai';
-import type { Message, ChatConfig, ChatResult, ToolDefinition } from '@amicus/types';
+import type { Message, ChatConfig, ChatResult } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
+import type { ToolRegistry } from '../tools/types.js';
 
 const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
 
 export interface ChatEngineOptions {
   providerRegistry: ProviderRegistry;
+  toolRegistry?: ToolRegistry;
 }
 
 export class ChatEngine {
   private providerRegistry: ProviderRegistry;
+  private toolRegistry?: ToolRegistry;
 
   constructor(options: ChatEngineOptions) {
     this.providerRegistry = options.providerRegistry;
+    if (options.toolRegistry) {
+      this.toolRegistry = options.toolRegistry;
+    }
   }
 
   async chat(messages: Message[], config?: ChatConfig): Promise<ChatResult> {
@@ -62,48 +68,73 @@ export class ChatEngine {
       generateConfig.topP = config.topP;
     }
 
-    if (config?.tools && config.tools.length > 0) {
-      const toolsConfig: Record<string, {
-        description: string;
-        parameters: ReturnType<typeof jsonSchema>;
-      }> = {};
+    if (this.toolRegistry) {
+      const toolDefs = this.toolRegistry.getDefinitions();
+      if (toolDefs.length > 0) {
+        const toolsConfig: Record<string, {
+          description: string;
+          parameters: ReturnType<typeof jsonSchema>;
+        }> = {};
 
-      for (const tool of config.tools) {
-        toolsConfig[tool.name] = {
-          description: tool.description,
-          parameters: jsonSchema(tool.parameters),
-        };
+        for (const toolDef of toolDefs) {
+          toolsConfig[toolDef.name] = {
+            description: toolDef.description,
+            parameters: jsonSchema(toolDef.input_schema),
+          };
+        }
+
+        generateConfig.tools = toolsConfig;
       }
-
-      generateConfig.tools = toolsConfig;
     }
 
     const result = await generateText(generateConfig);
 
     if (result.toolCalls && result.toolCalls.length > 0) {
-      const firstToolCall = result.toolCalls[0] as {
+      const toolCalls = result.toolCalls.map((tc: {
         toolCallId: string;
         toolName: string;
         args: Record<string, unknown>;
-      };
+      }) => ({
+        id: tc.toolCallId,
+        name: tc.toolName,
+        arguments: tc.args ?? {}
+      }));
 
-      return {
-        response: {
-          type: 'tool_call',
-          toolCall: {
-            toolCallId: firstToolCall.toolCallId,
-            tool: firstToolCall.toolName,
-            args: firstToolCall.args ?? {},
-          },
-        },
-        usage: {
-          input: result.usage.promptTokens,
-          output: result.usage.completionTokens,
-          total: result.usage.totalTokens,
-        },
-        model: modelId,
-        provider: providerId,
-      };
+      messages.push({
+        role: 'assistant',
+        content: result.text || '',
+        tool_calls: toolCalls
+      });
+
+      for (const call of toolCalls) {
+        const tool = this.toolRegistry?.get(call.name);
+        if (!tool) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: `Error: Unknown tool '${call.name}'`
+          });
+          continue;
+        }
+
+        try {
+          const toolResult = await tool.execute(call.arguments);
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: toolResult
+          });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: `Error executing tool: ${errorMessage}`
+          });
+        }
+      }
+
+      return this.chat(messages, config);
     }
 
     return {
