@@ -39,27 +39,46 @@ function parseChatRequestBody(value: unknown): ChatRequestBody | null {
 
 let mcpClient: MCPClient | null = null;
 let toolExecutor: ToolExecutor | null = null;
+let chatEngine: ChatEngine | null = null;
 
-async function initializeMCP() {
-  if (mcpClient) return;
+let initializationPromise: Promise<void> | null = null;
 
-  mcpClient = new MCPClient({
-    name: 'amicus-daemon',
-    version: '0.1.0',
-    transport: 'stdio',
-    command: 'npx',
-    args: ['-y', '@modelcontextprotocol/server-filesystem', process.cwd()],
-  });
+async function initializeServices() {
+  if (initializationPromise) {
+    return initializationPromise;
+  }
 
-  await mcpClient.connect();
+  initializationPromise = (async () => {
+    if (!providerService.isInitialized()) {
+      await providerService.initialize();
+    }
 
-  const safeMcpClient = new SafeMCPClient(mcpClient);
-  toolExecutor = new ToolExecutor(safeMcpClient);
+    if (!chatEngine) {
+      chatEngine = new ChatEngine({
+        providerRegistry: providerService.getRegistry(),
+      });
+    }
+
+    if (!mcpClient) {
+      mcpClient = new MCPClient({
+        name: 'amicus-daemon',
+        version: '0.1.0',
+        transport: 'stdio',
+        command: 'npx',
+        args: ['-y', '@modelcontextprotocol/server-filesystem', process.cwd()],
+      });
+
+      await mcpClient.connect();
+
+      const safeMcpClient = new SafeMCPClient(mcpClient);
+      toolExecutor = new ToolExecutor(safeMcpClient);
+    }
+  })();
+
+  return initializationPromise;
 }
 
 export const chatRoutes = new Hono();
-
-let chatEngine: ChatEngine | null = null;
 
 chatRoutes.post('/', async (c) => {
   let rawBody: unknown;
@@ -75,20 +94,10 @@ chatRoutes.post('/', async (c) => {
   }
 
   try {
-    if (!providerService.isInitialized()) {
-      await providerService.initialize();
-    }
+    await initializeServices();
 
-    if (!chatEngine) {
-      chatEngine = new ChatEngine({
-        providerRegistry: providerService.getRegistry(),
-      });
-    }
-
-    await initializeMCP();
-
-    if (!toolExecutor) {
-      throw new Error('Tool executor initialization failed');
+    if (!chatEngine || !toolExecutor) {
+      throw new Error('Service initialization failed');
     }
 
     const messages = [...body.messages];
@@ -101,8 +110,9 @@ chatRoutes.post('/', async (c) => {
       );
 
       messages.push({
-        role: 'assistant',
+        role: 'tool',
         content: JSON.stringify(toolResult),
+        toolCallId: result.response.toolCall.toolCallId,
       });
 
       result = await chatEngine.chat(messages, body.config);

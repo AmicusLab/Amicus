@@ -5,7 +5,7 @@
 /**
  * Message role in a conversation
  */
-export type MessageRole = 'user' | 'assistant' | 'system';
+export type MessageRole = 'user' | 'assistant' | 'system' | 'tool';
 
 /**
  * A single message in a conversation
@@ -15,6 +15,8 @@ export interface Message {
   role: MessageRole;
   /** Message content */
   content: string;
+  /** Tool call ID (required when role is 'tool') */
+  toolCallId?: string;
 }
 
 /**
@@ -33,6 +35,8 @@ export interface ToolDefinition {
  * Tool call request from LLM
  */
 export interface ToolCall {
+  /** Unique identifier for this tool call */
+  toolCallId: string;
   /** Tool name to call */
   tool: string;
   /** Tool arguments */

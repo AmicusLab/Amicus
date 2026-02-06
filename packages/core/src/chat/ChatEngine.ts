@@ -82,6 +82,7 @@ export class ChatEngine {
 
     if (result.toolCalls && result.toolCalls.length > 0) {
       const firstToolCall = result.toolCalls[0] as {
+        toolCallId: string;
         toolName: string;
         args: Record<string, unknown>;
       };
@@ -90,6 +91,7 @@ export class ChatEngine {
         response: {
           type: 'tool_call',
           toolCall: {
+            toolCallId: firstToolCall.toolCallId,
             tool: firstToolCall.toolName,
             args: firstToolCall.args || {},
           },
