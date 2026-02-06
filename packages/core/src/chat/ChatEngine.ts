@@ -15,6 +15,7 @@ export class ChatEngine {
   private providerRegistry: ProviderRegistry;
   private toolRegistry?: ToolRegistry;
   private safety!: SafetyExecutor;
+  private safetyReady: Promise<void>;
 
   constructor(options: ChatEngineOptions) {
     this.providerRegistry = options.providerRegistry;
@@ -22,12 +23,15 @@ export class ChatEngine {
       this.toolRegistry = options.toolRegistry;
     }
     this.safety = new SafetyExecutor(process.cwd());
-    this.safety.initRepo().catch((err: unknown) => {
+    this.safetyReady = this.safety.initRepo().catch((err: unknown) => {
       console.error('[ChatEngine] Failed to init Git repo:', err);
+      throw err;
     });
   }
 
   async chat(messages: Message[], config?: ChatConfig, depth = 0): Promise<ChatResult> {
+    await this.safetyReady;
+
     // #2: Prevent infinite recursion
     if (depth >= 10) {
       throw new Error('Maximum tool call depth (10) exceeded');
@@ -196,6 +200,7 @@ export class ChatEngine {
   }
 
   async undo(): Promise<string> {
+    await this.safetyReady;
     return this.safety.rollback();
   }
 }

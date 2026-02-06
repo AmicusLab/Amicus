@@ -1,9 +1,9 @@
 import simpleGit, { SimpleGit } from 'simple-git';
-import { WRITE_TOOLS } from './config.js';
+import { WRITE_TOOLS, DEFAULT_GITIGNORE, SNAPSHOT_MESSAGE_PREFIX } from './config.js';
 
 /**
  * SafetyExecutor - 도구 실행 인터셉터
- * 도구 실행 전 Git 스냅샷을 자동 생성하여 되돌리기 가능하게 함
+ * 도구 실행 후 Git 스냅샷을 자동 생성하여 되돌리기 가능하게 함
  */
 export class SafetyExecutor {
   private git: SimpleGit;
@@ -23,6 +23,27 @@ export class SafetyExecutor {
       await this.git.addConfig('user.name', 'Amicus Agent');
       await this.git.addConfig('user.email', 'agent@amicus.ai');
     }
+
+    await this.ensureGitignore();
+
+    const log = await this.git.log({ maxCount: 1 }).catch(() => ({ total: 0 }));
+    if (log.total === 0) {
+      await this.git.add('.gitignore');
+      await this.git.commit(`${SNAPSHOT_MESSAGE_PREFIX} Initial baseline`);
+      console.log('[Safety] Created baseline commit');
+    }
+  }
+
+  private async ensureGitignore(): Promise<void> {
+    const gitignorePath = `${this.baseDir}/.gitignore`;
+    const fs = await import('fs/promises');
+
+    try {
+      await fs.access(gitignorePath);
+    } catch {
+      await fs.writeFile(gitignorePath, DEFAULT_GITIGNORE, 'utf-8');
+      console.log('[Safety] Created .gitignore to protect sensitive files');
+    }
   }
 
   /**
@@ -34,7 +55,7 @@ export class SafetyExecutor {
       
       if (status.files.length > 0) {
         await this.git.add('.');
-        await this.git.commit(`Auto-save before executing: ${toolName}`);
+        await this.git.commit(`${SNAPSHOT_MESSAGE_PREFIX} Auto-save after executing: ${toolName}`);
         console.log(`[Safety] Snapshot created for ${toolName}`);
       } else {
         console.log(`[Safety] No changes to snapshot`);
@@ -66,10 +87,16 @@ export class SafetyExecutor {
     try {
       const result = await executeFn();
       console.log(`[Safety] Tool ${toolName} executed successfully`);
-      
-      // 도구 실행 후 변경사항을 커밋 (도구가 수정한 내용 포함)
-      await this.createSnapshot(toolName);
-      
+
+      try {
+        await this.createSnapshot(toolName);
+      } catch (snapshotError: any) {
+        console.error(`[Safety] Snapshot failed, rolling back working tree:`, snapshotError.message);
+        await this.git.reset(['--hard', 'HEAD']);
+        await this.git.clean('f', ['-d']);
+        throw new Error(`Snapshot failed: ${snapshotError.message}`);
+      }
+
       return result;
     } catch (toolError: any) {
       console.error(`[Safety] Tool ${toolName} failed:`, toolError.message);
@@ -82,9 +109,19 @@ export class SafetyExecutor {
    */
   async rollback(): Promise<string> {
     try {
-      const log = await this.git.log({ maxCount: 2 });
-      if (log.total < 2) {
+      const status = await this.git.status();
+      if (status.files.length > 0) {
+        return '❌ 커밋되지 않은 변경사항이 있습니다. 먼저 변경사항을 처리해주세요.';
+      }
+
+      const log = await this.git.log({ maxCount: 1 });
+      if (log.total === 0) {
         return '❌ 되돌릴 커밋이 없습니다.';
+      }
+
+      const lastCommit = log.latest;
+      if (!lastCommit || !lastCommit.message.startsWith(SNAPSHOT_MESSAGE_PREFIX)) {
+        return '❌ 마지막 커밋이 SafetyExecutor가 생성한 스냅샷이 아닙니다. 수동으로 되돌려주세요.';
       }
 
       await this.git.reset(['--hard', 'HEAD~1']);

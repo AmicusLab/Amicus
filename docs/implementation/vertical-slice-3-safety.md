@@ -1,7 +1,7 @@
 # Vertical Slice 3: Safety Lite 구현
 
 ## 개요
-도구 실행 전 자동 Git 스냅샷 생성 및 롤백 기능
+도구 실행 후 자동 Git 스냅샷 생성 및 롤백 기능
 
 ## 아키텍처
 
@@ -14,8 +14,8 @@
 ### 실행 흐름
 1. LLM이 tool call 요청 (예: create_file)
 2. ChatEngine이 SafetyExecutor.executeSafe() 호출
-3. SafetyExecutor가 Git 스냅샷 생성 (`git add . && git commit`)
-4. 도구 실행
+3. 도구 실행
+4. SafetyExecutor가 Git 스냅샷 생성 (`git add . && git commit`)
 5. 사용자가 `/undo` 입력 시 `git reset --hard HEAD~1`
 
 ## 사용법

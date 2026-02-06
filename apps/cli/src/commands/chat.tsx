@@ -47,7 +47,7 @@ export function Chat() {
             role: 'assistant',
             content: result.message,
           };
-          setMessages([...messages, undoMessage]);
+          setMessages(prev => [...prev, undoMessage]);
         } catch (e) {
           setError(`Undo failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
         } finally {
@@ -62,7 +62,7 @@ export function Chat() {
 
       const userMessage: Message = { role: 'user', content: userInput };
       const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
+      setMessages(prev => [...prev, userMessage]);
 
       try {
         const result = await sendChat(updatedMessages);
@@ -70,7 +70,7 @@ export function Chat() {
           role: 'assistant',
           content: result.response,
         };
-        setMessages([...updatedMessages, assistantMessage]);
+        setMessages(prev => [...prev, assistantMessage]);
       } catch (e) {
         setError(`Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
       } finally {
