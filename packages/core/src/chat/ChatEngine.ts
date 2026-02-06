@@ -1,5 +1,5 @@
-import { generateText } from 'ai';
-import type { Message, ChatConfig, ChatResult } from '@amicus/types';
+import { generateText, jsonSchema } from 'ai';
+import type { Message, ChatConfig, ChatResult, ToolDefinition } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
 
 const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
@@ -62,10 +62,53 @@ export class ChatEngine {
       generateConfig.topP = config.topP;
     }
 
+    if (config?.tools && config.tools.length > 0) {
+      const toolsConfig: Record<string, {
+        description: string;
+        parameters: ReturnType<typeof jsonSchema>;
+      }> = {};
+
+      for (const tool of config.tools) {
+        toolsConfig[tool.name] = {
+          description: tool.description,
+          parameters: jsonSchema(tool.parameters),
+        };
+      }
+
+      generateConfig.tools = toolsConfig;
+    }
+
     const result = await generateText(generateConfig);
 
+    if (result.toolCalls && result.toolCalls.length > 0) {
+      const firstToolCall = result.toolCalls[0] as {
+        toolName: string;
+        args: Record<string, unknown>;
+      };
+
+      return {
+        response: {
+          type: 'tool_call',
+          toolCall: {
+            tool: firstToolCall.toolName,
+            args: firstToolCall.args || {},
+          },
+        },
+        usage: {
+          input: result.usage.promptTokens,
+          output: result.usage.completionTokens,
+          total: result.usage.totalTokens,
+        },
+        model: modelId,
+        provider: providerId,
+      };
+    }
+
     return {
-      response: result.text,
+      response: {
+        type: 'text',
+        content: result.text,
+      },
       usage: {
         input: result.usage.promptTokens,
         output: result.usage.completionTokens,

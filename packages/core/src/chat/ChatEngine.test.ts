@@ -1,15 +1,20 @@
 import { describe, it, expect, mock } from 'bun:test';
 import { ChatEngine } from './ChatEngine.js';
-import type { Message } from '@amicus/types';
+import type { Message, ToolDefinition } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
 import type { LLMProviderPlugin } from '../llm/plugins/types.js';
 
-const createMockProvider = (response: string, usage: { promptTokens: number; completionTokens: number; totalTokens: number }) => {
+const createMockProvider = (
+  response: string,
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number },
+  toolCalls?: Array<{ toolName: string; input: Record<string, unknown> }>
+) => {
   return (modelId: string) => {
     return {
       doGenerate: async () => ({
         text: response,
         usage,
+        toolCalls,
       }),
       specificationVersion: 'v1',
       provider: 'mock',
@@ -18,12 +23,16 @@ const createMockProvider = (response: string, usage: { promptTokens: number; com
   };
 };
 
-const createMockPlugin = (response: string, usage: { promptTokens: number; completionTokens: number; totalTokens: number }): LLMProviderPlugin => {
+const createMockPlugin = (
+  response: string,
+  usage: { promptTokens: number; completionTokens: number; totalTokens: number },
+  toolCalls?: Array<{ toolName: string; input: Record<string, unknown> }>
+): LLMProviderPlugin => {
   return {
     name: 'Mock Provider',
     id: 'mock',
     isAvailable: () => true,
-    createProvider: () => createMockProvider(response, usage),
+    createProvider: () => createMockProvider(response, usage, toolCalls),
     getModels: () => [{
       id: 'mock-model',
       name: 'Mock Model',
@@ -80,10 +89,10 @@ describe('ChatEngine', () => {
 
     const result = await engine.chat(messages);
 
-    expect(result.response).toBe('Hello! How can I help you?');
+    expect(result.response).toEqual({ type: 'text', content: 'Hello! How can I help you?' });
   });
 
-  it('returns response string', async () => {
+  it('returns text response when no tool calls', async () => {
     const mockPlugin = createMockPlugin('This is a test response', {
       promptTokens: 15,
       completionTokens: 25,
@@ -99,8 +108,10 @@ describe('ChatEngine', () => {
 
     const result = await engine.chat(messages);
 
-    expect(typeof result.response).toBe('string');
-    expect(result.response).toBe('This is a test response');
+    expect(result.response).toEqual({
+      type: 'text',
+      content: 'This is a test response',
+    });
   });
 
   it('tracks token usage', async () => {
@@ -203,5 +214,63 @@ describe('ChatEngine', () => {
 
     expect(result.model).toBe('mock-model');
     expect(result.provider).toBe('mock');
+  });
+
+  it('accepts tools parameter without calling them', async () => {
+    const mockPlugin = createMockPlugin('I can help you search', {
+      promptTokens: 10,
+      completionTokens: 10,
+      totalTokens: 20,
+    });
+
+    const registry = createMockRegistry(mockPlugin);
+    const engine = new ChatEngine({ providerRegistry: registry });
+
+    const messages: Message[] = [
+      { role: 'user', content: 'Can you search for something?' },
+    ];
+
+    const tools: ToolDefinition[] = [
+      {
+        name: 'search',
+        description: 'Search the web',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+          },
+          required: ['query'],
+        },
+      },
+    ];
+
+    const result = await engine.chat(messages, { tools });
+
+    expect(result.response).toEqual({
+      type: 'text',
+      content: 'I can help you search',
+    });
+  });
+
+  it('does not send tools when array is empty', async () => {
+    const mockPlugin = createMockPlugin('Normal response', {
+      promptTokens: 5,
+      completionTokens: 5,
+      totalTokens: 10,
+    });
+
+    const registry = createMockRegistry(mockPlugin);
+    const engine = new ChatEngine({ providerRegistry: registry });
+
+    const messages: Message[] = [
+      { role: 'user', content: 'Test' },
+    ];
+
+    const result = await engine.chat(messages, { tools: [] });
+
+    expect(result.response).toEqual({
+      type: 'text',
+      content: 'Normal response',
+    });
   });
 });

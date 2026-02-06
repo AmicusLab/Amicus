@@ -18,6 +18,35 @@ export interface Message {
 }
 
 /**
+ * Tool definition for function calling (MCP-compatible format)
+ */
+export interface ToolDefinition {
+  /** Tool name */
+  name: string;
+  /** Tool description */
+  description: string;
+  /** Input parameter schema (JSON Schema) */
+  parameters: Record<string, unknown>;
+}
+
+/**
+ * Tool call request from LLM
+ */
+export interface ToolCall {
+  /** Tool name to call */
+  tool: string;
+  /** Tool arguments */
+  args: Record<string, unknown>;
+}
+
+/**
+ * Chat response - either text or tool call request
+ */
+export type ChatResponse =
+  | { type: 'text'; content: string }
+  | { type: 'tool_call'; toolCall: ToolCall };
+
+/**
  * Configuration for chat completion
  */
 export interface ChatConfig {
@@ -31,14 +60,16 @@ export interface ChatConfig {
   temperature?: number;
   /** Top-p for nucleus sampling */
   topP?: number;
+  /** Available tools for function calling */
+  tools?: ToolDefinition[];
 }
 
 /**
  * Chat completion result
  */
 export interface ChatResult {
-  /** Generated response text */
-  response: string;
+  /** Generated response (text or tool call) */
+  response: ChatResponse;
   /** Token usage information */
   usage: {
     input: number;
