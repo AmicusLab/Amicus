@@ -1,4 +1,3 @@
-// Core packages exports
 export * from './routine/RoutineEngine.js';
 export * from './llm/Economist.js';
 export { ProviderRegistry } from './llm/ProviderRegistry.js';
@@ -23,3 +22,5 @@ export { ModelValidator } from './llm/model/ModelValidator.js';
 export type { ValidationResult, ModelValidationResult, ProviderValidationResult } from './llm/model/ModelValidator.js';
 export { ZaiPlugin } from './llm/plugins/zai.js';
 export { ZaiCodingPlanPlugin } from './llm/plugins/zai-coding-plan.js';
+export { ChatEngine } from './chat/ChatEngine.js';
+export type { ChatEngineOptions } from './chat/ChatEngine.js';

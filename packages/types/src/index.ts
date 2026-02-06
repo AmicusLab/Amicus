@@ -8,5 +8,6 @@ export * from './core';
 export * from './memory';
 export * from './mcp';
 export * from './dashboard';
+export * from './chat';
 export * from './model';
 export * from './auth';

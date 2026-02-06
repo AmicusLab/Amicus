@@ -2,6 +2,7 @@
 import React from 'react';
 import { render } from 'ink';
 import { App } from './App.js';
+import { Chat } from './commands/chat.js';
 import { getStatus, getTokenomics, getTasks, waitForDaemon } from './api.js';
 
 async function runNonInteractive() {
@@ -43,7 +44,11 @@ async function runNonInteractive() {
   }
 }
 
-if (process.stdin.isTTY) {
+const command = process.argv[2];
+
+if (command === 'chat') {
+  render(<Chat />);
+} else if (process.stdin.isTTY) {
   render(<App />);
 } else {
   runNonInteractive();
