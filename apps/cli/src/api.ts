@@ -68,3 +68,9 @@ export async function sendChat(
     body: JSON.stringify({ messages, config }),
   });
 }
+
+export async function undoChat(): Promise<{ message: string }> {
+  return fetchJSON('/chat/undo', {
+    method: 'POST',
+  });
+}

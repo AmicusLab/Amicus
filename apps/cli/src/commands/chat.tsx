@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { v4 as uuidv4 } from 'uuid';
 import type { Message } from '@amicus/types/chat';
-import { waitForDaemon, sendChat } from '../api.js';
+import { waitForDaemon, sendChat, undoChat } from '../api.js';
 
 export function Chat() {
   const { exit } = useApp();
@@ -33,6 +33,26 @@ export function Chat() {
 
       if (userInput.toLowerCase() === 'exit') {
         exit();
+        return;
+      }
+
+      if (userInput === '/undo') {
+        setInput('');
+        setLoading(true);
+        setError(null);
+
+        try {
+          const result = await undoChat();
+          const undoMessage: Message = {
+            role: 'assistant',
+            content: result.message,
+          };
+          setMessages([...messages, undoMessage]);
+        } catch (e) {
+          setError(`Undo failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        } finally {
+          setLoading(false);
+        }
         return;
       }
 
