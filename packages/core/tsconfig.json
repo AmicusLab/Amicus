@@ -5,9 +5,14 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "paths": {
-      "@amicus/types/*": ["../../packages/types/dist/*"]
+      "@amicus/types/*": ["../../packages/types/dist/*"],
+      "@amicus/safety": ["../../packages/safety/src/index.ts"]
     }
   },
+  "references": [
+    { "path": "../types" },
+    { "path": "../safety" }
+  ],
   "include": ["src/**/*.ts"],
   "exclude": ["dist", "src/**/*.test.ts", "src/**/__tests__/**"]
 }

@@ -22,7 +22,7 @@ export class ChatEngine {
       this.toolRegistry = options.toolRegistry;
     }
     this.safety = new SafetyExecutor(process.cwd());
-    this.safety.initRepo().catch(err => {
+    this.safety.initRepo().catch((err: unknown) => {
       console.error('[ChatEngine] Failed to init Git repo:', err);
     });
   }
