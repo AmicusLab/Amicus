@@ -17,7 +17,13 @@ export const createFileTool: Tool<CreateFileArgs> = {
   
   execute: async ({ path: filePath, content }) => {
     try {
-      const absolutePath = path.resolve(process.cwd(), filePath);
+      const projectRoot = path.resolve(process.cwd());
+      const absolutePath = path.resolve(projectRoot, filePath);
+
+      if (!absolutePath.startsWith(projectRoot + path.sep) && absolutePath !== projectRoot) {
+        return `Error: Path traversal detected. File must be within project directory.`;
+      }
+
       const dir = path.dirname(absolutePath);
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(absolutePath, content, 'utf-8');
