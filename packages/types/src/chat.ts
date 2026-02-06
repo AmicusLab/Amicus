@@ -15,7 +15,7 @@ export interface Message {
   role: MessageRole;
   /** Message content */
   content: string;
-  /** Tool call ID (required when role is 'tool') */
+  /** Tool call ID (required when role is 'tool', undefined otherwise) */
   toolCallId?: string;
 }
 

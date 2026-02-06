@@ -109,9 +109,17 @@ chatRoutes.post('/', async (c) => {
         result.response.toolCall.args
       );
 
+      let toolContent: string;
+      try {
+        toolContent = JSON.stringify(toolResult);
+      } catch (stringifyError) {
+        console.error('[Chat] Failed to stringify tool result:', stringifyError);
+        toolContent = '[unserializable tool result]';
+      }
+
       messages.push({
         role: 'tool',
-        content: JSON.stringify(toolResult),
+        content: toolContent,
         toolCallId: result.response.toolCall.toolCallId,
       });
 

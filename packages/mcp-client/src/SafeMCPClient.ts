@@ -32,8 +32,8 @@ export class SafeMCPClient {
         env: this.env,
         stdio: 'pipe',
       });
-    } catch {
-      throw new Error('Git commit failed');
+    } catch (error) {
+      throw new Error(`Git staging failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Do not allow empty commits.
@@ -62,8 +62,8 @@ export class SafeMCPClient {
         env: this.env,
         stdio: 'pipe',
       });
-    } catch {
-      throw new Error('Git commit failed');
+    } catch (error) {
+      throw new Error(`Git commit failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -79,7 +79,7 @@ export class SafeMCPClient {
       if (code === 'ENOENT') {
         throw new Error('Git not installed');
       }
-      throw new Error('Git commit failed');
+      throw new Error(`Git command failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

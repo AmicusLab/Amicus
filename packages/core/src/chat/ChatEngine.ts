@@ -93,7 +93,7 @@ export class ChatEngine {
           toolCall: {
             toolCallId: firstToolCall.toolCallId,
             tool: firstToolCall.toolName,
-            args: firstToolCall.args || {},
+            args: firstToolCall.args ?? {},
           },
         },
         usage: {

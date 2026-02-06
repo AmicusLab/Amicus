@@ -42,7 +42,7 @@ export class ToolExecutor {
       if (this.mcpClient.invokeTool) {
         const result = await this.mcpClient.invokeTool('write_file', args);
         if (result.isError) {
-          return { success: false, result, error: result.content || 'MCP tool returned error' };
+          return { success: false, result, error: result.content ?? 'MCP tool returned error' };
         }
         return { success: true, result };
       }
