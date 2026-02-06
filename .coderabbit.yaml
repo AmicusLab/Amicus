@@ -1,0 +1,131 @@
+# CodeRabbit Configuration for Korean Language Reviews
+# https://docs.coderabbit.ai/guides/configure-coderabbit
+
+# Language for review comments
+language: ko
+
+# Review settings
+reviews:
+  # Review profile
+  profile: chill
+  
+  # Request changes workflow
+  request_changes_workflow: true
+  
+  # High level summary
+  high_level_summary: true
+  
+  # Poem generation (disabled for professional reviews)
+  poem: false
+  
+  # Review level: detailed
+  review_status: true
+  
+  # Auto-review
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT REVIEW"
+      - "DRAFT"
+    
+    # Auto-review drafts
+    drafts: false
+
+  # Tools to enable
+  tools:
+    # GitHub Checks (strongly recommended)
+    github-checks:
+      enabled: true
+      timeout_ms: 90000
+    
+    # AST-grep for pattern matching
+    ast-grep:
+      enabled: true
+      
+    # Markdownlint
+    markdownlint:
+      enabled: true
+      
+    # Shellcheck
+    shellcheck:
+      enabled: true
+      
+    # Hadolint for Dockerfiles
+    hadolint:
+      enabled: false
+      
+    # Biome for JS/TS
+    biome:
+      enabled: true
+      
+    # Ruff for Python
+    ruff:
+      enabled: false
+      
+    # Yamllint
+    yamllint:
+      enabled: true
+
+# Chat settings
+chat:
+  # Enable chat
+  auto_reply: true
+
+# Path-based instructions for better context
+path_instructions:
+  - path: "apps/daemon/**"
+    instructions: |
+      이 디렉토리는 Hono 기반의 백그라운드 서버(Daemon)입니다.
+      - WebSocket 연결 안정성에 주의하세요
+      - API 엔드포인트의 보안을 검토하세요
+      - 에러 핸들링이 적절한지 확인하세요
+      
+  - path: "apps/dashboard/**"
+    instructions: |
+      이 디렉토리는 Lit + Signals 기반의 웹 대시보드입니다.
+      - React를 사용하지 않으므로 Lit 컴포넌트 패턴을 따르세요
+      - 환경변수에 시크릿을 포함하지 마세요 (VITE_* 변수)
+      - 성능 최적화에 주의하세요
+      
+  - path: "apps/cli/**"
+    instructions: |
+      이 디렉토리는 React Ink 기반의 터미널 인터페이스입니다.
+      - TTY/non-TTY 모드를 모두 지원해야 합니다
+      - Daemon API와의 통신을 확인하세요
+      
+  - path: "packages/**"
+    instructions: |
+      이 디렉토리는 공유 패키지입니다.
+      - 다른 패키지와의 의존성을 최소화하세요
+      - 타입 안정성을 우선시하세요
+      - 모듈화와 재사용성을 고려하세요
+      
+  - path: "**/*.test.ts"
+    instructions: |
+      테스트 코드입니다.
+      - 테스트 커버리지를 확인하세요
+      - Edge case를 고려하세요
+      - 테스트의 명확성과 유지보수성을 검토하세요
+
+# Knowledge base for project-specific context
+knowledge_base:
+  # Learnings for better reviews
+  learnings:
+    - "이 프로젝트는 Bun 런타임을 사용합니다 (Node.js 아님)"
+    - "TypeScript Strict Mode가 활성화되어 있습니다"
+    - "서버는 Hono를 사용합니다 (Express 사용 금지)"
+    - "대시보드는 Lit + Signals를 사용합니다 (React DOM 사용 지양)"
+    - "CLI는 React Ink를 사용합니다"
+    - "모든 데이터는 로컬 우선(Local-First) 원칙을 따릅니다"
+    - "커밋 전 'bun run verify' 명령이 통과해야 합니다"
+
+# Ignore certain paths
+ignore:
+  - "**/*.lock"
+  - "**/*.lockb"
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/.opencode/**"
+  - "**/EOF"
