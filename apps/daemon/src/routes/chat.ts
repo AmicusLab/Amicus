@@ -1,8 +1,9 @@
 import { Hono } from 'hono';
 import type { ChatConfig, Message, MessageRole } from '@amicus/types/chat';
-import type { TokenUsage } from '@amicus/types/dashboard';
+import { ChatEngine } from '@amicus/core';
 import { providerService } from '../services/ProviderService.js';
-import { configManager } from '../services/ConfigService.js';
+import { ToolExecutor } from '../services/ToolExecutor.js';
+import { MCPClient } from '@amicus/mcp-client';
 
 type ChatRequestBody = {
   messages: Message[];
@@ -36,63 +37,27 @@ function parseChatRequestBody(value: unknown): ChatRequestBody | null {
   };
 }
 
-class ChatEngine {
-  async chat(input: ChatRequestBody): Promise<{ response: string; usage: TokenUsage }> {
-    if (!providerService.isInitialized()) {
-      await providerService.initialize();
-    }
+let mcpClient: MCPClient | null = null;
+let toolExecutor: ToolExecutor | null = null;
 
-    const registry = providerService.getRegistry();
-    const cfg = configManager.getConfig();
+async function initializeMCP() {
+  if (mcpClient) return;
 
-    const configuredModel = input.config?.model?.trim();
-    const defaultModel = (cfg.llm.defaultModel ?? undefined)?.trim();
+  mcpClient = new MCPClient({
+    name: 'amicus-daemon',
+    version: '0.1.0',
+    transport: 'stdio',
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-filesystem', process.cwd()],
+  });
 
-    let modelId: string | undefined = configuredModel || defaultModel;
-    if (!modelId) {
-      const allModels = registry.getAllModels();
-      if (allModels.length === 0) {
-        throw new Error('No providers/models available');
-      }
-      modelId = `${allModels[0]!.providerId}:${allModels[0]!.id}`;
-    }
-
-    const { provider, model } = registry.parseModelId(modelId);
-    const plugin = registry.getPlugin(provider);
-    if (!plugin) {
-      throw new Error(`Provider not loaded: ${provider}`);
-    }
-
-    const providerFactory = plugin.createProvider({}) as (modelId: string) => unknown;
-
-    const { generateText } = await import('ai');
-
-    const messages: Message[] = input.config?.systemPrompt
-      ? [{ role: 'system', content: input.config.systemPrompt }, ...input.messages]
-      : input.messages;
-
-    const result = await generateText({
-      model: providerFactory(model) as never,
-      messages,
-      ...(typeof input.config?.maxTokens === 'number' ? { maxTokens: input.config.maxTokens } : {}),
-      ...(typeof input.config?.temperature === 'number' ? { temperature: input.config.temperature } : {}),
-      ...(typeof input.config?.topP === 'number' ? { topP: input.config.topP } : {}),
-    });
-
-    return {
-      response: result.text,
-      usage: {
-        input: result.usage.promptTokens,
-        output: result.usage.completionTokens,
-        total: result.usage.totalTokens,
-      },
-    };
-  }
+  await mcpClient.connect();
+  toolExecutor = new ToolExecutor(mcpClient);
 }
 
 export const chatRoutes = new Hono();
 
-const chatEngine = new ChatEngine();
+let chatEngine: ChatEngine | null = null;
 
 chatRoutes.post('/', async (c) => {
   let rawBody: unknown;
@@ -108,10 +73,59 @@ chatRoutes.post('/', async (c) => {
   }
 
   try {
-    const result = await chatEngine.chat(body);
-    return c.json(result);
+    if (!providerService.isInitialized()) {
+      await providerService.initialize();
+    }
+
+    if (!chatEngine) {
+      chatEngine = new ChatEngine({
+        providerRegistry: providerService.getRegistry(),
+      });
+    }
+
+    await initializeMCP();
+
+    if (!toolExecutor) {
+      throw new Error('Tool executor initialization failed');
+    }
+
+    const messages = [...body.messages];
+    let result = await chatEngine.chat(messages, body.config);
+
+    if (result.response.type === 'tool_call') {
+      const toolResult = await toolExecutor.execute(
+        result.response.toolCall.tool,
+        result.response.toolCall.args
+      );
+
+      messages.push({
+        role: 'assistant',
+        content: JSON.stringify(toolResult),
+      });
+
+      result = await chatEngine.chat(messages, body.config);
+
+      if (result.response.type === 'tool_call') {
+        return c.json({
+          response: 'Error: Multiple sequential tool calls not supported in this version',
+          usage: result.usage,
+        });
+      }
+    }
+
+    if (result.response.type !== 'text') {
+      return c.json({
+        response: 'Error: Unexpected response type',
+        usage: result.usage,
+      });
+    }
+
+    return c.json({
+      response: result.response.content,
+      usage: result.usage,
+    });
   } catch (error) {
-    console.error('[Chat] LLM API call failed:', error);
+    console.error('[Chat] Request failed:', error);
     return c.json({ error: 'LLM API call failed' }, 500);
   }
 });
