@@ -63,11 +63,13 @@ export class SafetyExecutor {
       return executeFn();
     }
 
-    await this.createSnapshot(toolName);
-
     try {
       const result = await executeFn();
       console.log(`[Safety] Tool ${toolName} executed successfully`);
+      
+      // 도구 실행 후 변경사항을 커밋 (도구가 수정한 내용 포함)
+      await this.createSnapshot(toolName);
+      
       return result;
     } catch (toolError: any) {
       console.error(`[Safety] Tool ${toolName} failed:`, toolError.message);
