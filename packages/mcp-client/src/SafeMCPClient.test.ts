@@ -61,7 +61,7 @@ describe('SafeMCPClient', () => {
     const invokeTool = mock(async () => ({ content: 'ok', isError: false } satisfies ToolResult));
     const mcpClient = { invokeTool } as unknown as MCPClient;
 
-    const env = { ...process.env, PATH: '' };
+    const env = { ...process.env, PATH: '/__nonexistent__' };
     const client = new SafeMCPClient(mcpClient, { cwd: repoDir, env });
 
     await expect(client.callTool('write_file', { any: 'thing' })).rejects.toThrow('Git not installed');
