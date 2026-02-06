@@ -1,4 +1,5 @@
-import type { APIResponse, SystemHealth, Tokenomics } from '@amicus/types/dashboard';
+import type { APIResponse, SystemHealth, Tokenomics, TokenUsage } from '@amicus/types/dashboard';
+import type { Message, ChatConfig } from '@amicus/types/chat';
 
 const API_BASE = process.env.AMICUS_API_URL || 'http://localhost:3000';
 const API_KEY = process.env.AMICUS_API_KEY;
@@ -56,4 +57,14 @@ export async function waitForDaemon(maxRetries = 30, interval = 1000): Promise<b
     await new Promise(resolve => setTimeout(resolve, interval));
   }
   return false;
+}
+
+export async function sendChat(
+  messages: Message[],
+  config?: ChatConfig
+): Promise<{ response: string; usage: TokenUsage }> {
+  return fetchJSON('/chat', {
+    method: 'POST',
+    body: JSON.stringify({ messages, config }),
+  });
 }
