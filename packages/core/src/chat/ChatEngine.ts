@@ -2,6 +2,7 @@ import { generateText, jsonSchema } from 'ai';
 import type { Message, ChatConfig, ChatResult } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
 import type { ToolRegistry } from '../tools/types.js';
+import { SafetyExecutor } from '@amicus/safety';
 
 const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
 
@@ -13,12 +14,17 @@ export interface ChatEngineOptions {
 export class ChatEngine {
   private providerRegistry: ProviderRegistry;
   private toolRegistry?: ToolRegistry;
+  private safety!: SafetyExecutor;
 
   constructor(options: ChatEngineOptions) {
     this.providerRegistry = options.providerRegistry;
     if (options.toolRegistry) {
       this.toolRegistry = options.toolRegistry;
     }
+    this.safety = new SafetyExecutor(process.cwd());
+    this.safety.initRepo().catch(err => {
+      console.error('[ChatEngine] Failed to init Git repo:', err);
+    });
   }
 
   async chat(messages: Message[], config?: ChatConfig, depth = 0): Promise<ChatResult> {
@@ -152,7 +158,10 @@ export class ChatEngine {
         try {
           // #5: Validate tool arguments with Zod schema before execution
           const validatedArgs = tool.schema.parse(call.arguments);
-          const toolResult = await tool.execute(validatedArgs);
+          const toolResult = await this.safety.executeSafe(
+            call.name,
+            async () => await tool.execute(validatedArgs)
+          );
           workingMessages.push({
             role: 'tool',
             tool_call_id: call.id,
@@ -184,5 +193,9 @@ export class ChatEngine {
       model: modelId,
       provider: providerId,
     };
+  }
+
+  async undo(): Promise<string> {
+    return this.safety.rollback();
   }
 }

@@ -19,6 +19,7 @@
     "@ai-sdk/anthropic": "^1.0.0",
     "@ai-sdk/gateway": "^1.0.0",
     "@ai-sdk/openai": "^1.0.0",
+    "@amicus/safety": "workspace:*",
     "@amicus/types": "workspace:*",
     "ai": "^3.0.0",
     "node-cron": "^3.0.0",
