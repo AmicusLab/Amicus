@@ -308,38 +308,6 @@ CI=true bun run --cwd apps/cli start
 
 ---
 
-## Code Review
-
-### CodeRabbit 한글 리뷰
-
-이 프로젝트는 [CodeRabbit](https://coderabbit.ai)을 사용하여 Pull Request를 자동으로 한글로 리뷰합니다.
-
-**주요 기능:**
-- 🇰🇷 **한글 리뷰**: 모든 리뷰 코멘트가 한국어로 제공됩니다
-- 🤖 **자동 리뷰**: PR 생성 시 자동으로 코드 분석 및 리뷰 수행
-- 🛠️ **프로젝트 맞춤**: Bun, TypeScript, Hono, Lit 등 프로젝트 기술 스택에 최적화
-- 📝 **경로별 가이드**: 각 디렉토리별 특화된 리뷰 가이드 적용
-
-**설정:**
-- 설정 파일: `.coderabbit.yaml`
-- 리뷰 프로필: `chill` (친화적인 톤)
-- 자동 리뷰: 활성화 (Draft/WIP 제외)
-
-**사용법:**
-1. PR 생성 시 자동으로 CodeRabbit이 리뷰를 시작합니다
-2. 리뷰 코멘트에 답변하거나 수정할 수 있습니다
-3. `@coderabbitai` 멘션으로 추가 질문 가능
-
-**지원 도구:**
-- ✅ GitHub Checks
-- ✅ AST-grep (패턴 매칭)
-- ✅ Biome (JS/TS 린팅)
-- ✅ Markdownlint
-- ✅ Shellcheck
-- ✅ Yamllint
-
----
-
 ## 라이선스
 
 MIT
