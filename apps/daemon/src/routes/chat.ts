@@ -3,7 +3,7 @@ import type { ChatConfig, Message, MessageRole } from '@amicus/types/chat';
 import { ChatEngine } from '@amicus/core';
 import { providerService } from '../services/ProviderService.js';
 import { ToolExecutor } from '../services/ToolExecutor.js';
-import { MCPClient } from '@amicus/mcp-client';
+import { MCPClient, SafeMCPClient } from '@amicus/mcp-client';
 
 type ChatRequestBody = {
   messages: Message[];
@@ -52,7 +52,9 @@ async function initializeMCP() {
   });
 
   await mcpClient.connect();
-  toolExecutor = new ToolExecutor(mcpClient);
+
+  const safeMcpClient = new SafeMCPClient(mcpClient);
+  toolExecutor = new ToolExecutor(safeMcpClient);
 }
 
 export const chatRoutes = new Hono();
