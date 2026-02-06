@@ -131,3 +131,19 @@ chatRoutes.post('/', async (c) => {
     return c.json({ error: 'LLM API call failed' }, 500);
   }
 });
+
+chatRoutes.post('/undo', async (c) => {
+  try {
+    await initializeServices();
+
+    if (!chatEngine) {
+      throw new Error('ChatEngine not initialized');
+    }
+
+    const result = await chatEngine.undo();
+    return c.json({ message: result });
+  } catch (error) {
+    console.error('[Chat] Undo failed:', error);
+    return c.json({ error: 'Undo operation failed' }, 500);
+  }
+});

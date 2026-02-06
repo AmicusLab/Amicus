@@ -295,6 +295,40 @@ export OPENAI_API_KEY="your-api-key"
 
 ---
 
+## Safety: Git 기반 안전장치
+
+Amicus는 파일을 변경하는 도구 실행 후 자동으로 Git 스냅샷을 생성하여, 실수로 파일을 망가뜨려도 되돌릴 수 있습니다.
+
+### 자동 스냅샷
+
+도구 실행 시 자동으로 Git 커밋이 생성됩니다:
+- `create_file`: 파일 생성 후 스냅샷
+- `edit_file`: 파일 수정 후 스냅샷
+- `delete_file`: 파일 삭제 후 스냅샷
+
+읽기 전용 도구 (read_file 등)는 스냅샷을 건너뛰어 성능을 최적화합니다.
+
+### Undo 기능
+
+CLI에서 `/undo` 명령으로 직전 상태로 복구:
+
+```bash
+You: Create file test.txt with content: Hello
+Amicus: Successfully created file test.txt
+
+You: /undo
+Amicus: ✅ 성공적으로 이전 상태로 되돌렸습니다.
+```
+
+### 제약사항
+
+- 단일 undo만 지원 (한 번에 한 단계만 되돌리기)
+- Git 레포지토리가 없으면 자동으로 초기화됩니다
+
+자세한 내용은 [Vertical Slice 3 구현 문서](docs/implementation/vertical-slice-3-safety.md)를 참고하세요.
+
+---
+
 ## 문제 해결
 
 ### Daemon이 시작되지 않음

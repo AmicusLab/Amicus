@@ -10,7 +10,7 @@
 - 3단계 점진적 구현:
   - Stage 1 (Skeleton): CLI REPL + Daemon `/chat` + ChatEngine 텍스트 응답
   - Stage 2 (Hands): Function calling + ToolExecutor + MCP `write_file`
-  - Stage 3 (Safety Lite): SafeMCPClient가 도구 실행 전 자동 커밋
+  - Stage 3 (Safety Lite): SafeMCPClient가 도구 실행 후 자동 커밋
 
 주요 산출물 (핵심 컴포넌트):
 
@@ -50,7 +50,7 @@ ToolExecutor
   v
 SafeMCPClient (Git 래퍼)
   |
-  | 도구 실행 전 자동 커밋
+  | 도구 실행 후 자동 커밋
   v
 MCPClient -> @modelcontextprotocol/server-filesystem (stdio)
   |

@@ -1,6 +1,7 @@
 {
   "name": "amicus",
   "private": true,
+  "license": "MIT",
   "workspaces": [
     "apps/*",
     "packages/*"

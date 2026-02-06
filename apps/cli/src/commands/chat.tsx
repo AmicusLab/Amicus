@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { v4 as uuidv4 } from 'uuid';
 import type { Message } from '@amicus/types/chat';
-import { waitForDaemon, sendChat } from '../api.js';
+import { waitForDaemon, sendChat, undoChat } from '../api.js';
 
 export function Chat() {
   const { exit } = useApp();
@@ -36,13 +36,33 @@ export function Chat() {
         return;
       }
 
+      if (userInput === '/undo') {
+        setInput('');
+        setLoading(true);
+        setError(null);
+
+        try {
+          const result = await undoChat();
+          const undoMessage: Message = {
+            role: 'assistant',
+            content: result.message,
+          };
+          setMessages(prev => [...prev, undoMessage]);
+        } catch (e) {
+          setError(`Undo failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
       setInput('');
       setLoading(true);
       setError(null);
 
       const userMessage: Message = { role: 'user', content: userInput };
       const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
+      setMessages(prev => [...prev, userMessage]);
 
       try {
         const result = await sendChat(updatedMessages);
@@ -50,7 +70,7 @@ export function Chat() {
           role: 'assistant',
           content: result.response,
         };
-        setMessages([...updatedMessages, assistantMessage]);
+        setMessages(prev => [...prev, assistantMessage]);
       } catch (e) {
         setError(`Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
       } finally {
