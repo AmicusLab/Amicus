@@ -1,6 +1,11 @@
 import { Hono } from 'hono';
 import type { ChatConfig, Message, MessageRole } from '@amicus/types/chat';
-import { ChatEngine } from '@amicus/core';
+import {
+  ChatEngine,
+  SimpleToolRegistry,
+  createFileTool,
+  TOOL_EXECUTION_PROMPT,
+} from '@amicus/core';
 import { providerService } from '../services/ProviderService.js';
 import { ToolExecutor } from '../services/ToolExecutor.js';
 import { MCPClient, SafeMCPClient } from '@amicus/mcp-client';
@@ -54,8 +59,12 @@ async function initializeServices() {
     }
 
     if (!chatEngine) {
+      const toolRegistry = new SimpleToolRegistry();
+      toolRegistry.register(createFileTool as import('@amicus/core').Tool);
+
       chatEngine = new ChatEngine({
         providerRegistry: providerService.getRegistry(),
+        toolRegistry,
       });
     }
 
@@ -101,37 +110,10 @@ chatRoutes.post('/', async (c) => {
     }
 
     const messages = [...body.messages];
-    let result = await chatEngine.chat(messages, body.config);
-
-    if (result.response.type === 'tool_call') {
-      const toolResult = await toolExecutor.execute(
-        result.response.toolCall.tool,
-        result.response.toolCall.args
-      );
-
-      let toolContent: string;
-      try {
-        toolContent = JSON.stringify(toolResult);
-      } catch (stringifyError) {
-        console.error('[Chat] Failed to stringify tool result:', stringifyError);
-        toolContent = '[unserializable tool result]';
-      }
-
-      messages.push({
-        role: 'tool',
-        content: toolContent,
-        toolCallId: result.response.toolCall.toolCallId,
-      });
-
-      result = await chatEngine.chat(messages, body.config);
-
-      if (result.response.type === 'tool_call') {
-        return c.json({
-          response: 'Error: Multiple sequential tool calls not supported in this version',
-          usage: result.usage,
-        });
-      }
-    }
+    const result = await chatEngine.chat(messages, {
+      ...body.config,
+      systemPrompt: body.config?.systemPrompt ?? TOOL_EXECUTION_PROMPT,
+    });
 
     if (result.response.type !== 'text') {
       return c.json({

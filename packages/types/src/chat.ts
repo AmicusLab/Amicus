@@ -16,7 +16,9 @@ export interface Message {
   /** Message content */
   content: string;
   /** Tool call ID (required when role is 'tool', undefined otherwise) */
-  toolCallId?: string;
+  tool_call_id?: string;
+  /** Tool calls made by the assistant (when role is 'assistant' and tools were called) */
+  tool_calls?: ToolCall[];
 }
 
 /**
@@ -28,7 +30,7 @@ export interface ToolDefinition {
   /** Tool description */
   description: string;
   /** Input parameter schema (JSON Schema) */
-  parameters: Record<string, unknown>;
+  input_schema: Record<string, unknown>;
 }
 
 /**
@@ -36,11 +38,11 @@ export interface ToolDefinition {
  */
 export interface ToolCall {
   /** Unique identifier for this tool call */
-  toolCallId: string;
+  id: string;
   /** Tool name to call */
-  tool: string;
+  name: string;
   /** Tool arguments */
-  args: Record<string, unknown>;
+  arguments: Record<string, unknown>;
 }
 
 /**
@@ -48,7 +50,7 @@ export interface ToolCall {
  */
 export type ChatResponse =
   | { type: 'text'; content: string }
-  | { type: 'tool_call'; toolCall: ToolCall };
+  | { type: 'tool_calls'; tool_calls: ToolCall[]; content?: string };
 
 /**
  * Configuration for chat completion

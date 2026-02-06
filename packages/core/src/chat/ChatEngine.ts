@@ -1,21 +1,35 @@
 import { generateText, jsonSchema } from 'ai';
-import type { Message, ChatConfig, ChatResult, ToolDefinition } from '@amicus/types';
+import type { Message, ChatConfig, ChatResult } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
+import type { ToolRegistry } from '../tools/types.js';
 
 const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
 
 export interface ChatEngineOptions {
   providerRegistry: ProviderRegistry;
+  toolRegistry?: ToolRegistry;
 }
 
 export class ChatEngine {
   private providerRegistry: ProviderRegistry;
+  private toolRegistry?: ToolRegistry;
 
   constructor(options: ChatEngineOptions) {
     this.providerRegistry = options.providerRegistry;
+    if (options.toolRegistry) {
+      this.toolRegistry = options.toolRegistry;
+    }
   }
 
-  async chat(messages: Message[], config?: ChatConfig): Promise<ChatResult> {
+  async chat(messages: Message[], config?: ChatConfig, depth = 0): Promise<ChatResult> {
+    // #2: Prevent infinite recursion
+    if (depth >= 10) {
+      throw new Error('Maximum tool call depth (10) exceeded');
+    }
+
+    // #6: Prevent mutation of original messages array
+    const workingMessages = [...messages];
+
     const systemPrompt = config?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
 
     let modelId: string;
@@ -46,10 +60,34 @@ export class ChatEngine {
     const generateConfig: Parameters<typeof generateText>[0] = {
       model,
       system: systemPrompt,
-      messages: messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-      })),
+      messages: workingMessages.map(msg => {
+        if (msg.role === 'assistant' && msg.tool_calls?.length) {
+          return {
+            role: 'assistant' as const,
+            content: [
+              ...(msg.content ? [{ type: 'text' as const, text: msg.content }] : []),
+              ...msg.tool_calls.map(tc => ({
+                type: 'tool-call' as const,
+                toolCallId: tc.id,
+                toolName: tc.name,
+                args: tc.arguments,
+              })),
+            ],
+          };
+        }
+        if (msg.role === 'tool' && msg.tool_call_id) {
+          return {
+            role: 'tool' as const,
+            content: [{
+              type: 'tool-result' as const,
+              toolCallId: msg.tool_call_id,
+              toolName: '',
+              result: msg.content,
+            }],
+          };
+        }
+        return { role: msg.role as 'user' | 'system', content: msg.content };
+      }),
     };
 
     if (config?.maxTokens !== undefined) {
@@ -62,48 +100,75 @@ export class ChatEngine {
       generateConfig.topP = config.topP;
     }
 
-    if (config?.tools && config.tools.length > 0) {
-      const toolsConfig: Record<string, {
-        description: string;
-        parameters: ReturnType<typeof jsonSchema>;
-      }> = {};
+    if (this.toolRegistry) {
+      const toolDefs = this.toolRegistry.getDefinitions();
+      if (toolDefs.length > 0) {
+        const toolsConfig: Record<string, {
+          description: string;
+          parameters: ReturnType<typeof jsonSchema>;
+        }> = {};
 
-      for (const tool of config.tools) {
-        toolsConfig[tool.name] = {
-          description: tool.description,
-          parameters: jsonSchema(tool.parameters),
-        };
+        for (const toolDef of toolDefs) {
+          toolsConfig[toolDef.name] = {
+            description: toolDef.description,
+            parameters: jsonSchema(toolDef.input_schema),
+          };
+        }
+
+        generateConfig.tools = toolsConfig;
       }
-
-      generateConfig.tools = toolsConfig;
     }
 
     const result = await generateText(generateConfig);
 
     if (result.toolCalls && result.toolCalls.length > 0) {
-      const firstToolCall = result.toolCalls[0] as {
+      const toolCalls = result.toolCalls.map((tc: {
         toolCallId: string;
         toolName: string;
         args: Record<string, unknown>;
-      };
+      }) => ({
+        id: tc.toolCallId,
+        name: tc.toolName,
+        arguments: tc.args ?? {}
+      }));
 
-      return {
-        response: {
-          type: 'tool_call',
-          toolCall: {
-            toolCallId: firstToolCall.toolCallId,
-            tool: firstToolCall.toolName,
-            args: firstToolCall.args ?? {},
-          },
-        },
-        usage: {
-          input: result.usage.promptTokens,
-          output: result.usage.completionTokens,
-          total: result.usage.totalTokens,
-        },
-        model: modelId,
-        provider: providerId,
-      };
+      workingMessages.push({
+        role: 'assistant',
+        content: result.text || '',
+        tool_calls: toolCalls
+      });
+
+      for (const call of toolCalls) {
+        const tool = this.toolRegistry?.get(call.name);
+        if (!tool) {
+          workingMessages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: `Error: Unknown tool '${call.name}'`
+          });
+          continue;
+        }
+
+        try {
+          // #5: Validate tool arguments with Zod schema before execution
+          const validatedArgs = tool.schema.parse(call.arguments);
+          const toolResult = await tool.execute(validatedArgs);
+          workingMessages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: toolResult
+          });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          workingMessages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: `Error executing tool: ${errorMessage}`
+          });
+        }
+      }
+
+      return this.chat(workingMessages, config, depth + 1);
     }
 
     return {
