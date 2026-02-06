@@ -302,9 +302,9 @@ Amicus는 파일을 변경하는 도구 실행 전 자동으로 Git 스냅샷을
 ### 자동 스냅샷
 
 도구 실행 시 자동으로 Git 커밋이 생성됩니다:
-- `create_file`: 파일 생성 전 스냅샷
-- `edit_file`: 파일 수정 전 스냅샷
-- `delete_file`: 파일 삭제 전 스냅샷
+- `create_file`: 파일 생성 후 스냅샷
+- `edit_file`: 파일 수정 후 스냅샷
+- `delete_file`: 파일 삭제 후 스냅샷
 
 읽기 전용 도구 (read_file 등)는 스냅샷을 건너뛰어 성능을 최적화합니다.
 
