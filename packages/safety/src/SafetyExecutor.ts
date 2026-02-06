@@ -1,4 +1,5 @@
 import simpleGit, { SimpleGit } from 'simple-git';
+import * as fs from 'fs/promises';
 import { WRITE_TOOLS, DEFAULT_GITIGNORE, SNAPSHOT_MESSAGE_PREFIX } from './config.js';
 
 /**
@@ -36,7 +37,6 @@ export class SafetyExecutor {
 
   private async ensureGitignore(): Promise<void> {
     const gitignorePath = `${this.baseDir}/.gitignore`;
-    const fs = await import('fs/promises');
 
     try {
       await fs.access(gitignorePath);
@@ -60,9 +60,10 @@ export class SafetyExecutor {
       } else {
         console.log(`[Safety] No changes to snapshot`);
       }
-    } catch (error: any) {
-      console.error('[Safety] Failed to create snapshot:', error.message);
-      throw new Error(`Snapshot creation failed: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[Safety] Failed to create snapshot:', message);
+      throw new Error(`Snapshot creation failed: ${message}`);
     }
   }
 
@@ -90,16 +91,18 @@ export class SafetyExecutor {
 
       try {
         await this.createSnapshot(toolName);
-      } catch (snapshotError: any) {
-        console.error(`[Safety] Snapshot failed, rolling back working tree:`, snapshotError.message);
+      } catch (snapshotError: unknown) {
+        const message = snapshotError instanceof Error ? snapshotError.message : String(snapshotError);
+        console.error(`[Safety] Snapshot failed, rolling back working tree:`, message);
         await this.git.reset(['--hard', 'HEAD']);
         await this.git.clean('f', ['-d']);
-        throw new Error(`Snapshot failed: ${snapshotError.message}`);
+        throw new Error(`Snapshot failed: ${message}`);
       }
 
       return result;
-    } catch (toolError: any) {
-      console.error(`[Safety] Tool ${toolName} failed:`, toolError.message);
+    } catch (toolError: unknown) {
+      const message = toolError instanceof Error ? toolError.message : String(toolError);
+      console.error(`[Safety] Tool ${toolName} failed:`, message);
       throw toolError;
     }
   }
@@ -127,9 +130,10 @@ export class SafetyExecutor {
       await this.git.reset(['--hard', 'HEAD~1']);
       console.log('[Safety] Rolled back to previous state');
       return '✅ 성공적으로 이전 상태로 되돌렸습니다.';
-    } catch (error: any) {
-      console.error('[Safety] Rollback failed:', error.message);
-      return `❌ 롤백 실패: ${error.message}`;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error('[Safety] Rollback failed:', message);
+      return `❌ 롤백 실패: ${message}`;
     }
   }
 }

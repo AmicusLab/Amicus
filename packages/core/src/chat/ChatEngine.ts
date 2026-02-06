@@ -164,7 +164,7 @@ export class ChatEngine {
           const validatedArgs = tool.schema.parse(call.arguments);
           const toolResult = await this.safety.executeSafe(
             call.name,
-            async () => await tool.execute(validatedArgs)
+            () => tool.execute(validatedArgs)
           );
           workingMessages.push({
             role: 'tool',
