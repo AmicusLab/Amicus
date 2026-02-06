@@ -235,6 +235,66 @@ export AMICUS_API_URL=http://localhost:3000
 
 ---
 
+## CLI Chat 명령어
+
+**대화형 AI 챗봇 (Vertical Slice 구현)**
+
+Amicus는 CLI를 통해 LLM과 대화하고 도구를 실행할 수 있는 대화형 인터페이스를 제공합니다.
+
+### 사용법
+
+```bash
+# Terminal 1: Daemon 실행 (필수)
+bun run --cwd apps/daemon dev
+
+# Terminal 2: CLI Chat 시작
+bun run --cwd apps/cli start chat
+```
+
+### 기능
+
+- **LLM 대화**: Claude, GPT 등 설정된 LLM과 자연어 대화
+- **파일 생성**: "Create file test.txt with content: Hello" 형태의 명령으로 파일 자동 생성
+- **Git 안전장치**: 파일 생성 전 자동 git commit (변경사항 보호)
+- **대화 히스토리**: 최근 5개 메시지 표시 (인메모리)
+
+### 예시
+
+```
+Session: a1b2c3d4
+
+You: Hello
+Amicus: Hello! I'm Amicus, your local-first AI assistant. How can I help you today?
+
+You: Create file test.txt with content: Hello World
+Amicus: I've created the file test.txt with the content "Hello World".
+
+You: exit
+Goodbye!
+```
+
+### 필수 설정
+
+LLM API 키가 환경변수로 설정되어 있어야 합니다:
+
+```bash
+# Anthropic Claude
+export ANTHROPIC_API_KEY="your-api-key"
+
+# 또는 OpenAI
+export OPENAI_API_KEY="your-api-key"
+```
+
+### 제약사항
+
+- 단일 도구만 지원: `write_file` (파일 쓰기)
+- 요청당 1회 도구 호출만 가능 (순차 호출 불가)
+- 대화 히스토리는 메모리에만 저장 (재시작 시 초기화)
+
+자세한 내용은 [Vertical Slice 문서](docs/implementation/vertical-slice.md)를 참고하세요.
+
+---
+
 ## 문제 해결
 
 ### Daemon이 시작되지 않음
