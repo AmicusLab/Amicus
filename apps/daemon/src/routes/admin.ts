@@ -389,8 +389,9 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
     await configManager.update({ llm: { providers } });
     
     await providerService.reload();
-    
-    if (!cfg.llm.defaultModel) {
+
+    const cfgAfterReload = configManager.getConfig();
+    if (!cfgAfterReload.llm.defaultModel) {
       const defaultModelName = defaultModelsByProvider[id];
       if (defaultModelName) {
         const newDefaultModel = `${id}:${defaultModelName}`;
