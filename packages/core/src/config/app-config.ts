@@ -8,6 +8,8 @@ export const ProviderEntrySchema = z.object({
   apiKey: z.string().optional(),
   accessToken: z.string().optional(),
   refreshToken: z.string().optional(),
+  expiresAt: z.number().optional(),
+  scope: z.string().optional(),
 });
 
 export const LLMConfigSchema = z.object({

@@ -15,12 +15,12 @@ export class AnthropicPlugin implements LLMProviderPlugin {
 
   constructor(
     _module: unknown,
-    envKey: string,
+    private envKey: string,
     apiKey?: string,
     _accessToken?: string,
     _refreshToken?: string
   ) {
-    this.apiKey = apiKey;
+    this.apiKey = apiKey ?? process.env[this.envKey];
   }
 
   isAvailable(): boolean {

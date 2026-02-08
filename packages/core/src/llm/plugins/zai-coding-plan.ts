@@ -23,7 +23,7 @@ export class ZaiCodingPlanPlugin implements LLMProviderPlugin {
     _accessToken?: string,
     _refreshToken?: string
   ) {
-    this.apiKey = apiKey;
+    this.apiKey = apiKey ?? process.env[this.apiKeyEnv];
   }
 
   createProvider(config?: ProviderConfig): unknown {

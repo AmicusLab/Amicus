@@ -149,9 +149,15 @@ export interface ProviderConfigEntry {
   
   /** OAuth 액세스 토큰 (직접 전달, 선택적) */
   accessToken?: string;
-  
+
   /** OAuth 리프레시 토큰 (직접 전달, 선택적) */
   refreshToken?: string;
+
+  /** OAuth 토큰 만료 시간 (Unix timestamp, 선택적) */
+  expiresAt?: number;
+
+  /** OAuth 스코프 (선택적) */
+  scope?: string;
 }
 
 /**
