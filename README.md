@@ -408,76 +408,9 @@ MIT
 
 ---
 
-## Configuration (amicus.json)
+## Configuration
 
-Amicus uses `./data/amicus.json` to store all configuration including provider credentials with inline encryption.
+Amicus stores all provider configuration in `./data/amicus.json` with inline encryption for sensitive values.
 
-### File Structure
-
-```json
-{
-  "daemon": {
-    "port": 3000
-  },
-  "llm": {
-    "providers": [
-      {
-        "id": "openai",
-        "enabled": true,
-        "package": "@ai-sdk/openai",
-        "apiKey": "enc:v1:aGVsbG93b3JsZC4uLg=="
-      },
-      {
-        "id": "anthropic",
-        "enabled": true,
-        "package": "@ai-sdk/anthropic",
-        "accessToken": "enc:v1:b2F1dGh0b2tlbi4uLg==",
-        "refreshToken": "enc:v1:cmVmcmVzaC4uLg=="
-      }
-    ],
-    "defaultModel": "openai:gpt-4o-mini",
-    "dailyBudget": 10,
-    "budgetAlertThreshold": 0.8
-  }
-}
-```
-
-### Encrypted Values
-
-Sensitive fields (apiKey, accessToken, refreshToken) are automatically encrypted with the `enc:v1:` prefix:
-- **Format**: `enc:v1:{base64-encoded-encrypted-data}`
-- **Algorithm**: AES-256-GCM with PBKDF2 (200,000 iterations)
-- **Encryption Key**: `CONFIG_ENCRYPTION_KEY` environment variable (required)
-
-### Adding API Keys
-
-1. Edit `./data/amicus.json` manually
-2. Add plaintext API key:
-   ```json
-   {
-     "id": "openai",
-     "apiKey": "sk-your-actual-api-key-here"
-   }
-   ```
-3. On next read, Amicus automatically encrypts it to `enc:v1:...` format
-
-### Environment Variable
-
-```bash
-# Required for encryption/decryption
-export CONFIG_ENCRYPTION_KEY="your-encryption-key-here"
-```
-
-**Security**: Keep this key secret! Store in `.env` file (not committed to git).
-
-### Error Messages
-
-- **"CONFIG_ENCRYPTION_KEY missing or invalid"**: Set the encryption key environment variable
-- **"Failed to decrypt"**: Wrong encryption key or corrupted data
-
-### Storage Architecture
-
-- **amicus.json**: All provider configuration with inline encrypted credentials
-- **secrets.enc.json**: Admin password only (separate security layer)
-- Both use CONFIG_ENCRYPTION_KEY for encryption/decryption
+See [Configuration Guide](docs/configuration.md) for detailed setup instructions.
 
