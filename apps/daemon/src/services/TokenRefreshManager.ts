@@ -1,11 +1,10 @@
 import type {
   OAuthCredential,
   OAuthFlowConfig,
-  isTokenExpired,
   isDeviceCodeFlowConfig,
 } from '@amicus/types';
 import { DeviceCodeFlow, PKCEFlow } from './OAuthFlows.js';
-import { secretStore } from './ConfigService.js';
+import { configManager } from './ConfigService.js';
 
 const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
@@ -76,16 +75,25 @@ class TokenRefreshManager {
       return null;
     }
 
-    const credential = secretStore.getCredential(providerId);
-    if (!credential || credential.type !== 'oauth') {
+    const cfg = configManager.getConfig();
+    const providerEntry = cfg.llm.providers.find((p) => p.id === providerId);
+    if (!providerEntry?.accessToken) {
       console.warn(`[TokenRefreshManager] No OAuth credential for ${providerId}`);
       return null;
     }
 
-    if (!credential.refreshToken) {
+    if (!providerEntry.refreshToken) {
       console.warn(`[TokenRefreshManager] No refresh token for ${providerId}`);
       return null;
     }
+
+    const credential = {
+      type: 'oauth' as const,
+      accessToken: providerEntry.accessToken,
+      refreshToken: providerEntry.refreshToken,
+      expiresAt: providerEntry.expiresAt,
+      scope: providerEntry.scope,
+    };
 
     this.refreshing.add(providerId);
     try {
@@ -114,7 +122,12 @@ class TokenRefreshManager {
         newCredential.expiresAt = Date.now() + tokens.expiresIn * 1000;
       }
 
-      await secretStore.setCredential(providerId, newCredential);
+      const updatedProviders = cfg.llm.providers.map((p) =>
+        p.id === providerId
+          ? { ...p, accessToken: newCredential.accessToken, refreshToken: newCredential.refreshToken, expiresAt: newCredential.expiresAt, scope: newCredential.scope }
+          : p
+      );
+      await configManager.update({ llm: { providers: updatedProviders } });
 
       if (newCredential.expiresAt) {
         this.scheduleRefresh(providerId, newCredential.expiresAt);

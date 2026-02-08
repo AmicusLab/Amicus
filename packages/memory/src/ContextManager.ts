@@ -42,15 +42,6 @@ const DEFAULT_TEMPLATE_MEMORY = `# MEMORY.md - Long-Term Memory
 {lessonsLearned}
 `;
 
-declare global {
-  const Bun: {
-    file(path: string): {
-      exists(): Promise<boolean>;
-      text(): Promise<string>;
-    };
-  };
-}
-
 export class ContextManager {
   private readonly repoRoot: string;
   private readonly nowFilePath: string;

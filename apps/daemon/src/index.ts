@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { serve } from '@hono/node-server';
 import { join } from 'node:path';
 import { createApp, setupWebSocket } from './server.js';
@@ -8,14 +9,22 @@ import { configManager, initializeConfig, secretStore } from './services/ConfigS
 import { getPairingState } from './admin/pairing.js';
 import { loadRepoEnv } from './services/EnvService.js';
 
+const localEnv = join(import.meta.dir, '..', '.env');
+const rootEnv = join(import.meta.dir, '..', '..', '..', '.env');
+
+if (existsSync(localEnv)) {
+  await loadRepoEnv({ repoRoot: join(import.meta.dir, '..'), files: ['.env'] });
+  console.log('[Daemon] Loaded .env from apps/daemon/.env');
+} else if (existsSync(rootEnv)) {
+  await loadRepoEnv({ repoRoot: join(import.meta.dir, '..', '..', '..'), files: ['.env'] });
+  console.log('[Daemon] Loaded .env from root directory');
+} else {
+  console.warn('[Daemon] Warning: No .env file found in apps/daemon/ or root directory');
+}
+
 let server: ReturnType<typeof serve> | undefined;
 
 async function main(): Promise<void> {
-  // Load repo-level env files so users don't need to manually wire dotenv.
-  // When running via `bun run --cwd apps/daemon ...`, process.cwd() is `apps/daemon`.
-  const repoRoot = join(process.cwd(), '..', '..');
-  await loadRepoEnv({ repoRoot });
-
   await initializeConfig();
 
   // Sync password from .env to secretStore if needed

@@ -3,12 +3,12 @@ import { Hono } from 'hono';
 import type { APIResponse } from '@amicus/types/dashboard';
 import type { OAuthCredential, ProviderAuthConfig } from '@amicus/types';
 import { adminAuthMiddleware } from '../middleware/admin-auth.js';
-import { configManager, secretStore } from '../services/ConfigService.js';
+import { configManager } from '../services/ConfigService.js';
 import { DeviceCodeFlow, PKCEFlow, CodePasteFlow } from '../services/OAuthFlows.js';
 import { tokenRefreshManager } from '../services/TokenRefreshManager.js';
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit } from '../services/AuditLogService.js';
-import { llmProviderConfig } from '@amicus/core';
+import { llmProviderConfig, defaultModelsByProvider } from '@amicus/core';
 
 type ProviderWithAuth = {
   id: string;
@@ -151,8 +151,15 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
       }).then(async ({ code, state }) => {
         try {
           const credential = await flow.exchangeCode(code, state);
-          await secretStore.setCredential(providerId, credential);
           pendingFlows.delete(flowId);
+
+          const cfg = configManager.getConfig();
+          const updatedProviders = cfg.llm.providers.map((p) =>
+            p.id === providerId
+              ? { ...p, enabled: true, accessToken: credential.accessToken, refreshToken: credential.refreshToken, expiresAt: credential.expiresAt, scope: credential.scope }
+              : p
+          );
+          await configManager.update({ llm: { providers: updatedProviders } });
 
           const provider = getProviderConfig(providerId);
           if (provider?.auth?.oauth) {
@@ -162,19 +169,18 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
             }
           }
 
-          const cfg = configManager.getConfig();
-          const providerEntry = cfg.llm.providers.find((p) => p.id === providerId);
-          if (providerEntry && !providerEntry.enabled) {
-            await configManager.update({
-              llm: {
-                providers: cfg.llm.providers.map((p) =>
-                  p.id === providerId ? { ...p, enabled: true } : p
-                ),
-              },
-            });
-          }
-          
           await providerService.reload();
+
+          const cfgAfterReload = configManager.getConfig();
+          if (!cfgAfterReload.llm.defaultModel) {
+            const defaultModelName = defaultModelsByProvider[providerId];
+            if (defaultModelName) {
+              const newDefaultModel = `${providerId}:${defaultModelName}`;
+              await configManager.update({
+                llm: { defaultModel: newDefaultModel }
+              });
+            }
+          }
 
           const { broadcast } = await import('../ws/WebSocketManager.js');
           broadcast('provider:statusChanged', { providerId });
@@ -314,8 +320,15 @@ oauthRoutes.get('/providers/:id/oauth/poll', adminAuthMiddleware, async (c) => {
         credential.expiresAt = Date.now() + result.tokens.expiresIn * 1000;
       }
 
-      await secretStore.setCredential(providerId, credential);
       pendingFlows.delete(flowId);
+
+      const cfg = configManager.getConfig();
+      const updatedProviders = cfg.llm.providers.map((p) =>
+        p.id === providerId
+          ? { ...p, enabled: true, accessToken: credential.accessToken, refreshToken: credential.refreshToken, expiresAt: credential.expiresAt, scope: credential.scope }
+          : p
+      );
+      await configManager.update({ llm: { providers: updatedProviders } });
 
       const provider = getProviderConfig(providerId);
       if (provider?.auth?.oauth) {
@@ -325,17 +338,17 @@ oauthRoutes.get('/providers/:id/oauth/poll', adminAuthMiddleware, async (c) => {
         }
       }
 
-      const cfg = configManager.getConfig();
-      const providerEntry = cfg.llm.providers.find((p) => p.id === providerId);
-      if (providerEntry && !providerEntry.enabled) {
-        await configManager.update({
-          llm: {
-            providers: cfg.llm.providers.map((p) =>
-              p.id === providerId ? { ...p, enabled: true } : p
-            ),
-          },
-        });
-        await providerService.reload();
+      await providerService.reload();
+
+      const cfgAfterReload = configManager.getConfig();
+      if (!cfgAfterReload.llm.defaultModel) {
+        const defaultModelName = defaultModelsByProvider[providerId];
+        if (defaultModelName) {
+          const newDefaultModel = `${providerId}:${defaultModelName}`;
+          await configManager.update({
+            llm: { defaultModel: newDefaultModel }
+          });
+        }
       }
 
       writeAudit({
@@ -385,8 +398,15 @@ oauthRoutes.post('/providers/:id/oauth/callback', adminAuthMiddleware, async (c)
 
   try {
     const credential = await pending.flow.exchangeCode(body.code, body.state);
-    await secretStore.setCredential(providerId, credential);
     pendingFlows.delete(body.flowId);
+
+    const cfg = configManager.getConfig();
+    const updatedProviders = cfg.llm.providers.map((p) =>
+      p.id === providerId
+        ? { ...p, enabled: true, accessToken: credential.accessToken, refreshToken: credential.refreshToken, expiresAt: credential.expiresAt, scope: credential.scope }
+        : p
+    );
+    await configManager.update({ llm: { providers: updatedProviders } });
 
     const provider = getProviderConfig(providerId);
     if (provider?.auth?.oauth) {
@@ -396,17 +416,17 @@ oauthRoutes.post('/providers/:id/oauth/callback', adminAuthMiddleware, async (c)
       }
     }
 
-    const cfg = configManager.getConfig();
-    const providerEntry = cfg.llm.providers.find((p) => p.id === providerId);
-    if (providerEntry && !providerEntry.enabled) {
-      await configManager.update({
-        llm: {
-          providers: cfg.llm.providers.map((p) =>
-            p.id === providerId ? { ...p, enabled: true } : p
-          ),
-        },
-      });
-      await providerService.reload();
+    await providerService.reload();
+
+    const cfgAfterReload = configManager.getConfig();
+    if (!cfgAfterReload.llm.defaultModel) {
+      const defaultModelName = defaultModelsByProvider[providerId];
+      if (defaultModelName) {
+        const newDefaultModel = `${providerId}:${defaultModelName}`;
+        await configManager.update({
+          llm: { defaultModel: newDefaultModel }
+        });
+      }
     }
 
     const { broadcast } = await import('../ws/WebSocketManager.js');
@@ -447,17 +467,15 @@ oauthRoutes.delete('/providers/:id/oauth', adminAuthMiddleware, async (c) => {
   }
 
   try {
-    await secretStore.deleteCredential(providerId);
     tokenRefreshManager.unregisterProvider(providerId);
 
     const cfg = configManager.getConfig();
-    await configManager.update({
-      llm: {
-        providers: cfg.llm.providers.map((p) =>
-          p.id === providerId ? { ...p, enabled: false } : p
-        ),
-      },
-    });
+    const updatedProviders = cfg.llm.providers.map((p) =>
+      p.id === providerId
+        ? { ...p, enabled: false, accessToken: undefined, refreshToken: undefined }
+        : p
+    );
+    await configManager.update({ llm: { providers: updatedProviders } });
     await providerService.reload();
 
     writeAudit({
@@ -492,22 +510,24 @@ oauthRoutes.get('/providers/:id/oauth/status', adminAuthMiddleware, (c) => {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${providerId}`), 404);
   }
 
-  const credential = secretStore.getCredential(providerId);
+  const cfg = configManager.getConfig();
+  const providerEntry = cfg.llm.providers.find((p) => p.id === providerId);
+  const hasOAuth = !!providerEntry?.accessToken;
 
-  if (!credential || credential.type !== 'oauth') {
+  if (!hasOAuth) {
     return c.json(ok({ status: 'disconnected' }));
   }
 
   const now = Date.now();
-  if (credential.expiresAt && credential.expiresAt < now) {
-    return c.json(ok({ status: 'expired', expiresAt: credential.expiresAt }));
+  if (providerEntry.expiresAt && providerEntry.expiresAt < now) {
+    return c.json(ok({ status: 'expired', expiresAt: providerEntry.expiresAt }));
   }
 
   return c.json(
     ok({
       status: 'connected',
-      expiresAt: credential.expiresAt,
-      scope: credential.scope,
+      expiresAt: providerEntry.expiresAt,
+      scope: providerEntry.scope,
     })
   );
 });

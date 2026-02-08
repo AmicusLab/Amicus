@@ -14,19 +14,7 @@ import {
 } from '../admin/session.js';
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit, readAudit } from '../services/AuditLogService.js';
-
-const defaultModelsByProvider: Record<string, string> = {
-  anthropic: 'claude-3-5-sonnet-20241022',
-  openai: 'gpt-4-turbo',
-  google: 'gemini-1.5-pro',
-  groq: 'llama-3.3-70b-versatile',
-  zai: 'glm-4.7',
-  'zai-coding-plan': 'glm-4.7',
-  'kimi-for-coding': 'kimi-for-coding',
-  openrouter: 'openai/gpt-4-turbo',
-  moonshot: 'moonshot-v1-128k',
-  minimax: 'abab5.5-chat',
-};
+import { llmProviderConfig, defaultModelsByProvider } from '@amicus/core';
 
 export const adminRoutes = new Hono();
 
@@ -266,8 +254,8 @@ adminRoutes.get('/session', adminAuthMiddleware, (c) => {
   return c.json(ok({ role: 'admin' }));
 });
 
-adminRoutes.get('/config', adminAuthMiddleware, (c) => {
-  return c.json(ok(configManager.getSafeConfig()));
+adminRoutes.get('/config', adminAuthMiddleware, async (c) => {
+  return c.json(ok(await configManager.getSafeConfig()));
 });
 
 adminRoutes.patch('/config', adminAuthMiddleware, async (c) => {
@@ -342,6 +330,20 @@ adminRoutes.patch('/providers/:id', adminAuthMiddleware, async (c) => {
 
   await configManager.update(patch);
   await providerService.reload();
+
+  if (enabled) {
+    const cfgAfterReload = configManager.getConfig();
+    if (!cfgAfterReload.llm.defaultModel) {
+      const defaultModelName = defaultModelsByProvider[id];
+      if (defaultModelName) {
+        const newDefaultModel = `${id}:${defaultModelName}`;
+        await configManager.update({
+          llm: { defaultModel: newDefaultModel }
+        });
+      }
+    }
+  }
+
   writeAudit({
     timestamp: new Date().toISOString(),
     eventId: randomUUID(),
@@ -362,11 +364,15 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
   }
 
   const cfg = configManager.getConfig();
-  const provider = cfg.llm.providers.find((p) => p.id === id);
+
+  const userProvider = cfg.llm.providers.find((p) => p.id === id);
+  const defaultProvider = llmProviderConfig.providers.find((p) => p.id === id);
+  const provider = userProvider || defaultProvider;
+
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }
-  
+
   const validationResult = await providerService.validateApiKey(id, apiKey);
   if (!validationResult.valid) {
     writeAudit({
@@ -380,25 +386,35 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
     });
     return c.json(fail('INVALID_API_KEY', validationResult.error ?? 'Invalid API key'), 400);
   }
-  
-  const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
+
   try {
-    await secretStore.set(envKey, apiKey);
-    process.env[envKey] = apiKey;
-    
-    if (!provider.enabled) {
-      await configManager.update({
-        llm: {
-          providers: cfg.llm.providers.map((p) => 
-            p.id === id ? { ...p, enabled: true } : p
-          ),
+    let providers: typeof cfg.llm.providers;
+
+    if (userProvider) {
+      providers = cfg.llm.providers.map((p) =>
+        p.id === id ? { ...p, apiKey, enabled: true } : p
+      );
+    } else if (defaultProvider) {
+      providers = [
+        ...cfg.llm.providers,
+        {
+          id: defaultProvider.id,
+          enabled: true,
+          package: defaultProvider.package,
+          baseURL: defaultProvider.baseURL,
+          apiKey,
         },
-      });
+      ];
+    } else {
+      return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
     }
+
+    await configManager.update({ llm: { providers } });
     
     await providerService.reload();
-    
-    if (!cfg.llm.defaultModel) {
+
+    const cfgAfterReload = configManager.getConfig();
+    if (!cfgAfterReload.llm.defaultModel) {
       const defaultModelName = defaultModelsByProvider[id];
       if (defaultModelName) {
         const newDefaultModel = `${id}:${defaultModelName}`;
@@ -440,18 +456,40 @@ adminRoutes.delete('/providers/:id/unlink', adminAuthMiddleware, async (c) => {
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }
-  const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
 
-  await secretStore.delete(envKey);
-  delete process.env[envKey];
+  // Check if this provider is currently the default
+  const wasDefaultProvider = cfg.llm.defaultModel?.startsWith(`${id}:`) ?? false;
 
-  const patch = {
-    llm: {
-      providers: cfg.llm.providers.map((p) => (p.id === id ? { ...p, enabled: false } : p)),
-    },
-  };
-  await configManager.update(patch);
+  const providers = cfg.llm.providers.map((p) =>
+    p.id === id ? { ...p, apiKey: undefined, enabled: false } : p
+  );
+  await configManager.update({ llm: { providers } });
   await providerService.reload();
+
+  let newDefaultProvider: string | null = null;
+
+  if (wasDefaultProvider) {
+    const remainingProviders = providers.filter(
+      (p) => p.enabled && (p.apiKey || p.accessToken) && p.id !== id
+    );
+
+    const nextProvider = remainingProviders[0];
+    if (nextProvider) {
+      const defaultModelName = defaultModelsByProvider[nextProvider.id];
+      if (defaultModelName) {
+        const newDefaultModel = `${nextProvider.id}:${defaultModelName}`;
+        await configManager.update({
+          llm: { defaultModel: newDefaultModel },
+        });
+        newDefaultProvider = nextProvider.id;
+      }
+    } else {
+      await configManager.update({
+        llm: { defaultModel: null },
+      });
+    }
+  }
+
   writeAudit({
     timestamp: new Date().toISOString(),
     eventId: randomUUID(),
@@ -460,7 +498,12 @@ adminRoutes.delete('/providers/:id/unlink', adminAuthMiddleware, async (c) => {
     resource: `provider:${id}`,
     result: 'success',
   });
-  return c.json(ok({ id, unlinked: true }));
+
+  return c.json(ok({
+    id,
+    unlinked: true,
+    ...(newDefaultProvider ? { newDefaultProvider } : {}),
+  }));
 });
 
 adminRoutes.get('/audit', adminAuthMiddleware, async (c) => {
@@ -485,7 +528,10 @@ adminRoutes.post('/providers/:id/validate', adminAuthMiddleware, async (c) => {
   }
 
   const cfg = configManager.getConfig();
-  const provider = cfg.llm.providers.find((p) => p.id === id);
+  // Check both user providers and default providers
+  const userProvider = cfg.llm.providers.find((p) => p.id === id);
+  const defaultProvider = llmProviderConfig.providers.find((p) => p.id === id);
+  const provider = userProvider || defaultProvider;
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }

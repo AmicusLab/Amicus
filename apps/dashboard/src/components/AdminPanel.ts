@@ -485,14 +485,15 @@ export class AdminPanel extends LitElement {
   private async unlinkProvider(id: string): Promise<void> {
     this.loading = true;
     try {
-      const wasDefaultProvider = this.currentDefaultModel.startsWith(id + ':');
+      const res = await adminUnlinkProvider(id);
 
-      await adminUnlinkProvider(id);
-
-      if (wasDefaultProvider) {
-        await adminPatchConfig({ llm: { defaultModel: null } });
-        this.currentDefaultModel = '';
-        this.setMsg('ok', `Provider ${id} unlinked. Default model cleared because it belonged to this provider.`);
+      if (res.success && res.data) {
+        const { newDefaultProvider } = res.data;
+        if (newDefaultProvider) {
+          this.setMsg('ok', `Provider ${id} unlinked. Default provider automatically changed to ${newDefaultProvider}.`);
+        } else {
+          this.setMsg('ok', `Provider ${id} unlinked`);
+        }
       } else {
         this.setMsg('ok', `Provider ${id} unlinked`);
       }

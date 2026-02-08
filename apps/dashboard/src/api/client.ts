@@ -142,7 +142,7 @@ export async function adminSetProviderApiKey(id: string, apiKey: string): Promis
   });
 }
 
-export async function adminUnlinkProvider(id: string): Promise<APIResponse<{ id: string; unlinked: boolean }>> {
+export async function adminUnlinkProvider(id: string): Promise<APIResponse<{ id: string; unlinked: boolean; newDefaultProvider?: string }>> {
   return fetchJSONFromBase(ADMIN_BASE, `/providers/${id}/unlink`, {
     method: 'DELETE',
   });

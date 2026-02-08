@@ -1,21 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import { ZaiPlugin } from '../zai.js';
 
 describe('ZaiPlugin', () => {
   let plugin: ZaiPlugin;
-  let originalApiKey: string | undefined;
 
   beforeEach(() => {
-    originalApiKey = process.env.ZAI_API_KEY;
-    plugin = new ZaiPlugin({}, 'ZAI_API_KEY');
-  });
-
-  afterEach(() => {
-    if (originalApiKey) {
-      process.env.ZAI_API_KEY = originalApiKey;
-    } else {
-      delete process.env.ZAI_API_KEY;
-    }
+    plugin = new ZaiPlugin({}, 'ZAI_API_KEY', 'test-api-key');
   });
 
   describe('Plugin metadata', () => {
@@ -29,14 +19,14 @@ describe('ZaiPlugin', () => {
   });
 
   describe('isAvailable', () => {
-    it('should return true when API key is set', () => {
-      process.env.ZAI_API_KEY = 'test-api-key';
-      expect(plugin.isAvailable()).toBe(true);
+    it('should return true when API key is provided', () => {
+      const pluginWithKey = new ZaiPlugin({}, 'ZAI_API_KEY', 'test-api-key');
+      expect(pluginWithKey.isAvailable()).toBe(true);
     });
 
-    it('should return false when API key is not set', () => {
-      delete process.env.ZAI_API_KEY;
-      expect(plugin.isAvailable()).toBe(false);
+    it('should return false when API key is not provided', () => {
+      const pluginWithoutKey = new ZaiPlugin({}, 'ZAI_API_KEY');
+      expect(pluginWithoutKey.isAvailable()).toBe(false);
     });
   });
 
@@ -193,24 +183,24 @@ describe('ZaiPlugin', () => {
   });
 
   describe('createProvider', () => {
-    it('should create provider with API key from environment', () => {
-      process.env.ZAI_API_KEY = 'test-api-key';
-      expect(() => plugin.createProvider()).not.toThrow();
+    it('should create provider with API key from constructor', () => {
+      const pluginWithKey = new ZaiPlugin({}, 'ZAI_API_KEY', 'test-api-key');
+      expect(() => pluginWithKey.createProvider()).not.toThrow();
     });
 
     it('should create provider with API key from config', () => {
-      process.env.ZAI_API_KEY = 'env-api-key';
-      expect(() => plugin.createProvider({ apiKey: 'config-api-key' })).not.toThrow();
+      const pluginWithKey = new ZaiPlugin({}, 'ZAI_API_KEY', 'constructor-api-key');
+      expect(() => pluginWithKey.createProvider({ apiKey: 'config-api-key' })).not.toThrow();
     });
 
     it('should throw error when API key is not set', () => {
-      delete process.env.ZAI_API_KEY;
-      expect(() => plugin.createProvider()).toThrow('ZAI_API_KEY not set');
+      const pluginWithoutKey = new ZaiPlugin({}, 'ZAI_API_KEY');
+      expect(() => pluginWithoutKey.createProvider()).toThrow('ZAI_API_KEY not set');
     });
 
     it('should throw error when API key is empty', () => {
-      process.env.ZAI_API_KEY = '';
-      expect(() => plugin.createProvider()).toThrow('ZAI_API_KEY not set');
+      const pluginWithEmptyKey = new ZaiPlugin({}, 'ZAI_API_KEY', '');
+      expect(() => pluginWithEmptyKey.createProvider()).toThrow('ZAI_API_KEY not set');
     });
   });
 });

@@ -405,3 +405,12 @@ CI=true bun run --cwd apps/cli start
 ## 라이선스
 
 MIT
+
+---
+
+## Configuration
+
+Amicus stores all provider configuration in `./data/amicus.json` with inline encryption for sensitive values.
+
+See [Configuration Guide](docs/configuration.md) for detailed setup instructions.
+

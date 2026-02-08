@@ -7,8 +7,14 @@ export class GroqPlugin implements LLMProviderPlugin {
 
   private apiKey: string | undefined;
 
-  constructor(_module: unknown, envKey: string) {
-    this.apiKey = process.env[envKey];
+  constructor(
+    _module: unknown,
+    private envKey: string,
+    apiKey?: string,
+    _accessToken?: string,
+    _refreshToken?: string
+  ) {
+    this.apiKey = apiKey ?? process.env[this.envKey];
   }
 
   isAvailable(): boolean {
