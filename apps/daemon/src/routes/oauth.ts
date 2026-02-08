@@ -10,6 +10,19 @@ import { providerService } from '../services/ProviderService.js';
 import { writeAudit } from '../services/AuditLogService.js';
 import { llmProviderConfig } from '@amicus/core';
 
+const defaultModelsByProvider: Record<string, string> = {
+  anthropic: 'claude-3-5-sonnet-20241022',
+  openai: 'gpt-5.2-codex',
+  google: 'gemini-1.5-pro',
+  groq: 'llama-3.3-70b-versatile',
+  zai: 'glm-4.7',
+  'zai-coding-plan': 'glm-4.7',
+  'kimi-for-coding': 'kimi-for-coding',
+  openrouter: 'openai/gpt-4-turbo',
+  moonshot: 'moonshot-v1-128k',
+  minimax: 'abab5.5-chat',
+};
+
 type ProviderWithAuth = {
   id: string;
   enabled: boolean;
@@ -329,6 +342,17 @@ oauthRoutes.get('/providers/:id/oauth/poll', adminAuthMiddleware, async (c) => {
 
       await providerService.reload();
 
+      const cfgAfterReload = configManager.getConfig();
+      if (!cfgAfterReload.llm.defaultModel) {
+        const defaultModelName = defaultModelsByProvider[providerId];
+        if (defaultModelName) {
+          const newDefaultModel = `${providerId}:${defaultModelName}`;
+          await configManager.update({
+            llm: { defaultModel: newDefaultModel }
+          });
+        }
+      }
+
       writeAudit({
         timestamp: new Date().toISOString(),
         eventId: randomUUID(),
@@ -395,6 +419,17 @@ oauthRoutes.post('/providers/:id/oauth/callback', adminAuthMiddleware, async (c)
     }
 
     await providerService.reload();
+
+    const cfgAfterReload = configManager.getConfig();
+    if (!cfgAfterReload.llm.defaultModel) {
+      const defaultModelName = defaultModelsByProvider[providerId];
+      if (defaultModelName) {
+        const newDefaultModel = `${providerId}:${defaultModelName}`;
+        await configManager.update({
+          llm: { defaultModel: newDefaultModel }
+        });
+      }
+    }
 
     const { broadcast } = await import('../ws/WebSocketManager.js');
     broadcast('provider:statusChanged', { providerId });

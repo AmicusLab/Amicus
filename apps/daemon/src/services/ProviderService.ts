@@ -221,7 +221,10 @@ class ProviderService {
    */
   async validateApiKey(providerId: string, apiKey: string): Promise<APIKeyValidationResult> {
     const cfg = configManager.getConfig();
-    const provider = cfg.llm.providers.find((p) => p.id === providerId);
+    // Check both user providers and default providers
+    const userProvider = cfg.llm.providers.find((p) => p.id === providerId);
+    const defaultProvider = llmProviderConfig.providers.find((p) => p.id === providerId);
+    const provider = userProvider || defaultProvider;
     
     if (!provider) {
       return {

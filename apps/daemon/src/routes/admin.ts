@@ -14,10 +14,11 @@ import {
 } from '../admin/session.js';
 import { providerService } from '../services/ProviderService.js';
 import { writeAudit, readAudit } from '../services/AuditLogService.js';
+import { llmProviderConfig } from '@amicus/core';
 
 const defaultModelsByProvider: Record<string, string> = {
   anthropic: 'claude-3-5-sonnet-20241022',
-  openai: 'gpt-4-turbo',
+  openai: 'gpt-5.2-codex',
   google: 'gemini-1.5-pro',
   groq: 'llama-3.3-70b-versatile',
   zai: 'glm-4.7',
@@ -469,7 +470,10 @@ adminRoutes.post('/providers/:id/validate', adminAuthMiddleware, async (c) => {
   }
 
   const cfg = configManager.getConfig();
-  const provider = cfg.llm.providers.find((p) => p.id === id);
+  // Check both user providers and default providers
+  const userProvider = cfg.llm.providers.find((p) => p.id === id);
+  const defaultProvider = llmProviderConfig.providers.find((p) => p.id === id);
+  const provider = userProvider || defaultProvider;
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }
