@@ -12,7 +12,7 @@ export type {
 } from './llm/plugins/types.js';
 export * from './planner/Planner.js';
 export * from './tools/index.js';
-export { llmProviderConfig, getEnabledProviders, getProviderConfig } from './config/llm-providers.js';
+export { llmProviderConfig, getEnabledProviders, getProviderConfig, defaultModelsByProvider } from './config/llm-providers.js';
 export { ConfigManager } from './config/config-manager.js';
 export { AmicusConfigSchema, DEFAULT_CONFIG } from './config/app-config.js';
 export type { AmicusConfig } from './config/app-config.js';
