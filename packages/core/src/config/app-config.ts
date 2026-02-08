@@ -1,14 +1,13 @@
 import { z } from 'zod';
 
-// NOTE: This schema intentionally excludes secrets (API keys, passwords, tokens).
-// Secrets are managed by the daemon via env vars and/or encrypted secret storage.
-
 export const ProviderEntrySchema = z.object({
   id: z.string().min(1),
   enabled: z.boolean(),
   package: z.string().min(1),
-  envKey: z.string().min(1).optional(),
   baseURL: z.string().min(1).optional(),
+  apiKey: z.string().optional(),
+  accessToken: z.string().optional(),
+  refreshToken: z.string().optional(),
 });
 
 export const LLMConfigSchema = z.object({

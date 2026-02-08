@@ -266,8 +266,8 @@ adminRoutes.get('/session', adminAuthMiddleware, (c) => {
   return c.json(ok({ role: 'admin' }));
 });
 
-adminRoutes.get('/config', adminAuthMiddleware, (c) => {
-  return c.json(ok(configManager.getSafeConfig()));
+adminRoutes.get('/config', adminAuthMiddleware, async (c) => {
+  return c.json(ok(await configManager.getSafeConfig()));
 });
 
 adminRoutes.patch('/config', adminAuthMiddleware, async (c) => {
@@ -380,8 +380,8 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
     });
     return c.json(fail('INVALID_API_KEY', validationResult.error ?? 'Invalid API key'), 400);
   }
-  
-  const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
+
+  const envKey = `${provider.id.toUpperCase()}_API_KEY`;
   try {
     await secretStore.set(envKey, apiKey);
     process.env[envKey] = apiKey;
@@ -440,7 +440,7 @@ adminRoutes.delete('/providers/:id/unlink', adminAuthMiddleware, async (c) => {
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }
-  const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
+  const envKey = `${provider.id.toUpperCase()}_API_KEY`;
 
   await secretStore.delete(envKey);
   delete process.env[envKey];

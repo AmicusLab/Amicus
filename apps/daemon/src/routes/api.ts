@@ -94,8 +94,8 @@ apiRoutes.get('/tokenomics', (c) => {
   return c.json(response(getTokenomics()));
 });
 
-apiRoutes.get('/config', (c) => {
-  return c.json(response(configManager.getSafeConfig()));
+apiRoutes.get('/config', async (c) => {
+  return c.json(response(await configManager.getSafeConfig()));
 });
 
 apiRoutes.post('/tasks/emergency-stop', (c) => {
