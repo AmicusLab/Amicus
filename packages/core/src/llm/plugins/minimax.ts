@@ -14,13 +14,20 @@ export class MiniMaxPlugin implements LLMProviderPlugin {
   readonly name = 'MiniMax';
   readonly id = 'minimax';
 
+  private apiKey: string | undefined;
+
   constructor(
     private module: Record<string, unknown>,
-    private apiKeyEnv: string
-  ) {}
+    private apiKeyEnv: string,
+    apiKey?: string,
+    _accessToken?: string,
+    _refreshToken?: string
+  ) {
+    this.apiKey = apiKey;
+  }
 
   createProvider(config?: ProviderConfig): unknown {
-    const apiKey = config?.apiKey ?? process.env[this.apiKeyEnv];
+    const apiKey = config?.apiKey ?? this.apiKey;
     if (!apiKey) {
       throw new Error(`${this.apiKeyEnv} not set`);
     }
@@ -32,7 +39,7 @@ export class MiniMaxPlugin implements LLMProviderPlugin {
   }
 
   isAvailable(): boolean {
-    return !!process.env[this.apiKeyEnv];
+    return !!this.apiKey;
   }
 
   getModels(): ModelInfo[] {

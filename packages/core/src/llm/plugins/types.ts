@@ -135,7 +135,7 @@ export interface ProviderConfigEntry {
   /** 패키지 이름 */
   package: string;
   
-  /** 환경변수 키 (기본값: {ID}_API_KEY) */
+  /** 환경변수 키 (기본값: {ID}_API_KEY) - Deprecated: use apiKey field instead */
   envKey?: string;
   
   /** 기본 URL (OpenAI 호환 API용) */
@@ -143,6 +143,15 @@ export interface ProviderConfigEntry {
   
   /** 인증 설정 (OAuth support) */
   auth?: import('@amicus/types').ProviderAuthConfig;
+  
+  /** API 키 (직접 전달, 선택적) */
+  apiKey?: string;
+  
+  /** OAuth 액세스 토큰 (직접 전달, 선택적) */
+  accessToken?: string;
+  
+  /** OAuth 리프레시 토큰 (직접 전달, 선택적) */
+  refreshToken?: string;
 }
 
 /**

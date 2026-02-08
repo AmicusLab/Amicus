@@ -126,37 +126,38 @@ class ProviderService {
 
   private async loadProvidersFromConfig(): Promise<void> {
     const cfg = configManager.getConfig();
+
     const providerCfg: LLMProviderConfig = cfg.llm.providers.length > 0
       ? {
-          providers: cfg.llm.providers.map((p) => ({
-            id: p.id,
-            enabled: p.enabled,
-            package: p.package,
-            ...(p.envKey ? { envKey: p.envKey } : {}),
-          })),
+          providers: cfg.llm.providers.map((p) => {
+            const envKey = `${p.id.toUpperCase()}_API_KEY`;
+
+            const credential = secretStore.getCredential(p.id);
+            if (credential?.type === 'oauth' && credential.accessToken) {
+              return {
+                id: p.id,
+                enabled: p.enabled,
+                package: p.package,
+                envKey,
+                accessToken: credential.accessToken,
+                refreshToken: credential.refreshToken,
+              } as ProviderConfigEntry;
+            }
+
+            const apiKey = secretStore.get(envKey);
+            return {
+              id: p.id,
+              enabled: p.enabled,
+              package: p.package,
+              envKey,
+              apiKey: apiKey ?? undefined,
+            } as ProviderConfigEntry;
+          }),
           defaultModel: cfg.llm.defaultModel,
           dailyBudget: cfg.llm.dailyBudget,
           budgetAlertThreshold: cfg.llm.budgetAlertThreshold,
         }
       : llmProviderConfig;
-
-    // Apply persisted secrets into process.env for provider SDKs.
-    for (const p of providerCfg.providers) {
-      const envKey = p.envKey ?? `${p.id.toUpperCase()}_API_KEY`;
-      
-      // Check for OAuth credential first
-      const credential = secretStore.getCredential(p.id);
-      if (credential?.type === 'oauth' && credential.accessToken) {
-        // Force overwrite with OAuth token (handles token refresh during reload)
-        process.env[envKey] = credential.accessToken;
-      } else if (!process.env[envKey]) {
-        // Only set API key if no OAuth and env var not already set
-        const secret = secretStore.get(envKey);
-        if (secret) {
-          process.env[envKey] = secret;
-        }
-      }
-    }
 
     await this.registry.loadFromConfig(providerCfg);
   }
@@ -173,7 +174,6 @@ class ProviderService {
             id: p.id,
             enabled: p.enabled,
             package: p.package,
-            ...(p.envKey ? { envKey: p.envKey } : {}),
           })),
           defaultModel: cfg.llm.defaultModel,
           dailyBudget: cfg.llm.dailyBudget,
@@ -311,7 +311,7 @@ class ProviderService {
   async testConnection(providerId: string): Promise<APIKeyValidationResult> {
     const cfg = configManager.getConfig();
     const provider = cfg.llm.providers.find((p) => p.id === providerId);
-    
+
     if (!provider) {
       return {
         valid: false,
@@ -320,8 +320,14 @@ class ProviderService {
       };
     }
 
-    const envKey = provider.envKey ?? `${provider.id.toUpperCase()}_API_KEY`;
-    const apiKey = process.env[envKey] ?? secretStore.get(envKey);
+    const envKey = `${provider.id.toUpperCase()}_API_KEY`;
+
+    const credential = secretStore.getCredential(providerId);
+    if (credential?.type === 'oauth' && credential.accessToken) {
+      return this.validateApiKey(providerId, credential.accessToken);
+    }
+
+    const apiKey = secretStore.get(envKey);
 
     if (!apiKey) {
       return {

@@ -39,7 +39,14 @@ export class ProviderRegistry {
 
     for (const provider of config.providers) {
       if (provider.enabled) {
-        await this.loadPlugin(provider.id, provider.package, provider.envKey);
+        await this.loadPlugin(
+          provider.id,
+          provider.package,
+          provider.envKey,
+          provider.apiKey,
+          provider.accessToken,
+          provider.refreshToken
+        );
       }
     }
   }
@@ -48,16 +55,30 @@ export class ProviderRegistry {
    * 개별 플러그인 로드
    * @param id Provider ID
    * @param packageName NPM 패키지 이름
-   * @param envKey 환경변수 키 (선택적)
+   * @param envKey 환경변수 키 (선택적, deprecated)
+   * @param apiKey API 키 (선택적, 직접 전달)
+   * @param accessToken OAuth 액세스 토큰 (선택적)
+   * @param refreshToken OAuth 리프레시 토큰 (선택적)
    */
   async loadPlugin(
     id: string,
     packageName: string,
-    envKey?: string
+    envKey?: string,
+    apiKey?: string,
+    accessToken?: string,
+    refreshToken?: string
   ): Promise<void> {
     try {
       const module = await import(packageName);
-      const plugin = this.createPlugin(id, packageName, module, envKey);
+      const plugin = this.createPlugin(
+        id,
+        packageName,
+        module,
+        envKey,
+        apiKey,
+        accessToken,
+        refreshToken
+      );
 
       if (plugin.isAvailable()) {
         this.plugins.set(id, plugin);
@@ -86,36 +107,42 @@ export class ProviderRegistry {
    * @param id Provider ID
    * @param packageName 패키지 이름
    * @param module 임포트된 모듈
-   * @param envKey 환경변수 키
+   * @param envKey 환경변수 키 (deprecated)
+   * @param apiKey API 키 (직접 전달)
+   * @param accessToken OAuth 액세스 토큰
+   * @param refreshToken OAuth 리프레시 토큰
    * @returns LLMProviderPlugin 인스턴스
    */
   private createPlugin(
     id: string,
     packageName: string,
     module: Record<string, unknown>,
-    envKey?: string
+    envKey?: string,
+    apiKey?: string,
+    accessToken?: string,
+    refreshToken?: string
   ): LLMProviderPlugin {
     const apiKeyEnv = envKey ?? `${id.toUpperCase()}_API_KEY`;
 
     switch (id) {
       case 'anthropic':
-        return new AnthropicPlugin(module, apiKeyEnv);
+        return new AnthropicPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'openai':
-        return new OpenAIPlugin(module, apiKeyEnv);
+        return new OpenAIPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'groq':
-        return new GroqPlugin(module, apiKeyEnv);
+        return new GroqPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'kimi-for-coding':
-        return new KimiPlugin(module, apiKeyEnv);
+        return new KimiPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'zai':
-        return new ZaiPlugin(module, apiKeyEnv);
+        return new ZaiPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'zai-coding-plan':
-        return new ZaiCodingPlanPlugin(module, apiKeyEnv);
+        return new ZaiCodingPlanPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'openrouter':
-        return new OpenRouterPlugin(module, apiKeyEnv);
+        return new OpenRouterPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'moonshot':
-        return new MoonshotPlugin(module, apiKeyEnv);
+        return new MoonshotPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       case 'minimax':
-        return new MiniMaxPlugin(module, apiKeyEnv);
+        return new MiniMaxPlugin(module, apiKeyEnv, apiKey, accessToken, refreshToken);
       default:
         throw new Error(`Unknown provider: ${id}`);
     }
