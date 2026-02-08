@@ -381,20 +381,11 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
     return c.json(fail('INVALID_API_KEY', validationResult.error ?? 'Invalid API key'), 400);
   }
 
-  const envKey = `${provider.id.toUpperCase()}_API_KEY`;
   try {
-    await secretStore.set(envKey, apiKey);
-    process.env[envKey] = apiKey;
-    
-    if (!provider.enabled) {
-      await configManager.update({
-        llm: {
-          providers: cfg.llm.providers.map((p) => 
-            p.id === id ? { ...p, enabled: true } : p
-          ),
-        },
-      });
-    }
+    const providers = cfg.llm.providers.map((p) =>
+      p.id === id ? { ...p, apiKey, enabled: true } : p
+    );
+    await configManager.update({ llm: { providers } });
     
     await providerService.reload();
     
@@ -440,17 +431,10 @@ adminRoutes.delete('/providers/:id/unlink', adminAuthMiddleware, async (c) => {
   if (!provider) {
     return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
   }
-  const envKey = `${provider.id.toUpperCase()}_API_KEY`;
-
-  await secretStore.delete(envKey);
-  delete process.env[envKey];
-
-  const patch = {
-    llm: {
-      providers: cfg.llm.providers.map((p) => (p.id === id ? { ...p, enabled: false } : p)),
-    },
-  };
-  await configManager.update(patch);
+  const providers = cfg.llm.providers.map((p) =>
+    p.id === id ? { ...p, apiKey: undefined, enabled: false } : p
+  );
+  await configManager.update({ llm: { providers } });
   await providerService.reload();
   writeAudit({
     timestamp: new Date().toISOString(),
