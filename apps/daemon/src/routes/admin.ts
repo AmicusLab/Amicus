@@ -343,6 +343,20 @@ adminRoutes.patch('/providers/:id', adminAuthMiddleware, async (c) => {
 
   await configManager.update(patch);
   await providerService.reload();
+
+  if (enabled) {
+    const cfgAfterReload = configManager.getConfig();
+    if (!cfgAfterReload.llm.defaultModel) {
+      const defaultModelName = defaultModelsByProvider[id];
+      if (defaultModelName) {
+        const newDefaultModel = `${id}:${defaultModelName}`;
+        await configManager.update({
+          llm: { defaultModel: newDefaultModel }
+        });
+      }
+    }
+  }
+
   writeAudit({
     timestamp: new Date().toISOString(),
     eventId: randomUUID(),
