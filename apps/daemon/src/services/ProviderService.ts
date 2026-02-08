@@ -6,7 +6,7 @@ import {
 } from '@amicus/core';
 import type { LLMProviderStatus, APIKeyValidationResult } from '@amicus/types/dashboard';
 import type { ProviderAuthConfig } from '@amicus/types';
-import { configManager, secretStore } from './ConfigService.js';
+import { configManager } from './ConfigService.js';
 
 class ProviderService {
   private registry: ProviderRegistry;
@@ -98,9 +98,10 @@ class ProviderService {
       let oauthMethods: Array<{ id: string; label: string; flow: 'device_code' | 'pkce' | 'code_paste' }> | undefined;
       
       if (authMethod === 'oauth' || authMethod === 'both') {
-        const credential = secretStore.getCredential(p.id);
-        oauthStatus = credential?.type === 'oauth' ? 'connected' : 'disconnected';
-        
+        // Check OAuth status from config (accessToken presence indicates connected)
+        const providerConfig = cfg.llm.providers.find((lp) => lp.id === p.id);
+        oauthStatus = providerConfig?.accessToken ? 'connected' : 'disconnected';
+
         if (auth?.oauthMethods && auth.oauthMethods.length > 0) {
           oauthMethods = auth.oauthMethods.map((method) => ({
             id: method.id,
@@ -132,25 +133,28 @@ class ProviderService {
           providers: cfg.llm.providers.map((p) => {
             const envKey = `${p.id.toUpperCase()}_API_KEY`;
 
-            const credential = secretStore.getCredential(p.id);
-            if (credential?.type === 'oauth' && credential.accessToken) {
+            // Read credentials from ConfigManager (already decrypted)
+            const apiKey = p.apiKey;
+            const accessToken = p.accessToken;
+            const refreshToken = p.refreshToken;
+
+            if (accessToken) {
               return {
                 id: p.id,
                 enabled: p.enabled,
                 package: p.package,
                 envKey,
-                accessToken: credential.accessToken,
-                refreshToken: credential.refreshToken,
+                accessToken,
+                refreshToken,
               } as ProviderConfigEntry;
             }
 
-            const apiKey = secretStore.get(envKey);
             return {
               id: p.id,
               enabled: p.enabled,
               package: p.package,
               envKey,
-              apiKey: apiKey ?? undefined,
+              apiKey,
             } as ProviderConfigEntry;
           }),
           defaultModel: cfg.llm.defaultModel,
@@ -320,14 +324,13 @@ class ProviderService {
       };
     }
 
-    const envKey = `${provider.id.toUpperCase()}_API_KEY`;
-
-    const credential = secretStore.getCredential(providerId);
-    if (credential?.type === 'oauth' && credential.accessToken) {
-      return this.validateApiKey(providerId, credential.accessToken);
+    // Read credentials from ConfigManager (already decrypted)
+    const accessToken = provider.accessToken;
+    if (accessToken) {
+      return this.validateApiKey(providerId, accessToken);
     }
 
-    const apiKey = secretStore.get(envKey);
+    const apiKey = provider.apiKey;
 
     if (!apiKey) {
       return {
