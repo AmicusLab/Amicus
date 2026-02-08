@@ -144,16 +144,25 @@ export class ConfigManager extends EventEmitter {
     try {
       const raw = await readFile(this.configPath, 'utf-8');
       parsedJson = JSON.parse(raw);
-    } catch {
-      parsedJson = {};
+    } catch (err) {
+      // 파일이 없는 경우만 기본값 사용, 다른 에러는 rethrow
+      const e = err as NodeJS.ErrnoException;
+      if (e && e.code === 'ENOENT') {
+        parsedJson = {};
+      } else {
+        throw err;
+      }
     }
 
     const encryptionKey = process.env.CONFIG_ENCRYPTION_KEY;
     if (encryptionKey) {
       try {
         parsedJson = await decryptEncryptedValues(parsedJson, encryptionKey);
-      } catch {
-        throw new Error('CONFIG_ENCRYPTION_KEY missing or invalid');
+      } catch (err) {
+        const originalMessage = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `Failed to decrypt config: wrong CONFIG_ENCRYPTION_KEY or corrupted encrypted values. Original error: ${originalMessage}`
+        );
       }
     }
 

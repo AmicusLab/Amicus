@@ -56,7 +56,7 @@ Sensitive fields (apiKey, accessToken, refreshToken) are automatically encrypted
      "apiKey": "sk-your-actual-api-key-here"
    }
    ```
-3. On next read, Amicus automatically encrypts it to `enc:v1:...` format
+3. On next save/update, Amicus automatically encrypts it to `enc:v1:...` format
 
 ---
 

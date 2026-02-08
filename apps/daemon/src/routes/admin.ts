@@ -394,19 +394,18 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
       providers = cfg.llm.providers.map((p) =>
         p.id === id ? { ...p, apiKey, enabled: true } : p
       );
-    } else if (defaultProvider) {
+    } else {
+      // defaultProvider must exist since we already checked provider above
       providers = [
         ...cfg.llm.providers,
         {
-          id: defaultProvider.id,
+          id: defaultProvider!.id,
           enabled: true,
-          package: defaultProvider.package,
-          baseURL: defaultProvider.baseURL,
+          package: defaultProvider!.package,
+          baseURL: defaultProvider!.baseURL,
           apiKey,
         },
       ];
-    } else {
-      return c.json(fail('NOT_FOUND', `Unknown provider: ${id}`), 404);
     }
 
     await configManager.update({ llm: { providers } });
@@ -461,7 +460,17 @@ adminRoutes.delete('/providers/:id/unlink', adminAuthMiddleware, async (c) => {
   const wasDefaultProvider = cfg.llm.defaultModel?.startsWith(`${id}:`) ?? false;
 
   const providers = cfg.llm.providers.map((p) =>
-    p.id === id ? { ...p, apiKey: undefined, enabled: false } : p
+    p.id === id
+      ? {
+          ...p,
+          apiKey: undefined,
+          accessToken: undefined,
+          refreshToken: undefined,
+          expiresAt: undefined,
+          scope: undefined,
+          enabled: false,
+        }
+      : p
   );
   await configManager.update({ llm: { providers } });
   await providerService.reload();

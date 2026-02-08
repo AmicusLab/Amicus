@@ -104,8 +104,8 @@ describe('ConfigManager', () => {
       await mkdir(join(tempDir, 'data'), { recursive: true });
       await writeFile(configPath, JSON.stringify(configData, null, 2));
 
-      expect(async () => await configManager.load()).toThrow(
-        'CONFIG_ENCRYPTION_KEY missing or invalid'
+      await expect(configManager.load()).rejects.toThrow(
+        'Failed to decrypt config: wrong CONFIG_ENCRYPTION_KEY or corrupted encrypted values'
       );
     });
 
