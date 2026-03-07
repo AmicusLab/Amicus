@@ -4,6 +4,10 @@ import {
   ChatEngine,
   SimpleToolRegistry,
   createFileTool,
+  readFileTool,
+  editFileTool,
+  deleteFileTool,
+  listDirectoryTool,
   TOOL_EXECUTION_PROMPT,
 } from '@amicus/core';
 import { providerService } from '../services/ProviderService.js';
@@ -61,6 +65,10 @@ async function initializeServices() {
     if (!chatEngine) {
       const toolRegistry = new SimpleToolRegistry();
       toolRegistry.register(createFileTool as import('@amicus/core').Tool);
+      toolRegistry.register(readFileTool as import('@amicus/core').Tool);
+      toolRegistry.register(editFileTool as import('@amicus/core').Tool);
+      toolRegistry.register(deleteFileTool as import('@amicus/core').Tool);
+      toolRegistry.register(listDirectoryTool as import('@amicus/core').Tool);
 
       chatEngine = new ChatEngine({
         providerRegistry: providerService.getRegistry(),
