@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { startTestServer, stopTestServer, getTestURL } from '../../../__tests__/test-utils';
+import { startTestServer, stopTestServer, getTestURL } from './test-utils';
 
 describe('Chat Stream Endpoint', () => {
   beforeAll(async () => {
@@ -27,7 +27,7 @@ describe('Chat Stream Endpoint', () => {
         body: JSON.stringify({}),
       });
       expect(response.status).toBe(400);
-      const result = await response.json();
+      const result = (await response.json()) as { error?: string };
       expect(result.error).toBe('Invalid request body');
     });
 
@@ -40,7 +40,7 @@ describe('Chat Stream Endpoint', () => {
         }),
       });
       expect(response.status).toBe(400);
-      const result = await response.json();
+      const result = (await response.json()) as { error?: string };
       expect(result.error).toBe('Invalid request body');
     });
 
