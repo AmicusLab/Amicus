@@ -3,7 +3,7 @@ import { startTestServer, stopTestServer, getTestURL } from './test-utils';
 
 describe('Chat Stream Endpoint', () => {
   beforeAll(async () => {
-    await startTestServer(3002);
+    await startTestServer(3001);
   });
 
   afterAll(async () => {
@@ -12,7 +12,7 @@ describe('Chat Stream Endpoint', () => {
 
   describe('POST /chat/stream', () => {
     it('should return 400 for invalid JSON', async () => {
-      const response = await fetch(getTestURL('/chat/stream', 3002), {
+      const response = await fetch(getTestURL('/chat/stream', 3001), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: 'invalid json',
@@ -21,7 +21,7 @@ describe('Chat Stream Endpoint', () => {
     });
 
     it('should return 400 for missing messages', async () => {
-      const response = await fetch(getTestURL('/chat/stream', 3002), {
+      const response = await fetch(getTestURL('/chat/stream', 3001), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
@@ -32,7 +32,7 @@ describe('Chat Stream Endpoint', () => {
     });
 
     it('should return 400 for invalid message format', async () => {
-      const response = await fetch(getTestURL('/chat/stream', 3002), {
+      const response = await fetch(getTestURL('/chat/stream', 3001), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,7 +47,7 @@ describe('Chat Stream Endpoint', () => {
     it('should return SSE content-type for valid request', async () => {
       // Note: This test may fail if no LLM provider is configured
       // We're mainly testing the endpoint structure
-      const response = await fetch(getTestURL('/chat/stream', 3002), {
+      const response = await fetch(getTestURL('/chat/stream', 3001), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -65,7 +65,7 @@ describe('Chat Stream Endpoint', () => {
     });
 
     it('should accept optional config parameter', async () => {
-      const response = await fetch(getTestURL('/chat/stream', 3002), {
+      const response = await fetch(getTestURL('/chat/stream', 3001), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

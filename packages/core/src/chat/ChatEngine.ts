@@ -2,6 +2,7 @@ import { generateText, streamText, jsonSchema } from 'ai';
 import type { Message, ChatConfig, ChatResult, StreamChunk } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
 import type { ToolRegistry } from '../tools/types.js';
+import type { CoreMessage } from 'ai';
 import { SafetyExecutor } from '@amicus/safety';
 
 const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
@@ -9,6 +10,11 @@ const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
 export interface ChatEngineOptions {
   providerRegistry: ProviderRegistry;
   toolRegistry?: ToolRegistry;
+}
+
+interface ProviderAndModel {
+  providerId: string;
+  modelId: string;
 }
 
 export class ChatEngine {
@@ -29,6 +35,52 @@ export class ChatEngine {
     });
   }
 
+  /**
+   * Maps internal Message[] to AI SDK CoreMessage[] format.
+   */
+  private _mapMessagesToCoreMessages(messages: Message[]): CoreMessage[] {
+    return messages.map(msg => {
+      if (msg.role === 'assistant' && msg.tool_calls?.length) {
+        return {
+          role: 'assistant' as const,
+          content: [
+            ...(msg.content ? [{ type: 'text' as const, text: msg.content }] : []),
+            ...msg.tool_calls.map(tc => ({
+              type: 'tool-call' as const,
+              toolCallId: tc.id,
+              toolName: tc.name,
+              args: tc.arguments,
+            })),
+          ],
+        };
+      }
+      if (msg.role === 'tool' && msg.tool_call_id) {
+        return {
+          role: 'tool' as const,
+          content: [{
+            type: 'tool-result' as const,
+            toolCallId: msg.tool_call_id,
+            toolName: '',
+            result: msg.content,
+          }],
+        };
+      }
+      return { role: msg.role as 'user' | 'system' | 'assistant', content: msg.content };
+    });
+  }
+
+  /**
+   * Resolves provider and model IDs from config or via automatic routing.
+   */
+  private _getProviderAndModel(config?: ChatConfig): ProviderAndModel {
+    if (config?.model) {
+      const parsed = this.providerRegistry.parseModelId(config.model);
+      return { providerId: parsed.provider, modelId: parsed.model };
+    }
+    const routingResult = this.providerRegistry.selectModel(50);
+    return { providerId: routingResult.provider, modelId: routingResult.modelInfo.id };
+  }
+
   async chat(messages: Message[], config?: ChatConfig, depth = 0): Promise<ChatResult> {
     await this.safetyReady;
 
@@ -42,18 +94,7 @@ export class ChatEngine {
 
     const systemPrompt = config?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
 
-    let modelId: string;
-    let providerId: string;
-
-    if (config?.model) {
-      const parsed = this.providerRegistry.parseModelId(config.model);
-      providerId = parsed.provider;
-      modelId = parsed.model;
-    } else {
-      const routingResult = this.providerRegistry.selectModel(50);
-      providerId = routingResult.provider;
-      modelId = routingResult.modelInfo.id;
-    }
+    const { providerId, modelId } = this._getProviderAndModel(config);
 
     const plugin = this.providerRegistry.getPlugin(providerId);
     if (!plugin) {
@@ -70,34 +111,7 @@ export class ChatEngine {
     const generateConfig: Parameters<typeof generateText>[0] = {
       model,
       system: systemPrompt,
-      messages: workingMessages.map(msg => {
-        if (msg.role === 'assistant' && msg.tool_calls?.length) {
-          return {
-            role: 'assistant' as const,
-            content: [
-              ...(msg.content ? [{ type: 'text' as const, text: msg.content }] : []),
-              ...msg.tool_calls.map(tc => ({
-                type: 'tool-call' as const,
-                toolCallId: tc.id,
-                toolName: tc.name,
-                args: tc.arguments,
-              })),
-            ],
-          };
-        }
-        if (msg.role === 'tool' && msg.tool_call_id) {
-          return {
-            role: 'tool' as const,
-            content: [{
-              type: 'tool-result' as const,
-              toolCallId: msg.tool_call_id,
-              toolName: '',
-              result: msg.content,
-            }],
-          };
-        }
-        return { role: msg.role as 'user' | 'system', content: msg.content };
-      }),
+      messages: this._mapMessagesToCoreMessages(workingMessages),
     };
 
     if (config?.maxTokens !== undefined) {
@@ -219,15 +233,9 @@ export class ChatEngine {
     let providerId: string;
 
     try {
-      if (config?.model) {
-        const parsed = this.providerRegistry.parseModelId(config.model);
-        providerId = parsed.provider;
-        modelId = parsed.model;
-      } else {
-        const routingResult = this.providerRegistry.selectModel(50);
-        providerId = routingResult.provider;
-        modelId = routingResult.modelInfo.id;
-      }
+      const resolved = this._getProviderAndModel(config);
+      providerId = resolved.providerId;
+      modelId = resolved.modelId;
 
       const plugin = this.providerRegistry.getPlugin(providerId);
       if (!plugin) {
@@ -246,34 +254,7 @@ export class ChatEngine {
       const streamConfig: Parameters<typeof streamText>[0] = {
         model,
         system: systemPrompt,
-        messages: workingMessages.map(msg => {
-          if (msg.role === 'assistant' && msg.tool_calls?.length) {
-            return {
-              role: 'assistant' as const,
-              content: [
-                ...(msg.content ? [{ type: 'text' as const, text: msg.content }] : []),
-                ...msg.tool_calls.map(tc => ({
-                  type: 'tool-call' as const,
-                  toolCallId: tc.id,
-                  toolName: tc.name,
-                  args: tc.arguments,
-                })),
-              ],
-            };
-          }
-          if (msg.role === 'tool' && msg.tool_call_id) {
-            return {
-              role: 'tool' as const,
-              content: [{
-                type: 'tool-result' as const,
-                toolCallId: msg.tool_call_id,
-                toolName: '',
-                result: msg.content,
-              }],
-            };
-          }
-          return { role: msg.role as 'user' | 'system', content: msg.content };
-        }),
+        messages: this._mapMessagesToCoreMessages(workingMessages),
       };
 
       if (config?.maxTokens !== undefined) {

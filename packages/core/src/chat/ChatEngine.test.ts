@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeEach } from 'bun:test';
+import { describe, it, expect, mock } from 'bun:test';
 import { ChatEngine } from './ChatEngine.js';
 import type { Message, ToolDefinition, StreamChunk } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
@@ -377,7 +377,7 @@ describe('ChatEngine.chatStream', () => {
     expect(chunks.some(c => c.type === 'done')).toBe(true);
   });
 
-  it('yields error chunk when provider fails', async () => {
+  it('yields error chunk when provider not available', async () => {
     const failingPlugin: LLMProviderPlugin = {
       name: 'Failing Stream',
       id: 'failing',
@@ -400,7 +400,7 @@ describe('ChatEngine.chatStream', () => {
     expect(errorChunk?.message).toContain('Provider failing not available');
   });
 
-  it('yields error chunk when max depth exceeded', async () => {
+  it('should complete successfully on a simple stream', async () => {
     // This test would require mocking recursive tool calls
     // For now, we verify the error chunk type exists
     const mockPlugin: LLMProviderPlugin = {
