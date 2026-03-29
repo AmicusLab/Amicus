@@ -309,7 +309,7 @@ adminRoutes.get('/providers', adminAuthMiddleware, (c) => {
 });
 
 adminRoutes.patch('/providers/:id', adminAuthMiddleware, async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id')!;
   const body = await c.req.json().catch(() => null) as { enabled?: unknown } | null;
   const enabled = typeof body?.enabled === 'boolean' ? body.enabled : undefined;
   if (enabled === undefined) {
@@ -356,7 +356,7 @@ adminRoutes.patch('/providers/:id', adminAuthMiddleware, async (c) => {
 });
 
 adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id')!;
   const body = await c.req.json().catch(() => null) as { apiKey?: unknown } | null;
   const apiKey = typeof body?.apiKey === 'string' ? body.apiKey : '';
   if (!apiKey) {
@@ -449,7 +449,7 @@ adminRoutes.post('/providers/:id/apikey', adminAuthMiddleware, async (c) => {
 });
 
 adminRoutes.delete('/providers/:id/unlink', adminAuthMiddleware, async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id')!;
   const cfg = configManager.getConfig();
   const provider = cfg.llm.providers.find((p) => p.id === id);
   if (!provider) {
@@ -528,7 +528,7 @@ adminRoutes.get('/audit', adminAuthMiddleware, async (c) => {
 });
 
 adminRoutes.post('/providers/:id/validate', adminAuthMiddleware, async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id')!;
   const body = await c.req.json().catch(() => null) as { apiKey?: unknown } | null;
   const apiKey = typeof body?.apiKey === 'string' ? body.apiKey : '';
 
@@ -572,7 +572,7 @@ adminRoutes.post('/providers/:id/validate', adminAuthMiddleware, async (c) => {
 });
 
 adminRoutes.post('/providers/:id/test', adminAuthMiddleware, async (c) => {
-  const id = c.req.param('id');
+  const id = c.req.param('id')!;
 
   const cfg = configManager.getConfig();
   const provider = cfg.llm.providers.find((p) => p.id === id);

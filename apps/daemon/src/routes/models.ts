@@ -145,7 +145,7 @@ modelRoutes.get('/models/:provider/:id', (c) => {
 });
 
 modelAdminRoutes.post('/models/:provider/refresh', adminAuthMiddleware, async (c) => {
-  const provider = c.req.param('provider');
+  const provider = c.req.param('provider')!;
 
   const cfg = providerService.getAdminProviderView();
   const providerConfig = cfg.find((p) => p.id === provider);
@@ -179,8 +179,8 @@ modelAdminRoutes.post('/models/:provider/refresh', adminAuthMiddleware, async (c
 });
 
 modelAdminRoutes.post('/models/:provider/:id/validate', adminAuthMiddleware, async (c) => {
-  const provider = c.req.param('provider');
-  const id = c.req.param('id');
+  const provider = c.req.param('provider')!;
+  const id = c.req.param('id')!;
 
   const cfg = providerService.getAdminProviderView();
   const providerConfig = cfg.find((p) => p.id === provider);
