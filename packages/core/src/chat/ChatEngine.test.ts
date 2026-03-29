@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { ChatEngine } from './ChatEngine.js';
 import type { Message, ToolDefinition, StreamChunk } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
@@ -378,26 +378,27 @@ describe('ChatEngine.chatStream', () => {
   });
 
   it('yields error chunk when provider not available', async () => {
-    const failingPlugin: LLMProviderPlugin = {
-      name: 'Failing Stream',
-      id: 'failing',
-      isAvailable: () => true,
-      createProvider: () => () => {
-        throw new Error('Stream failed');
-      },
-      getModels: () => [],
-      calculateCost: () => 0,
+    const mockModelInfo = {
+      id: 'test', name: 'Test', description: '', maxTokens: 0,
+      inputCostPer1K: 0, outputCostPer1K: 0, complexityRange: { min: 0, max: 100 }, capabilities: [],
     };
+    const registry = {
+      getPlugin: () => undefined,
+      selectModel: () => ({ provider: 'nonexistent', estimatedCost: 0, modelInfo: mockModelInfo }),
+      parseModelId: (modelId: string) => {
+        const [provider, model] = modelId.split(':');
+        return { provider: provider ?? 'nonexistent', model: model ?? 'test' };
+      },
+    } as unknown as ProviderRegistry;
 
-    const registry = createMockRegistry(failingPlugin);
     const engine = new ChatEngine({ providerRegistry: registry });
 
     const messages: Message[] = [{ role: 'user', content: 'Hi' }];
-    const chunks = await collectChunks(engine.chatStream(messages, { model: 'failing:test' }));
+    const chunks = await collectChunks(engine.chatStream(messages, { model: 'nonexistent:test' }));
 
     expect(chunks.some(c => c.type === 'error')).toBe(true);
     const errorChunk = chunks.find(c => c.type === 'error') as { type: 'error'; message: string } | undefined;
-    expect(errorChunk?.message).toContain('Provider failing not available');
+    expect(errorChunk?.message).toContain('Provider nonexistent not available');
   });
 
   it('should complete successfully on a simple stream', async () => {
