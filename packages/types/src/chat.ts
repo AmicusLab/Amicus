@@ -87,3 +87,14 @@ export interface ChatResult {
   /** Provider used */
   provider: string;
 }
+
+/**
+ * Streaming chunk types for SSE streaming chat
+ */
+export type StreamChunk =
+  | { type: 'text_delta'; content: string }
+  | { type: 'tool_call_start'; toolName: string; toolCallId: string }
+  | { type: 'tool_call_result'; toolCallId: string; content: string }
+  | { type: 'usage'; input: number; output: number; total: number }
+  | { type: 'done' }
+  | { type: 'error'; message: string };

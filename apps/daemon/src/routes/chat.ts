@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import type { ChatConfig, Message, MessageRole } from '@amicus/types/chat';
 import {
   ChatEngine,
@@ -136,6 +137,88 @@ chatRoutes.post('/', async (c) => {
     });
   } catch (error) {
     console.error('[Chat] Request failed:', error);
+    return c.json({ error: 'LLM API call failed' }, 500);
+  }
+});
+
+chatRoutes.post('/stream', async (c) => {
+  let rawBody: unknown;
+  try {
+    rawBody = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON' }, 400);
+  }
+
+  const body = parseChatRequestBody(rawBody);
+  if (!body) {
+    return c.json({ error: 'Invalid request body' }, 400);
+  }
+
+  try {
+    await initializeServices();
+
+    if (!chatEngine) {
+      throw new Error('Service initialization failed');
+    }
+
+    const messages = [...body.messages];
+    const config: ChatConfig = {
+      ...body.config,
+      systemPrompt: body.config?.systemPrompt ?? TOOL_EXECUTION_PROMPT,
+    };
+
+    return streamSSE(c, async (stream) => {
+      try {
+        for await (const chunk of chatEngine!.chatStream(messages, config)) {
+          switch (chunk.type) {
+            case 'text_delta':
+              await stream.writeSSE({
+                event: 'delta',
+                data: JSON.stringify({ content: chunk.content }),
+              });
+              break;
+            case 'tool_call_start':
+              await stream.writeSSE({
+                event: 'tool_start',
+                data: JSON.stringify({ toolName: chunk.toolName, toolCallId: chunk.toolCallId }),
+              });
+              break;
+            case 'tool_call_result':
+              await stream.writeSSE({
+                event: 'tool_result',
+                data: JSON.stringify({ toolCallId: chunk.toolCallId, content: chunk.content }),
+              });
+              break;
+            case 'usage':
+              await stream.writeSSE({
+                event: 'usage',
+                data: JSON.stringify({ input: chunk.input, output: chunk.output, total: chunk.total }),
+              });
+              break;
+            case 'done':
+              await stream.writeSSE({
+                event: 'done',
+                data: '{}',
+              });
+              break;
+            case 'error':
+              await stream.writeSSE({
+                event: 'error',
+                data: JSON.stringify({ message: chunk.message }),
+              });
+              break;
+          }
+        }
+      } catch (error) {
+        console.error('[Chat Stream] Error:', error);
+        await stream.writeSSE({
+          event: 'error',
+          data: JSON.stringify({ message: error instanceof Error ? error.message : 'Unknown error' }),
+        });
+      }
+    });
+  } catch (error) {
+    console.error('[Chat Stream] Request failed:', error);
     return c.json({ error: 'LLM API call failed' }, 500);
   }
 });
