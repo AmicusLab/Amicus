@@ -11,19 +11,31 @@ type ListDirectoryArgs = z.infer<typeof ListDirectorySchema>;
 
 export const listDirectoryTool: Tool<ListDirectoryArgs> = {
   name: 'list_directory',
-  description: 'Lists files and directories at the specified path. Returns entries with type indicators (file/dir).',
+  description: 'Lists non-hidden files and directories at the specified path, excluding entries starting with "." and the "node_modules" directory. Returns entries with type indicators (file/dir).',
   schema: ListDirectorySchema,
 
   execute: async ({ path: dirPath }) => {
     try {
-      const projectRoot = path.resolve(process.cwd());
+      // Resolve real paths to prevent symlink bypass attacks
+      const projectRoot = await fs.realpath(process.cwd());
       const absolutePath = path.resolve(projectRoot, dirPath);
 
-      if (!absolutePath.startsWith(projectRoot + path.sep) && absolutePath !== projectRoot) {
+      // Check path traversal before resolving real path
+      const relativePath = path.relative(projectRoot, absolutePath);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         return `Error: Path traversal detected. Directory must be within project directory.`;
       }
 
-      const entries = await fs.readdir(absolutePath, { withFileTypes: true });
+      // Resolve real path (directory must exist)
+      const realPath = await fs.realpath(absolutePath);
+
+      // Double-check real path is still within project root
+      const realRelativePath = path.relative(projectRoot, realPath);
+      if (realRelativePath.startsWith('..') || path.isAbsolute(realRelativePath)) {
+        return `Error: Path traversal detected. Directory must be within project directory.`;
+      }
+
+      const entries = await fs.readdir(realPath, { withFileTypes: true });
       const lines = entries
         .filter(e => !e.name.startsWith('.') && e.name !== 'node_modules')
         .sort((a, b) => {
@@ -39,10 +51,19 @@ export const listDirectoryTool: Tool<ListDirectoryArgs> = {
 
       return lines.join('\n');
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      if (errorMessage.includes('ENOENT')) {
-        return `Error: Directory not found: ${dirPath}`;
+      if (error && typeof error === 'object' && 'code' in error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          return `Error: Directory not found: ${dirPath}`;
+        }
+        if (code === 'ENOTDIR') {
+          return `Error: Path is a file, not a directory: ${dirPath}`;
+        }
+        if (code === 'EACCES' || code === 'EPERM') {
+          return `Error: Permission denied: ${dirPath}`;
+        }
       }
+      const errorMessage = error instanceof Error ? error.message : String(error);
       return `Error listing directory: ${errorMessage}`;
     }
   }

@@ -1,19 +1,24 @@
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 import { createFileTool } from '../create_file.js';
 import { readFileTool } from '../read_file.js';
 import { editFileTool } from '../edit_file.js';
 import { deleteFileTool } from '../delete_file.js';
 import { listDirectoryTool } from '../list_directory.js';
 
-const TEST_DIR = path.join(process.cwd(), '__test_sandbox__');
+let TEST_DIR: string;
+let originalCwd: string;
 
 async function setup() {
-  await fs.mkdir(TEST_DIR, { recursive: true });
+  originalCwd = process.cwd();
+  TEST_DIR = await fs.mkdtemp(path.join(os.tmpdir(), 'file-tools-test-'));
+  process.chdir(TEST_DIR);
 }
 
 async function cleanup() {
+  process.chdir(originalCwd);
   await fs.rm(TEST_DIR, { recursive: true, force: true });
 }
 
@@ -29,7 +34,7 @@ describe('File Tools', () => {
   describe('create_file', () => {
     test('should create a new file', async () => {
       const result = await createFileTool.execute({
-        path: '__test_sandbox__/hello.txt',
+        path: 'hello.txt',
         content: 'Hello, World!',
       });
 
@@ -40,7 +45,7 @@ describe('File Tools', () => {
 
     test('should create nested directories', async () => {
       const result = await createFileTool.execute({
-        path: '__test_sandbox__/a/b/c/deep.txt',
+        path: 'a/b/c/deep.txt',
         content: 'deep file',
       });
 
@@ -64,7 +69,7 @@ describe('File Tools', () => {
       await fs.writeFile(path.join(TEST_DIR, 'read-me.txt'), 'file content here');
 
       const result = await readFileTool.execute({
-        path: '__test_sandbox__/read-me.txt',
+        path: 'read-me.txt',
       });
 
       expect(result).toBe('file content here');
@@ -72,7 +77,7 @@ describe('File Tools', () => {
 
     test('should return error for non-existent file', async () => {
       const result = await readFileTool.execute({
-        path: '__test_sandbox__/no-such-file.txt',
+        path: 'no-such-file.txt',
       });
 
       expect(result).toContain('File not found');
@@ -92,7 +97,7 @@ describe('File Tools', () => {
       await fs.writeFile(path.join(TEST_DIR, 'edit-me.txt'), 'Hello, World!');
 
       const result = await editFileTool.execute({
-        path: '__test_sandbox__/edit-me.txt',
+        path: 'edit-me.txt',
         old_string: 'World',
         new_string: 'Amicus',
       });
@@ -106,7 +111,7 @@ describe('File Tools', () => {
       await fs.writeFile(path.join(TEST_DIR, 'edit-me.txt'), 'Hello, World!');
 
       const result = await editFileTool.execute({
-        path: '__test_sandbox__/edit-me.txt',
+        path: 'edit-me.txt',
         old_string: 'not-in-file',
         new_string: 'replacement',
       });
@@ -118,7 +123,7 @@ describe('File Tools', () => {
       await fs.writeFile(path.join(TEST_DIR, 'edit-me.txt'), 'aaa bbb aaa');
 
       const result = await editFileTool.execute({
-        path: '__test_sandbox__/edit-me.txt',
+        path: 'edit-me.txt',
         old_string: 'aaa',
         new_string: 'ccc',
       });
@@ -128,7 +133,7 @@ describe('File Tools', () => {
 
     test('should return error for non-existent file', async () => {
       const result = await editFileTool.execute({
-        path: '__test_sandbox__/no-file.txt',
+        path: 'no-file.txt',
         old_string: 'a',
         new_string: 'b',
       });
@@ -153,7 +158,7 @@ describe('File Tools', () => {
       await fs.writeFile(filePath, 'to be deleted');
 
       const result = await deleteFileTool.execute({
-        path: '__test_sandbox__/delete-me.txt',
+        path: 'delete-me.txt',
       });
 
       expect(result).toContain('Successfully deleted');
@@ -162,7 +167,7 @@ describe('File Tools', () => {
 
     test('should return error for non-existent file', async () => {
       const result = await deleteFileTool.execute({
-        path: '__test_sandbox__/no-file.txt',
+        path: 'no-file.txt',
       });
 
       expect(result).toContain('File not found');
@@ -184,7 +189,7 @@ describe('File Tools', () => {
       await fs.mkdir(path.join(TEST_DIR, 'subdir'));
 
       const result = await listDirectoryTool.execute({
-        path: '__test_sandbox__',
+        path: '.',
       });
 
       expect(result).toContain('[dir] subdir');
@@ -197,7 +202,7 @@ describe('File Tools', () => {
       await fs.mkdir(path.join(TEST_DIR, 'zzz-dir'));
 
       const result = await listDirectoryTool.execute({
-        path: '__test_sandbox__',
+        path: '.',
       });
 
       const lines = result.split('\n');
@@ -211,7 +216,7 @@ describe('File Tools', () => {
       await fs.writeFile(path.join(TEST_DIR, 'visible.txt'), 'v');
 
       const result = await listDirectoryTool.execute({
-        path: '__test_sandbox__',
+        path: '.',
       });
 
       expect(result).not.toContain('.hidden');
@@ -224,7 +229,7 @@ describe('File Tools', () => {
       await fs.mkdir(emptyDir);
 
       const result = await listDirectoryTool.execute({
-        path: '__test_sandbox__/empty',
+        path: 'empty',
       });
 
       expect(result).toContain('empty');
@@ -232,7 +237,7 @@ describe('File Tools', () => {
 
     test('should return error for non-existent directory', async () => {
       const result = await listDirectoryTool.execute({
-        path: '__test_sandbox__/no-dir',
+        path: 'no-dir',
       });
 
       expect(result).toContain('Directory not found');

@@ -5,7 +5,7 @@ import type { Tool } from './types.js';
 
 const EditFileSchema = z.object({
   path: z.string().describe('Relative path of the file to edit'),
-  old_string: z.string().describe('The exact string to find and replace in the file'),
+  old_string: z.string().min(1).describe('The exact string to find and replace in the file'),
   new_string: z.string().describe('The string to replace old_string with'),
 });
 
@@ -18,19 +18,26 @@ export const editFileTool: Tool<EditFileArgs> = {
 
   execute: async ({ path: filePath, old_string, new_string }) => {
     try {
-      const projectRoot = path.resolve(process.cwd());
+      // Resolve real paths to prevent symlink bypass attacks
+      const projectRoot = await fs.realpath(process.cwd());
       const absolutePath = path.resolve(projectRoot, filePath);
 
-      if (!absolutePath.startsWith(projectRoot + path.sep) && absolutePath !== projectRoot) {
+      // Check path traversal before resolving real path
+      const relativePath = path.relative(projectRoot, absolutePath);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         return `Error: Path traversal detected. File must be within project directory.`;
       }
 
-      let content: string;
-      try {
-        content = await fs.readFile(absolutePath, 'utf-8');
-      } catch {
-        return `Error: File not found: ${filePath}`;
+      // Resolve real path (file must exist)
+      const realPath = await fs.realpath(absolutePath);
+
+      // Double-check real path is still within project root
+      const realRelativePath = path.relative(projectRoot, realPath);
+      if (realRelativePath.startsWith('..') || path.isAbsolute(realRelativePath)) {
+        return `Error: Path traversal detected. File must be within project directory.`;
       }
+
+      const content = await fs.readFile(realPath, 'utf-8');
 
       const occurrences = content.split(old_string).length - 1;
       if (occurrences === 0) {
@@ -41,9 +48,15 @@ export const editFileTool: Tool<EditFileArgs> = {
       }
 
       const updated = content.replace(old_string, new_string);
-      await fs.writeFile(absolutePath, updated, 'utf-8');
+      await fs.writeFile(realPath, updated, 'utf-8');
       return `Successfully edited ${filePath}`;
     } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'code' in error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          return `Error: File not found: ${filePath}`;
+        }
+      }
       const errorMessage = error instanceof Error ? error.message : String(error);
       return `Error editing file: ${errorMessage}`;
     }
