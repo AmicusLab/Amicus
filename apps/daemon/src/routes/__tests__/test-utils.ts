@@ -2,7 +2,7 @@ interface TestServer {
   close(): void;
 }
 
-let serverInstance: TestServer | null = null;
+let serverInstance: any = null;
 
 export async function startTestServer(port = 3001): Promise<TestServer> {
   if (serverInstance) {
@@ -17,7 +17,7 @@ export async function startTestServer(port = 3001): Promise<TestServer> {
   const { injectWebSocket } = setupWebSocket(app);
   setupEventBroadcasting();
 
-  serverInstance = serve({ fetch: app.fetch, port }) as TestServer;
+  serverInstance = serve({ fetch: app.fetch, port }) as any;
   injectWebSocket(serverInstance);
 
   await waitForServer(port);
