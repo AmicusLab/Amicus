@@ -5,10 +5,13 @@ import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
 import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
+// Import highlight.js theme CSS
+import 'highlight.js/styles/github-dark.css';
 import DOMPurify from 'dompurify';
 import { chatMessages, chatStreaming, chatLoading } from '../state/signals.js';
 import { streamChat } from '../api/chat.js';
-import type { Message, StreamChunk } from '@amicus/types';
+import type { Message } from '@amicus/types';
+import type { Effect } from '@preact/signals-core';
 
 // Configure marked with marked-highlight extension (v17 compatible)
 marked.use(
@@ -33,16 +36,33 @@ interface ToolCallInfo {
   result?: string;
 }
 
+// Debounce utility
+function debounce<T extends (...args: unknown[]) => void>(fn: T, delay: number): T {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return ((...args: unknown[]) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  }) as T;
+}
+
 @customElement('chat-panel')
 export class ChatPanel extends LitElement {
-  @property({ type: Array }) messages: Message[] = [];
+  // Remove @property messages - use chatMessages signal directly instead
   @state() private inputValue = '';
   @state() private streamingContent = '';
   @state() private toolCallsList: ToolCallInfo[] = [];
   @state() private collapsedTools: Set<string> = new Set();
+  @state() private localMessages: Message[] = []; // Local state for messages
   
   private messagesEndRef = createRef<HTMLDivElement>();
   private textareaRef = createRef<HTMLTextAreaElement>();
+  private abortController: AbortController | null = null;
+  private signalDisposer: (() => void) | null = null;
+  
+  // Debounced scroll function
+  private debouncedScrollToBottom = debounce(() => {
+    this.messagesEndRef.value?.scrollIntoView({ behavior: 'smooth' });
+  }, 100);
 
   static styles = css`
     :host {
@@ -313,11 +333,35 @@ export class ChatPanel extends LitElement {
     }
   `;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Subscribe to signal changes and sync to local state
+    this.localMessages = chatMessages.value;
+    this.signalDisposer = chatMessages.subscribe((messages) => {
+      this.localMessages = messages;
+      this.requestUpdate();
+    });
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    // Clean up signal subscription
+    if (this.signalDisposer) {
+      this.signalDisposer();
+      this.signalDisposer = null;
+    }
+    // Cancel any ongoing stream
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
+  }
+
   protected updated(changedProperties: PropertyValues): void {
     super.updated(changedProperties);
-    // Auto-scroll to bottom when messages change
-    if (changedProperties.has('messages') || changedProperties.has('streamingContent')) {
-      this.scrollToBottom();
+    // Auto-scroll to bottom when messages change (debounced)
+    if (changedProperties.has('localMessages') || changedProperties.has('streamingContent')) {
+      this.debouncedScrollToBottom();
     }
   }
 
@@ -345,10 +389,16 @@ export class ChatPanel extends LitElement {
     const content = this.inputValue.trim();
     if (!content || chatStreaming.value) return;
 
+    // Cancel any previous ongoing stream
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+    this.abortController = new AbortController();
+
     // Add user message
     const userMessage: Message = { role: 'user', content };
-    const updatedMessages = [...this.messages, userMessage];
-    this.messages = updatedMessages;
+    const updatedMessages = [...this.localMessages, userMessage];
+    this.localMessages = updatedMessages;
     chatMessages.value = updatedMessages;
     
     // Clear input
@@ -368,7 +418,7 @@ export class ChatPanel extends LitElement {
     let assistantContent = '';
 
     try {
-      const stream = await streamChat(updatedMessages);
+      const stream = await streamChat(updatedMessages, undefined, this.abortController.signal);
       const reader = stream.getReader();
       
       while (true) {
@@ -400,30 +450,39 @@ export class ChatPanel extends LitElement {
           if (assistantContent) {
             const assistantMessage: Message = { role: 'assistant', content: assistantContent };
             const finalMessages = [...updatedMessages, assistantMessage];
-            this.messages = finalMessages;
+            this.localMessages = finalMessages;
             chatMessages.value = finalMessages;
           }
         }
       }
     } catch (error) {
+      // Don't show error if we aborted intentionally
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('Stream aborted');
+        return;
+      }
       console.error('Failed to send message:', error);
       const errorMessage: Message = {
         role: 'assistant',
         content: `❌ Failed to get response: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
       const finalMessages = [...updatedMessages, errorMessage];
-      this.messages = finalMessages;
+      this.localMessages = finalMessages;
       chatMessages.value = finalMessages;
     } finally {
       this.streamingContent = '';
       chatStreaming.value = false;
       chatLoading.value = false;
+      this.abortController = null;
+      
+      // Reset tool calls after stream completes
+      // (Already reset at the start of sendMessage, but also reset here for safety)
       
       // If stream ended without 'done' but has content, save it
-      if (assistantContent && !this.messages.some(m => m.role === 'assistant')) {
+      if (assistantContent && !this.localMessages.some(m => m.role === 'assistant' && m.content === assistantContent)) {
         const assistantMessage: Message = { role: 'assistant', content: assistantContent };
         const finalMessages = [...updatedMessages, assistantMessage];
-        this.messages = finalMessages;
+        this.localMessages = finalMessages;
         chatMessages.value = finalMessages;
       }
     }
@@ -475,7 +534,7 @@ export class ChatPanel extends LitElement {
         </div>
       `;
     } else if (message.role === 'tool') {
-      const toolId = `tool-${index}`;
+      const toolId = message.tool_call_id || `tool-${index}`;
       return html`
         <div class="message message-tool">
           <div class="message-tool-header" @click=${() => this.toggleToolContent(toolId)}>
@@ -510,7 +569,7 @@ export class ChatPanel extends LitElement {
   }
 
   render() {
-    const hasMessages = this.messages.length > 0;
+    const hasMessages = this.localMessages.length > 0;
     const isStreaming = chatStreaming.value;
 
     return html`
@@ -524,7 +583,7 @@ export class ChatPanel extends LitElement {
               </div>
             `
           : html`
-              ${this.messages.map((msg, i) => this.renderMessage(msg, i))}
+              ${this.localMessages.map((msg, i) => this.renderMessage(msg, i))}
               ${isStreaming && this.streamingContent
                 ? html`
                     <div class="message message-assistant">

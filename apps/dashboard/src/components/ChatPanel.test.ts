@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { ChatPanel } from './ChatPanel.js';
 
 describe('ChatPanel', () => {
@@ -11,21 +11,21 @@ describe('ChatPanel', () => {
     expect(panel.tagName.toLowerCase()).toBe('chat-panel');
   });
 
-  it('should accept messages property', () => {
+  it('should accept messages via localMessages state', () => {
     const panel = new ChatPanel();
     const messages = [
       { role: 'user' as const, content: 'Hello' },
       { role: 'assistant' as const, content: 'Hi there!' }
     ];
-    panel.messages = messages;
-    expect(panel.messages).toHaveLength(2);
-    expect(panel.messages[0].role).toBe('user');
-    expect(panel.messages[1].role).toBe('assistant');
+    panel['localMessages'] = messages;
+    expect(panel['localMessages']).toHaveLength(2);
+    expect(panel['localMessages'][0].role).toBe('user');
+    expect(panel['localMessages'][1].role).toBe('assistant');
   });
 
   it('should initialize with empty messages', () => {
     const panel = new ChatPanel();
-    expect(panel.messages).toEqual([]);
+    expect(panel['localMessages']).toEqual([]);
   });
 
   it('should initialize with empty input value', () => {
@@ -41,7 +41,7 @@ describe('ChatPanel', () => {
 
   it('should render empty state when no messages', () => {
     const panel = new ChatPanel();
-    panel.messages = [];
+    panel['localMessages'] = [];
     panel.requestUpdate();
     // The render method should show empty state
     const result = panel.render();
@@ -69,13 +69,12 @@ describe('ChatPanel', () => {
     expect(canSend).toBe(false); // disabled = false
   });
 
-  it('should handle tool calls map', () => {
+  it('should handle tool calls list', () => {
     const panel = new ChatPanel();
-    const toolCalls = new Map();
-    toolCalls.set('tool-1', { id: 'tool-1', name: 'test_tool', status: 'running' });
-    panel['toolCalls'] = toolCalls;
-    expect(panel['toolCalls'].size).toBe(1);
-    expect(panel['toolCalls'].get('tool-1')?.name).toBe('test_tool');
+    const toolCalls = [{ id: 'tool-1', name: 'test_tool', status: 'running' as const }];
+    panel['toolCallsList'] = toolCalls;
+    expect(panel['toolCallsList']).toHaveLength(1);
+    expect(panel['toolCallsList'][0]?.name).toBe('test_tool');
   });
 
   it('should handle streaming content', () => {
