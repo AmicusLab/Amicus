@@ -160,6 +160,7 @@ chatRoutes.post('/stream', async (c) => {
     if (!chatEngine) {
       throw new Error('Service initialization failed');
     }
+    const engine = chatEngine;
 
     const messages = [...body.messages];
     const config: ChatConfig = {
@@ -169,7 +170,7 @@ chatRoutes.post('/stream', async (c) => {
 
     return streamSSE(c, async (stream) => {
       try {
-        for await (const chunk of chatEngine!.chatStream(messages, config)) {
+        for await (const chunk of engine.chatStream(messages, config)) {
           switch (chunk.type) {
             case 'text_delta':
               await stream.writeSSE({

@@ -17,6 +17,8 @@ export interface Message {
   content: string;
   /** Tool call ID (required when role is 'tool', undefined otherwise) */
   tool_call_id?: string;
+  /** Tool name (when role is 'tool', identifies which tool was called) */
+  tool_name?: string;
   /** Tool calls made by the assistant (when role is 'assistant' and tools were called) */
   tool_calls?: ToolCall[];
 }

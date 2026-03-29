@@ -60,7 +60,7 @@ export class ChatEngine {
           content: [{
             type: 'tool-result' as const,
             toolCallId: msg.tool_call_id,
-            toolName: '',
+            toolName: msg.tool_name ?? '',
             result: msg.content,
           }],
         };
@@ -229,13 +229,8 @@ export class ChatEngine {
     const workingMessages = [...messages];
     const systemPrompt = config?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
 
-    let modelId: string;
-    let providerId: string;
-
     try {
-      const resolved = this._getProviderAndModel(config);
-      providerId = resolved.providerId;
-      modelId = resolved.modelId;
+      const { providerId, modelId } = this._getProviderAndModel(config);
 
       const plugin = this.providerRegistry.getPlugin(providerId);
       if (!plugin) {
@@ -329,6 +324,7 @@ export class ChatEngine {
             workingMessages.push({
               role: 'tool',
               tool_call_id: call.id,
+              tool_name: call.name,
               content: errorMsg
             });
             yield { type: 'tool_call_result', toolCallId: call.id, content: errorMsg };
@@ -344,6 +340,7 @@ export class ChatEngine {
             workingMessages.push({
               role: 'tool',
               tool_call_id: call.id,
+              tool_name: call.name,
               content: toolResult
             });
             yield { type: 'tool_call_result', toolCallId: call.id, content: toolResult };
@@ -352,6 +349,7 @@ export class ChatEngine {
             workingMessages.push({
               role: 'tool',
               tool_call_id: call.id,
+              tool_name: call.name,
               content: `Error executing tool: ${errorMessage}`
             });
             yield { type: 'tool_call_result', toolCallId: call.id, content: `Error executing tool: ${errorMessage}` };

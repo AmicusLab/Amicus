@@ -401,8 +401,7 @@ describe('ChatEngine.chatStream', () => {
   });
 
   it('should complete successfully on a simple stream', async () => {
-    // This test would require mocking recursive tool calls
-    // For now, we verify the error chunk type exists
+    // Verify that a simple stream completes successfully with a done chunk
     const mockPlugin: LLMProviderPlugin = {
       name: 'Stream Mock',
       id: 'mock',
