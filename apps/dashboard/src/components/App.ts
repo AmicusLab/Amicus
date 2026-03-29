@@ -7,7 +7,8 @@ import './MCPServerStatus.js';
 import './ThoughtStream.js';
 import './ControlCenter.js';
 import './AdminPanel.js';
-import { activeView } from '../state/signals.js';
+import './ChatPanel.js';
+import { activeView, chatMessages } from '../state/signals.js';
 
 @customElement('amicus-app')
 export class AmicusApp extends LitElement {
@@ -93,6 +94,7 @@ export class AmicusApp extends LitElement {
         </div>
         <div class="nav">
           <button class=${view === 'dashboard' ? 'active' : ''} @click=${() => (activeView.value = 'dashboard')}>Dashboard</button>
+          <button class=${view === 'chat' ? 'active' : ''} @click=${() => (activeView.value = 'chat')}>Chat</button>
           <button class=${view === 'admin' ? 'active' : ''} @click=${() => (activeView.value = 'admin')}>Admin</button>
         </div>
       </div>
@@ -109,6 +111,8 @@ export class AmicusApp extends LitElement {
               <control-center></control-center>
             </div>
           `
+        : view === 'chat'
+        ? html`<chat-panel .messages=${chatMessages.value}></chat-panel>`
         : html`<admin-panel></admin-panel>`}
     `;
   }

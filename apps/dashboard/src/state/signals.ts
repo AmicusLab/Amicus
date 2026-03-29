@@ -1,5 +1,6 @@
 import { signal, computed } from '@preact/signals-core';
 import type { SystemHealth, Tokenomics, WSMessage, LLMProviderStatus, MCPServerStatus } from '@amicus/types/dashboard';
+import type { Message } from '@amicus/types';
 
 export const systemHealth = signal<SystemHealth | null>(null);
 export const tokenomics = signal<Tokenomics | null>(null);
@@ -9,7 +10,12 @@ export const llmProviders = signal<LLMProviderStatus[]>([]);
 export const mcpServers = signal<MCPServerStatus[]>([]);
 
 // UI navigation (no router)
-export const activeView = signal<'dashboard' | 'admin'>('dashboard');
+export const activeView = signal<'dashboard' | 'admin' | 'chat'>('dashboard');
+
+// Chat state
+export const chatMessages = signal<Message[]>([]);
+export const chatLoading = signal(false);
+export const chatStreaming = signal(false);
 
 export const healthStatus = computed(() => systemHealth.value?.status ?? 'unknown');
 export const uptime = computed(() => {
