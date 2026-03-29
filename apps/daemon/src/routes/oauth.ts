@@ -68,7 +68,7 @@ function getProviderConfig(providerId: string): ProviderWithAuth | undefined {
 }
 
 oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) => {
-  const providerId = c.req.param('id');
+  const providerId = c.req.param('id')!;
   const body = (await c.req.json().catch(() => null)) as { methodId?: string } | null;
   
   const provider = getProviderConfig(providerId);
@@ -284,7 +284,7 @@ oauthRoutes.post('/providers/:id/oauth/start', adminAuthMiddleware, async (c) =>
 });
 
 oauthRoutes.get('/providers/:id/oauth/poll', adminAuthMiddleware, async (c) => {
-  const providerId = c.req.param('id');
+  const providerId = c.req.param('id')!;
   const flowId = c.req.query('flowId');
 
   if (!flowId) {
@@ -380,7 +380,7 @@ oauthRoutes.get('/providers/:id/oauth/poll', adminAuthMiddleware, async (c) => {
 });
 
 oauthRoutes.post('/providers/:id/oauth/callback', adminAuthMiddleware, async (c) => {
-  const providerId = c.req.param('id');
+  const providerId = c.req.param('id')!;
   const body = (await c.req.json().catch(() => null)) as { flowId?: string; code?: string; state?: string } | null;
 
   if (!body?.flowId || !body?.code || !body?.state) {
@@ -459,7 +459,7 @@ oauthRoutes.post('/providers/:id/oauth/callback', adminAuthMiddleware, async (c)
 });
 
 oauthRoutes.delete('/providers/:id/oauth', adminAuthMiddleware, async (c) => {
-  const providerId = c.req.param('id');
+  const providerId = c.req.param('id')!;
   const provider = getProviderConfig(providerId);
 
   if (!provider) {
@@ -503,7 +503,7 @@ oauthRoutes.delete('/providers/:id/oauth', adminAuthMiddleware, async (c) => {
 });
 
 oauthRoutes.get('/providers/:id/oauth/status', adminAuthMiddleware, (c) => {
-  const providerId = c.req.param('id');
+  const providerId = c.req.param('id')!;
   const provider = getProviderConfig(providerId);
 
   if (!provider) {

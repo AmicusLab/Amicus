@@ -3,19 +3,18 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Tool } from './types.js';
 
-const CreateFileSchema = z.object({
-  path: z.string().describe('Relative path where the file should be created (e.g., "README.md", "src/index.ts")'),
-  content: z.string().describe('Content to write to the file')
+const DeleteFileSchema = z.object({
+  path: z.string().describe('Relative path of the file to delete'),
 });
 
-type CreateFileArgs = z.infer<typeof CreateFileSchema>;
+type DeleteFileArgs = z.infer<typeof DeleteFileSchema>;
 
-export const createFileTool: Tool<CreateFileArgs> = {
-  name: 'create_file',
-  description: 'Creates a new file or overwrites an existing one at the specified path with the given content. Use this to write code, documentation, or logs.',
-  schema: CreateFileSchema,
-  
-  execute: async ({ path: filePath, content }) => {
+export const deleteFileTool: Tool<DeleteFileArgs> = {
+  name: 'delete_file',
+  description: 'Deletes a file at the specified path. The operation is protected by git snapshots so it can be undone.',
+  schema: DeleteFileSchema,
+
+  execute: async ({ path: filePath }) => {
     try {
       // Resolve real paths to prevent symlink bypass attacks
       const projectRoot = await fs.realpath(process.cwd());
@@ -27,14 +26,8 @@ export const createFileTool: Tool<CreateFileArgs> = {
         return `Error: Path traversal detected. File must be within project directory.`;
       }
 
-      const dir = path.dirname(absolutePath);
-
-      // Ensure the directory exists
-      await fs.mkdir(dir, { recursive: true });
-
-      // Resolve real path of directory
-      const realDir = await fs.realpath(dir);
-      const realPath = path.join(realDir, path.basename(absolutePath));
+      // Resolve real path (file must exist)
+      const realPath = await fs.realpath(absolutePath);
 
       // Double-check real path is still within project root
       const realRelativePath = path.relative(projectRoot, realPath);
@@ -42,17 +35,24 @@ export const createFileTool: Tool<CreateFileArgs> = {
         return `Error: Path traversal detected. File must be within project directory.`;
       }
 
-      await fs.writeFile(realPath, content, 'utf-8');
-      return `Successfully created file at: ${filePath}`;
+      // fs.unlink will throw ENOENT if file doesn't exist - no need for fs.access
+      await fs.unlink(realPath);
+      return `Successfully deleted ${filePath}`;
     } catch (error: unknown) {
       if (error && typeof error === 'object' && 'code' in error) {
         const code = (error as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT') {
+          return `Error: File not found: ${filePath}`;
+        }
+        if (code === 'EISDIR') {
+          return `Error: Path is a directory, not a file: ${filePath}`;
+        }
         if (code === 'EACCES' || code === 'EPERM') {
           return `Error: Permission denied: ${filePath}`;
         }
       }
       const errorMessage = error instanceof Error ? error.message : String(error);
-      return `Error creating file: ${errorMessage}`;
+      return `Error deleting file: ${errorMessage}`;
     }
   }
 };
