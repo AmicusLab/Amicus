@@ -17,6 +17,8 @@ export interface Message {
   content: string;
   /** Tool call ID (required when role is 'tool', undefined otherwise) */
   tool_call_id?: string;
+  /** Tool name (when role is 'tool', identifies which tool was called) */
+  tool_name?: string;
   /** Tool calls made by the assistant (when role is 'assistant' and tools were called) */
   tool_calls?: ToolCall[];
 }
@@ -87,3 +89,14 @@ export interface ChatResult {
   /** Provider used */
   provider: string;
 }
+
+/**
+ * Streaming chunk types for SSE streaming chat
+ */
+export type StreamChunk =
+  | { type: 'text_delta'; content: string }
+  | { type: 'tool_call_start'; toolName: string; toolCallId: string }
+  | { type: 'tool_call_result'; toolCallId: string; content: string }
+  | { type: 'usage'; input: number; output: number; total: number }
+  | { type: 'done' }
+  | { type: 'error'; message: string };
