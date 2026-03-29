@@ -58,7 +58,7 @@ const createMockPlugin = (
 
 const createMockRegistry = (plugin: LLMProviderPlugin): ProviderRegistry => {
   return {
-    getPlugin: (id: string) => (id === 'mock' ? plugin : undefined),
+    getPlugin: (id: string) => (id === plugin.id ? plugin : undefined),
     selectModel: () => ({
       model: 'mock:mock-model',
       provider: 'mock',
