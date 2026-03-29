@@ -39,3 +39,4 @@ playwright-report/
 playwright/.cache/
 
 .opensource/
+.wrangler/
