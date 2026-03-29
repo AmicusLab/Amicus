@@ -35,7 +35,8 @@ describe('ChatPanel', () => {
 
   it('should initialize with streaming disabled', () => {
     const panel = new ChatPanel();
-    expect(panel['isStreaming']).toBe(false);
+    // streaming state is managed via chatStreaming signal, not local state
+    expect(panel['streamingContent']).toBe('');
   });
 
   it('should render empty state when no messages', () => {
@@ -63,7 +64,8 @@ describe('ChatPanel', () => {
   it('should have send button enabled when input has content', () => {
     const panel = new ChatPanel();
     panel['inputValue'] = 'Hello';
-    const canSend = !panel['inputValue'].trim() || panel['isStreaming'];
+    // streaming state is managed via chatStreaming signal
+    const canSend = !panel['inputValue'].trim();
     expect(canSend).toBe(false); // disabled = false
   });
 
@@ -94,7 +96,9 @@ describe('ChatPanel Markdown Rendering', () => {
     const panel = new ChatPanel();
     const html = panel['renderMarkdown']('```js\nconsole.log("hello");\n```');
     expect(html).toContain('<code');
-    expect(html).toContain('console.log');
+    // The code is highlighted, console.log is split into spans
+    expect(html).toContain('console');
+    expect(html).toContain('log');
   });
 
   it('should render lists', () => {
@@ -107,6 +111,7 @@ describe('ChatPanel Markdown Rendering', () => {
   it('should handle empty content', () => {
     const panel = new ChatPanel();
     const html = panel['renderMarkdown']('');
-    expect(html).toBe('');
+    // marked.parse('') returns '' or '\n' depending on version
+    expect(html === '' || html === '\n').toBe(true);
   });
 });

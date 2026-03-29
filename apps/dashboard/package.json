@@ -14,9 +14,11 @@
   "dependencies": {
     "@amicus/types": "workspace:*",
     "@preact/signals-core": "^1.8.0",
+    "dompurify": "^3.3.3",
     "highlight.js": "^11.11.1",
     "lit": "^3.2.0",
-    "marked": "^17.0.5"
+    "marked": "^17.0.5",
+    "marked-highlight": "^2.2.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",

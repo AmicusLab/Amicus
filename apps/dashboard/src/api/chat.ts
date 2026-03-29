@@ -30,26 +30,27 @@ export async function streamChat(
   }
 
   // Create a TransformStream to parse JSON lines
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
   const transformStream = new TransformStream<Uint8Array, StreamChunk>({
-    buffer: '',
-    
     transform(chunk, controller) {
       // Append new data to buffer
-      this.buffer += new TextDecoder().decode(chunk);
+      buffer += decoder.decode(chunk);
       
       // Split by newlines and process complete lines
-      const lines = this.buffer.split('\n');
+      const lines = buffer.split('\n');
       
       // Keep the last incomplete line in buffer
-      this.buffer = lines.pop() || '';
+      buffer = lines.pop() || '';
       
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
         
         try {
-          const chunk = JSON.parse(trimmed) as StreamChunk;
-          controller.enqueue(chunk);
+          const parsed = JSON.parse(trimmed) as StreamChunk;
+          controller.enqueue(parsed);
         } catch {
           // Skip malformed JSON
           console.warn('Failed to parse SSE line:', trimmed);
@@ -59,10 +60,10 @@ export async function streamChat(
     
     flush(controller) {
       // Process any remaining data in buffer
-      if (this.buffer.trim()) {
+      if (buffer.trim()) {
         try {
-          const chunk = JSON.parse(this.buffer) as StreamChunk;
-          controller.enqueue(chunk);
+          const parsed = JSON.parse(buffer) as StreamChunk;
+          controller.enqueue(parsed);
         } catch {
           // Ignore final malformed data
         }

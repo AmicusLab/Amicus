@@ -3,26 +3,28 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { ref, createRef } from 'lit/directives/ref.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { marked } from 'marked';
+import { markedHighlight } from 'marked-highlight';
 import hljs from 'highlight.js';
-import { chatMessages, chatLoading, chatStreaming } from '../state/signals.js';
+import DOMPurify from 'dompurify';
+import { chatMessages, chatStreaming, chatLoading } from '../state/signals.js';
 import { streamChat } from '../api/chat.js';
 import type { Message, StreamChunk } from '@amicus/types';
 
-// Configure marked with highlight.js
-marked.setOptions({
-  highlight: function(code: string, lang: string) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value;
-      } catch {
-        // Fall through to auto-detection
+// Configure marked with marked-highlight extension (v17 compatible)
+marked.use(
+  markedHighlight({
+    highlight(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        try {
+          return hljs.highlight(code, { language: lang }).value;
+        } catch {
+          // Fall through to auto-detection
+        }
       }
-    }
-    return hljs.highlightAuto(code).value;
-  },
-  breaks: true,
-  gfm: true,
-});
+      return hljs.highlightAuto(code).value;
+    },
+  })
+);
 
 interface ToolCallInfo {
   id: string;
@@ -35,9 +37,9 @@ interface ToolCallInfo {
 export class ChatPanel extends LitElement {
   @property({ type: Array }) messages: Message[] = [];
   @state() private inputValue = '';
-  @state() private isStreaming = false;
   @state() private streamingContent = '';
-  @state() private toolCalls: Map<string, ToolCallInfo> = new Map();
+  @state() private toolCallsList: ToolCallInfo[] = [];
+  @state() private collapsedTools: Set<string> = new Set();
   
   private messagesEndRef = createRef<HTMLDivElement>();
   private textareaRef = createRef<HTMLTextAreaElement>();
@@ -92,7 +94,7 @@ export class ChatPanel extends LitElement {
       text-align: center;
     }
 
-    .message-tool {
+    .message-tool{
       align-self: flex-start;
       background: #1a1a2a;
       border: 1px solid #444;
@@ -121,18 +123,18 @@ export class ChatPanel extends LitElement {
       font-weight: 500;
     }
 
-    .message-tool-status {
+    .message-tool-status{
       font-size: 0.75rem;
       padding: 0.125rem 0.5rem;
       border-radius: 999px;
     }
 
-    .status-running {
+    .status-running{
       background: #fbbf24;
       color: #000;
     }
 
-    .status-done {
+    .status-done{
       background: #4ade80;
       color: #000;
     }
@@ -244,7 +246,7 @@ export class ChatPanel extends LitElement {
       cursor: not-allowed;
     }
 
-    .loading-indicator {
+    .loading-indicator{
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -283,7 +285,7 @@ export class ChatPanel extends LitElement {
       }
     }
 
-    .empty-state {
+    .empty-state{
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -300,13 +302,13 @@ export class ChatPanel extends LitElement {
       opacity: 0.5;
     }
 
-    .empty-state-title {
+    .empty-state-title{
       font-size: 1.25rem;
       color: #888;
       margin-bottom: 0.5rem;
     }
 
-    .empty-state-desc {
+    .empty-state-desc{
       font-size: 0.875rem;
     }
   `;
@@ -341,7 +343,7 @@ export class ChatPanel extends LitElement {
 
   private async sendMessage(): Promise<void> {
     const content = this.inputValue.trim();
-    if (!content || this.isStreaming) return;
+    if (!content || chatStreaming.value) return;
 
     // Add user message
     const userMessage: Message = { role: 'user', content };
@@ -355,17 +357,19 @@ export class ChatPanel extends LitElement {
       this.textareaRef.value.style.height = 'auto';
     }
 
+    // Reset tool calls for new conversation
+    this.toolCallsList = [];
+
     // Start streaming
-    this.isStreaming = true;
     this.streamingContent = '';
     chatStreaming.value = true;
     chatLoading.value = true;
 
+    let assistantContent = '';
+
     try {
       const stream = await streamChat(updatedMessages);
       const reader = stream.getReader();
-      
-      let assistantContent = '';
       
       while (true) {
         const { done, value } = await reader.read();
@@ -375,19 +379,18 @@ export class ChatPanel extends LitElement {
           assistantContent += value.content;
           this.streamingContent = assistantContent;
         } else if (value.type === 'tool_call_start') {
-          this.toolCalls.set(value.toolCallId, {
-            id: value.toolCallId,
-            name: value.toolName,
-            status: 'running',
-          });
-          this.requestUpdate();
+          // Add new tool call immutably
+          this.toolCallsList = [
+            ...this.toolCallsList,
+            { id: value.toolCallId, name: value.toolName, status: 'running' }
+          ];
         } else if (value.type === 'tool_call_result') {
-          const toolCall = this.toolCalls.get(value.toolCallId);
-          if (toolCall) {
-            toolCall.status = 'done';
-            toolCall.result = value.content;
-            this.requestUpdate();
-          }
+          // Update tool call immutably
+          this.toolCallsList = this.toolCallsList.map(tc =>
+            tc.id === value.toolCallId
+              ? { ...tc, status: 'done' as const, result: value.content }
+              : tc
+          );
         } else if (value.type === 'error') {
           console.error('Stream error:', value.message);
           assistantContent += `\n\n❌ Error: ${value.message}`;
@@ -412,26 +415,44 @@ export class ChatPanel extends LitElement {
       this.messages = finalMessages;
       chatMessages.value = finalMessages;
     } finally {
-      this.isStreaming = false;
       this.streamingContent = '';
       chatStreaming.value = false;
       chatLoading.value = false;
+      
+      // If stream ended without 'done' but has content, save it
+      if (assistantContent && !this.messages.some(m => m.role === 'assistant')) {
+        const assistantMessage: Message = { role: 'assistant', content: assistantContent };
+        const finalMessages = [...updatedMessages, assistantMessage];
+        this.messages = finalMessages;
+        chatMessages.value = finalMessages;
+      }
     }
   }
 
   private renderMarkdown(content: string): string {
     try {
-      return marked.parse(content) as string;
+      const html = marked.parse(content) as string;
+      // Sanitize HTML to prevent XSS (DOMPurify only works in browser)
+      if (typeof DOMPurify !== 'undefined' && DOMPurify.sanitize) {
+        return DOMPurify.sanitize(html);
+      }
+      return html;
     } catch {
       return content;
     }
   }
 
   private toggleToolContent(toolId: string): void {
-    const element = this.shadowRoot?.querySelector(`#tool-content-${toolId}`);
-    if (element) {
-      element.classList.toggle('collapsed');
+    // Use declarative state management
+    if (this.collapsedTools.has(toolId)) {
+      this.collapsedTools = new Set([...this.collapsedTools].filter(id => id !== toolId));
+    } else {
+      this.collapsedTools = new Set([...this.collapsedTools, toolId]);
     }
+  }
+
+  private isToolCollapsed(toolId: string): boolean {
+    return this.collapsedTools.has(toolId);
   }
 
   private renderMessage(message: Message, index: number): unknown {
@@ -454,13 +475,14 @@ export class ChatPanel extends LitElement {
         </div>
       `;
     } else if (message.role === 'tool') {
+      const toolId = `tool-${index}`;
       return html`
         <div class="message message-tool">
-          <div class="message-tool-header" @click=${() => this.toggleToolContent(`tool-${index}`)}>
+          <div class="message-tool-header" @click=${() => this.toggleToolContent(toolId)}>
             <span class="message-tool-name">🔧 ${message.tool_name || 'Tool'}</span>
             <span class="message-tool-status status-done">Done</span>
           </div>
-          <div id="tool-content-tool-${index}" class="message-tool-content collapsed">
+          <div class="message-tool-content ${this.isToolCollapsed(toolId) ? 'collapsed' : ''}">
             ${message.content}
           </div>
         </div>
@@ -470,9 +492,9 @@ export class ChatPanel extends LitElement {
   }
 
   private renderToolCalls(): unknown {
-    if (this.toolCalls.size === 0) return null;
+    if (this.toolCallsList.length === 0) return null;
     
-    return Array.from(this.toolCalls.values()).map(tool => html`
+    return this.toolCallsList.map(tool => html`
       <div class="message message-tool">
         <div class="message-tool-header" @click=${() => this.toggleToolContent(tool.id)}>
           <span class="message-tool-name">🔧 ${tool.name}</span>
@@ -480,7 +502,7 @@ export class ChatPanel extends LitElement {
             ${tool.status === 'running' ? 'Running...' : 'Done'}
           </span>
         </div>
-        <div id="tool-content-${tool.id}" class="message-tool-content ${tool.status === 'done' ? '' : 'collapsed'}">
+        <div class="message-tool-content ${this.isToolCollapsed(tool.id) ? 'collapsed' : ''}">
           ${tool.result || 'Waiting for result...'}
         </div>
       </div>
@@ -489,10 +511,11 @@ export class ChatPanel extends LitElement {
 
   render() {
     const hasMessages = this.messages.length > 0;
+    const isStreaming = chatStreaming.value;
 
     return html`
       <div class="messages-container">
-        ${!hasMessages && !this.isStreaming
+        ${!hasMessages && !isStreaming
           ? html`
               <div class="empty-state">
                 <div class="empty-state-icon">💬</div>
@@ -502,14 +525,14 @@ export class ChatPanel extends LitElement {
             `
           : html`
               ${this.messages.map((msg, i) => this.renderMessage(msg, i))}
-              ${this.isStreaming && this.streamingContent
+              ${isStreaming && this.streamingContent
                 ? html`
                     <div class="message message-assistant">
                       <div class="message-content">${unsafeHTML(this.renderMarkdown(this.streamingContent))}</div>
                     </div>
                   `
                 : null}
-              ${this.isStreaming && !this.streamingContent
+              ${isStreaming && !this.streamingContent
                 ? html`
                     <div class="loading-indicator">
                       <div class="loading-dots">
@@ -534,16 +557,16 @@ export class ChatPanel extends LitElement {
             @input=${this.handleInput}
             @keydown=${this.handleKeyDown}
             placeholder="Send a message... (Enter to send, Shift+Enter for new line)"
-            ?disabled=${this.isStreaming}
+            ?disabled=${isStreaming}
             rows="1"
           ></textarea>
         </div>
         <button
           class="send-button"
           @click=${this.sendMessage}
-          ?disabled=${!this.inputValue.trim() || this.isStreaming}
+          ?disabled=${!this.inputValue.trim() || isStreaming}
         >
-          ${this.isStreaming ? 'Sending...' : 'Send'}
+          ${isStreaming ? 'Sending...' : 'Send'}
         </button>
       </div>
     `;
