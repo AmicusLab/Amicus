@@ -204,12 +204,28 @@ async function searchInFile(
   // Single-pass search for matches
   for (let lineNum = 0; lineNum < lines.length; lineNum++) {
     const line = lines[lineNum]!;
-    regex.lastIndex = 0;
 
-    const match = regex.exec(line);
-    if (match) {
+    // Use matchAll to find ALL matches on this line
+    const matches = [...line.matchAll(regex)];
+
+    // Pre-compute context once for all matches on this line
+    let contextLinesForMatches: string[] | undefined;
+    if (matches.length > 0 && contextLines > 0) {
+      contextLinesForMatches = [];
+      const start = Math.max(0, lineNum - contextLines);
+      const end = Math.min(lines.length - 1, lineNum + contextLines);
+
+      for (let i = start; i <= end; i++) {
+        const prefix = i === lineNum ? '>' : ' ';
+        const contextLine = lines[i]!;
+        contextLinesForMatches.push(`${prefix} ${i + 1}: ${contextLine}`);
+      }
+    }
+
+    // Create a result for EACH match on this line
+    for (const match of matches) {
       const relativePath = path.relative(projectRoot, filePath);
-      const column = match.index + 1;
+      const column = (match.index ?? 0) + 1;
 
       const result: SearchResult = {
         file: relativePath,
@@ -218,17 +234,9 @@ async function searchInFile(
         text: line,
       };
 
-      // Add context lines if requested
-      if (contextLines > 0) {
-        result.context = [];
-        const start = Math.max(0, lineNum - contextLines);
-        const end = Math.min(lines.length - 1, lineNum + contextLines);
-
-        for (let i = start; i <= end; i++) {
-          const prefix = i === lineNum ? '>' : ' ';
-          const contextLine = lines[i]!;
-          result.context.push(`${prefix} ${i + 1}: ${contextLine}`);
-        }
+      // Add context lines if requested (same context for all matches on this line)
+      if (contextLinesForMatches) {
+        result.context = contextLinesForMatches;
       }
 
       results.push(result);
