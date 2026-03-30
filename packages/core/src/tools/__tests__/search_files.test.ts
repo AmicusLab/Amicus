@@ -63,6 +63,8 @@ describe('search_files', () => {
       });
 
       expect(result).toContain('multi.txt');
+      const fooMatches = result.match(/foo/g) ?? [];
+      expect(fooMatches.length).toBeGreaterThanOrEqual(2);
     });
   });
 
@@ -193,7 +195,8 @@ describe('search_files', () => {
         max_results: 5,
       });
 
-      expect(result).toMatch(/(5|limit|truncated)/i);
+      const matches = result.match(/file\d+\.txt/g) ?? [];
+      expect(matches.length).toBeLessThanOrEqual(5);
     });
   });
 

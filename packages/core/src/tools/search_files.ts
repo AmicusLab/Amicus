@@ -59,10 +59,11 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
         return `Error: Path is not a directory: ${searchPath}`;
       }
 
-      // Parse include patterns
+      // Parse include patterns and pre-compile to regex for performance
       const patterns = include
         ? include.split(',').map(p => p.trim()).filter(Boolean)
         : ['*'];
+      const patternRegexes = compilePatternRegexes(patterns);
 
       // Build regex from query
       const flags = case_sensitive ? 'g' : 'gi';
@@ -73,9 +74,10 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
         return `Error: Invalid regex pattern: ${query}`;
       }
 
-      // Collect all files to search
+      // Collect all files to search (limit upfront for early exit)
+      const maxFilesToScan = 10000;
       const filesToSearch: string[] = [];
-      await collectFiles(realPath, realPath, patterns, filesToSearch);
+      await collectFiles(realPath, patternRegexes, filesToSearch, maxFilesToScan);
 
       // Search files
       const results: SearchResult[] = [];
@@ -87,18 +89,13 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
           break;
         }
 
-        try {
-          const fileResults = await searchInFile(filePath, projectRoot, regex, context_lines);
-          for (const result of fileResults) {
-            if (results.length >= max_results) {
-              truncated = true;
-              break;
-            }
-            results.push(result);
+        const fileResults = await searchInFile(filePath, projectRoot, regex, context_lines);
+        for (const result of fileResults) {
+          if (results.length >= max_results) {
+            truncated = true;
+            break;
           }
-        } catch {
-          // Skip files that can't be read (binary, permissions, etc.)
-          continue;
+          results.push(result);
         }
       }
 
@@ -119,13 +116,21 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
 
 async function collectFiles(
   currentDir: string,
-  baseDir: string,
-  patterns: string[],
-  files: string[]
+  patternRegexes: RegExp[],
+  files: string[],
+  maxFiles: number
 ): Promise<void> {
+  if (files.length >= maxFiles) {
+    return;
+  }
+
   const entries = await fs.readdir(currentDir, { withFileTypes: true });
 
   for (const entry of entries) {
+    if (files.length >= maxFiles) {
+      return;
+    }
+
     const name = entry.name;
 
     // Skip hidden files and directories
@@ -141,30 +146,33 @@ async function collectFiles(
     const fullPath = path.join(currentDir, name);
 
     if (entry.isDirectory()) {
-      await collectFiles(fullPath, baseDir, patterns, files);
+      await collectFiles(fullPath, patternRegexes, files, maxFiles);
     } else if (entry.isFile()) {
       // Check if file matches any pattern
-      if (matchesPatterns(name, patterns)) {
+      if (matchesPatterns(name, patternRegexes)) {
         files.push(fullPath);
       }
     }
   }
 }
 
-function matchesPatterns(filename: string, patterns: string[]): boolean {
+function compilePatternRegexes(patterns: string[]): RegExp[] {
   if (patterns.includes('*')) {
-    return true;
+    return [/.*/i]; // Match everything
   }
 
-  return patterns.some(pattern => {
+  return patterns.map(pattern => {
     // Convert glob pattern to regex
     const regexPattern = pattern
       .replace(/[.+^${}()|[\]\\]/g, '\\$&')
       .replace(/\*/g, '.*')
       .replace(/\?/g, '.');
-    const regex = new RegExp(`^${regexPattern}$`, 'i');
-    return regex.test(filename);
+    return new RegExp(`^${regexPattern}$`, 'i');
   });
+}
+
+function matchesPatterns(filename: string, patternRegexes: RegExp[]): boolean {
+  return patternRegexes.some(regex => regex.test(filename));
 }
 
 async function searchInFile(
@@ -186,57 +194,42 @@ async function searchInFile(
     return [];
   }
 
-  const lines = content.split('\n');
+  // Split with CRLF handling for cross-platform compatibility
+  const lines = content.split(/\r?\n/);
   const results: SearchResult[] = [];
-  const matchedLines = new Set<number>();
 
-  // Reset regex lastIndex
-  regex.lastIndex = 0;
-
-  // Find all matches
+  // Single-pass search for matches
   for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    const line = lines[lineNum];
-    if (line === undefined) continue;
+    const line = lines[lineNum]!;
     regex.lastIndex = 0;
 
-    if (regex.test(line)) {
-      matchedLines.add(lineNum);
-    }
-  }
-
-  // Build results with context
-  for (const lineNum of matchedLines) {
-    const line = lines[lineNum];
-    if (line === undefined) continue;
-    const relativePath = path.relative(projectRoot, filePath);
-
-    // Find match column
-    regex.lastIndex = 0;
     const match = regex.exec(line);
-    const column = match ? match.index + 1 : 1;
+    if (match) {
+      const relativePath = path.relative(projectRoot, filePath);
+      const column = match.index + 1;
 
-    const result: SearchResult = {
-      file: relativePath,
-      line: lineNum + 1,
-      column,
-      text: line,
-    };
+      const result: SearchResult = {
+        file: relativePath,
+        line: lineNum + 1,
+        column,
+        text: line,
+      };
 
-    // Add context lines if requested
-    if (contextLines > 0) {
-      result.context = [];
-      const start = Math.max(0, lineNum - contextLines);
-      const end = Math.min(lines.length - 1, lineNum + contextLines);
+      // Add context lines if requested
+      if (contextLines > 0) {
+        result.context = [];
+        const start = Math.max(0, lineNum - contextLines);
+        const end = Math.min(lines.length - 1, lineNum + contextLines);
 
-      for (let i = start; i <= end; i++) {
-        const contextLine = lines[i];
-        if (contextLine === undefined) continue;
-        const prefix = i === lineNum ? '>' : ' ';
-        result.context.push(`${prefix} ${i + 1}: ${contextLine}`);
+        for (let i = start; i <= end; i++) {
+          const prefix = i === lineNum ? '>' : ' ';
+          const contextLine = lines[i]!;
+          result.context.push(`${prefix} ${i + 1}: ${contextLine}`);
+        }
       }
-    }
 
-    results.push(result);
+      results.push(result);
+    }
   }
 
   return results;
@@ -253,7 +246,7 @@ function formatResults(results: SearchResult[], truncated: boolean, maxResults: 
         lines.push('');
       }
       currentFile = result.file;
-      lines.push(`📄 ${result.file}`);
+      lines.push(`File: ${result.file}`);
     }
 
     if (result.context && result.context.length > 0) {
