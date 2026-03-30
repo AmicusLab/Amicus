@@ -1,5 +1,5 @@
 import type { ExecutionSummary } from './types.js';
-import { maskSensitiveInfo, maskSensitiveInfoInObject } from '../utils/sensitive-mask.js';
+import { maskSensitiveInfo } from '../utils/sensitive-mask.js';
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 

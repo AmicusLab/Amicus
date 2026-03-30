@@ -5,7 +5,7 @@
  * 모든 테스트는 먼저 실패해야 함
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import {
   maskSensitiveInfo,
   maskSensitiveInfoInObject,

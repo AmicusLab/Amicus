@@ -186,8 +186,8 @@ export class ChatEngine {
             call.name,
             () => tool.execute(validatedArgs)
           );
-          // 툴 결과 마스킹 (disableMasking이 true가 아니면)
-          const toolResult = config?.disableMasking === true
+          // 툴 결과 마스킹 (서버 환경 변수로만 제어)
+          const toolResult = process.env.AMICUS_DISABLE_MASKING === 'true'
             ? rawResult
             : this.maskingStrategy.mask(rawResult).masked;
           workingMessages.push({
@@ -211,8 +211,8 @@ export class ChatEngine {
     return {
       response: {
         type: 'text',
-        // 마스킹 적용 (disableMasking이 true가 아니면)
-        content: config?.disableMasking === true
+        // 마스킹 적용 (서버 환경 변수로만 제어)
+        content: process.env.AMICUS_DISABLE_MASKING === 'true'
           ? result.text
           : this.maskingStrategy.mask(result.text).masked,
       },
@@ -299,8 +299,8 @@ export class ChatEngine {
       // Stream text deltas with masking
       const streamMasker = new StreamingMasker(256);
       for await (const textPart of result.textStream) {
-        // disableMasking이 true가 아니면 마스킹 적용
-        if (config?.disableMasking !== true) {
+        // 마스킹 적용 (서버 환경 변수로만 제어)
+        if (process.env.AMICUS_DISABLE_MASKING !== 'true') {
           const masked = streamMasker.processChunk(textPart);
           if (masked) {
             yield { type: 'text_delta', content: masked };
@@ -311,7 +311,7 @@ export class ChatEngine {
       }
 
       // Flush remaining buffer
-      if (config?.disableMasking !== true) {
+      if (process.env.AMICUS_DISABLE_MASKING !== 'true') {
         const remaining = streamMasker.flush();
         if (remaining) {
           yield { type: 'text_delta', content: remaining };
@@ -367,8 +367,8 @@ export class ChatEngine {
               call.name,
               () => tool.execute(validatedArgs)
             );
-            // 툴 결과 마스킹 (disableMasking이 true가 아니면)
-            const toolResult = config?.disableMasking === true
+            // 툴 결과 마스킹 (서버 환경 변수로만 제어)
+            const toolResult = process.env.AMICUS_DISABLE_MASKING === 'true'
               ? rawResult
               : this.maskingStrategy.mask(rawResult).masked;
             workingMessages.push({

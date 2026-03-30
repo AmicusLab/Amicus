@@ -4,7 +4,7 @@
  * TDD Red-Green-Refactor 사이클로 작성됨
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import { StreamingMasker, maskSensitiveInfo } from '../sensitive-mask.js';
 
 describe('StreamingMasker', () => {

@@ -46,8 +46,9 @@ function maskSensitiveData(text: string): string {
   let masked = text;
   
   for (const pattern of SENSITIVE_PATTERNS) {
-    masked = masked.replace(pattern, (match, group1) => {
-      if (group1) {
+    masked = masked.replace(pattern, (match, ...args) => {
+      const group1 = args[0];
+      if (group1 && typeof group1 === 'string') {
         // URL 파라미터 형식
         return `${group1}***REDACTED***`;
       }
