@@ -12,6 +12,8 @@ import { chatMessages, chatStreaming, chatLoading } from '../state/signals.js';
 import { streamChat } from '../api/chat.js';
 import type { Message } from '@amicus/types';
 import type { Effect } from '@preact/signals-core';
+import './SessionList.js';
+import './SessionList.js';
 
 // Configure marked with marked-highlight extension (v17 compatible)
 marked.use(
@@ -72,6 +74,28 @@ export class ChatPanel extends LitElement {
       background: #1a1a2e;
       border-radius: 8px;
       overflow: hidden;
+    }
+
+    .chat-container {
+      display: flex;
+      flex-direction: row;
+      height: 100%;
+      background: #1a1a2e;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      width: 300px;
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     .messages-container {
@@ -573,60 +597,70 @@ export class ChatPanel extends LitElement {
     const isStreaming = chatStreaming.value;
 
     return html`
-      <div class="messages-container">
-        ${!hasMessages && !isStreaming
-          ? html`
-              <div class="empty-state">
-                <div class="empty-state-icon">💬</div>
-                <div class="empty-state-title">Start a conversation</div>
-                <div class="empty-state-desc">Send a message to begin chatting with Amicus AI assistant.</div>
-              </div>
-            `
-          : html`
-              ${this.localMessages.map((msg, i) => this.renderMessage(msg, i))}
-              ${isStreaming && this.streamingContent
-                ? html`
-                    <div class="message message-assistant">
-                      <div class="message-content">${unsafeHTML(this.renderMarkdown(this.streamingContent))}</div>
-                    </div>
-                  `
-                : null}
-              ${isStreaming && !this.streamingContent
-                ? html`
-                    <div class="loading-indicator">
-                      <div class="loading-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                      </div>
-                      <span>Thinking...</span>
-                    </div>
-                  `
-                : null}
-              ${this.renderToolCalls()}
-            `}
-        <div ${ref(this.messagesEndRef)}></div>
-      </div>
-
-      <div class="input-container">
-        <div class="input-wrapper">
-          <textarea
-            ${ref(this.textareaRef)}
-            .value=${this.inputValue}
-            @input=${this.handleInput}
-            @keydown=${this.handleKeyDown}
-            placeholder="Send a message... (Enter to send, Shift+Enter for new line)"
-            ?disabled=${isStreaming}
-            rows="1"
-          ></textarea>
+      <div class="chat-container">
+        <!-- Sidebar with session list -->
+        <div class="sidebar">
+          <session-list></session-list>
         </div>
-        <button
-          class="send-button"
-          @click=${this.sendMessage}
-          ?disabled=${!this.inputValue.trim() || isStreaming}
-        >
-          ${isStreaming ? 'Sending...' : 'Send'}
-        </button>
+        
+        <!-- Main chat area -->
+        <div class="main-content">
+          <div class="messages-container">
+            ${!hasMessages && !isStreaming
+              ? html`
+                  <div class="empty-state">
+                    <div class="empty-state-icon">💬</div>
+                    <div class="empty-state-title">Start a conversation</div>
+                    <div class="empty-state-desc">Send a message to begin chatting with Amicus AI assistant.</div>
+                  </div>
+                `
+              : html`
+                  ${this.localMessages.map((msg, i) => this.renderMessage(msg, i))}
+                  ${isStreaming && this.streamingContent
+                    ? html`
+                        <div class="message message-assistant">
+                          <div class="message-content">${unsafeHTML(this.renderMarkdown(this.streamingContent))}</div>
+                        </div>
+                      `
+                    : null}
+                  ${isStreaming && !this.streamingContent
+                    ? html`
+                        <div class="loading-indicator">
+                          <div class="loading-dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                          </div>
+                          <span>Thinking...</span>
+                        </div>
+                      `
+                    : null}
+                  ${this.renderToolCalls()}
+                `}
+            <div ${ref(this.messagesEndRef)}></div>
+          </div>
+
+          <div class="input-container">
+            <div class="input-wrapper">
+              <textarea
+                ${ref(this.textareaRef)}
+                .value=${this.inputValue}
+                @input=${this.handleInput}
+                @keydown=${this.handleKeyDown}
+                placeholder="Send a message... (Enter to send, Shift+Enter for new line)"
+                ?disabled=${isStreaming}
+                rows="1"
+              ></textarea>
+            </div>
+            <button
+              class="send-button"
+              @click=${this.sendMessage}
+              ?disabled=${!this.inputValue.trim() || isStreaming}
+            >
+              ${isStreaming ? 'Sending...' : 'Send'}
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }

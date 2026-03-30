@@ -1,10 +1,12 @@
 import { Buffer } from 'node:buffer';
+import { existsSync, mkdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
+import { Database } from 'bun:sqlite';
 import { healthRoutes } from './routes/health.js';
 import { apiRoutes } from './routes/api.js';
 import { chatRoutes } from './routes/chat.js';
@@ -13,6 +15,8 @@ import { adminRoutes } from './routes/admin.js';
 import { modelRoutes, modelAdminRoutes } from './routes/models.js';
 import { oauthRoutes } from './routes/oauth.js';
 import { testRoutes } from './routes/test.js';
+import { sessionRoutes } from './routes/sessions.js';
+import { SessionService } from './services/SessionService.js';
 import { authMiddleware } from './middleware/auth.js';
 import {
   addClient,
@@ -39,12 +43,28 @@ function getSessionSecret(): string {
 export function createApp(): Hono {
   const app = new Hono();
 
+  // Initialize session service
+  const dataDir = process.env.AMICUS_DATA_DIR || join(process.cwd(), 'data');
+  
+  // Ensure data directory exists
+  if (!existsSync(dataDir)) {
+    mkdirSync(dataDir, { recursive: true });
+  }
+  
+  const dbPath = join(dataDir, 'sessions.db');
+  const db = new Database(dbPath);
+  const sessionService = new SessionService(db, dataDir);
+
   app.use('*', cors());
   app.use('*', logger());
   app.use('*', authMiddleware);
 
   app.route('/health', healthRoutes);
   app.route('/chat', chatRoutes);
+  
+  // Session routes under /api/chat/sessions
+  app.route('/api/chat/sessions', sessionRoutes(sessionService));
+  
   app.route('/api', apiRoutes);
   app.route('/api', providerRoutes);
   app.route('/api', modelRoutes);
