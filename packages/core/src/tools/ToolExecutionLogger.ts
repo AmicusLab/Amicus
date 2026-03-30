@@ -23,7 +23,8 @@ const SENSITIVE_KEYS = [
   'password', 'token', 'apikey', 'secret', 'credential',
   'authorization', 'cookie', 'private_key', 'privatekey',
   'session', 'sessionid', 'refresh_token', 'access_token',
-  'passphrase', 'secretkey', 'api_key', 'key', 'auth',
+  'passphrase', 'secretkey', 'api_key', 'access_key', 'secret_key',
+  'auth_token', 'id_token',
 ];
 
 const LEVELS: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];

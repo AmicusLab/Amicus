@@ -84,12 +84,11 @@ export const SENSITIVE_PATTERNS: SensitivePattern[] = [
 /**
  * 기본 마스킹 옵션
  */
-const DEFAULT_OPTIONS: Required<Omit<MaskOptions, 'patterns' | 'fallbackValue'>> = {
+const DEFAULT_OPTIONS: Required<Omit<MaskOptions, 'patterns' | 'fallbackValue' | 'timeout'>> = {
   maskChar: '***REDACTED***',
   logContext: false,
   maxLength: 100000, // 100KB
   onMaskError: 'log-only',
-  timeout: 5000,
 };
 
 /**

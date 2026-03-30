@@ -88,7 +88,12 @@ export function getMaskedMeta(value: unknown): MaskedValueMeta {
   
   // 객체나 배열의 경우 중첩 검사
   if (type === 'object' || type === 'array') {
-    const str = JSON.stringify(value);
+    let str: string;
+    try {
+      str = JSON.stringify(value);
+    } catch {
+      str = String(value);
+    }
     const masked = isMasked(str);
     
     return {
