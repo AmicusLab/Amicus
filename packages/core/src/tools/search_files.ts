@@ -15,8 +15,6 @@ const SearchFilesSchema = z.object({
 
 type SearchFilesArgs = z.infer<typeof SearchFilesSchema>;
 
-const DEFAULT_MAX_FILES = 10000;
-
 interface SearchResult {
   file: string;
   line: number;
@@ -78,9 +76,8 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
       }
 
       // Collect all files to search (limit upfront for early exit)
-      const maxFilesToScan = max_files ?? DEFAULT_MAX_FILES;
       const filesToSearch: string[] = [];
-      await collectFiles(realPath, patternRegexes, filesToSearch, maxFilesToScan);
+      await collectFiles(realPath, patternRegexes, filesToSearch, max_files);
 
       // Search files
       const results: SearchResult[] = [];
