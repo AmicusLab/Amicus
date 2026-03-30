@@ -8,6 +8,7 @@ import { Hono } from 'hono';
 import { Database } from 'bun:sqlite';
 import { sessionRoutes } from '../src/routes/sessions';
 import { SessionService } from '../src/services/SessionService';
+import { SESSION_LIMITS } from '@amicus/types';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 
@@ -104,7 +105,7 @@ describe('Session API', () => {
 
     test('returns error response on failure', async () => {
       // Create max sessions to trigger error
-      for (let i = 0; i < 1000; i++) {
+      for (let i = 0; i < SESSION_LIMITS.MAX_SESSIONS; i++) {
         await service.create({ title: `Session ${i}` });
       }
 

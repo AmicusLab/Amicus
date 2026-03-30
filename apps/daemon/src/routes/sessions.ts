@@ -85,10 +85,17 @@ export function sessionRoutes(service: SessionService): Hono {
     try {
       let body: { title?: string } = {};
       
-      try {
-        body = await c.req.json();
-      } catch {
-        // Empty body is OK, use defaults
+      const rawBody = await c.req.text();
+      if (rawBody.trim() !== '') {
+        try {
+          body = JSON.parse(rawBody);
+        } catch (parseError) {
+          console.error('[Sessions] Create parse error:', parseError);
+          return c.json(
+            { error: 'Invalid JSON in request body', code: 'INVALID_JSON' } as ErrorResponse,
+            400
+          );
+        }
       }
 
       const session = await service.create({

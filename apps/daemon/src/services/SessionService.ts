@@ -7,8 +7,8 @@
 
 import { Database } from 'bun:sqlite';
 import { randomUUID } from 'crypto';
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync, renameSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { mkdirSync, existsSync, writeFileSync, renameSync } from 'fs';
+import { join, resolve } from 'path';
 import type { ChatSession } from '@amicus/types';
 import { validateSessionId, SESSION_LIMITS } from '@amicus/types';
 
@@ -282,11 +282,16 @@ export class SessionService {
       [title, now, id]
     );
 
-    return {
+    // Update JSON file to keep it in sync with database
+    const updatedSession = {
       ...existing,
       title,
       updatedAt: now,
     };
+    const filePath = this.getSessionPath(id);
+    writeFileSync(filePath, JSON.stringify(updatedSession, null, 2));
+
+    return updatedSession;
   }
 
   /**
@@ -370,6 +375,15 @@ export class SessionService {
       `UPDATE sessions SET messageCount = messageCount + 1, updatedAt = ? WHERE id = ?`,
       [now, id]
     );
+
+    // Update JSON file to keep it in sync with database
+    const updatedSession = {
+      ...existing,
+      messageCount: existing.messageCount + 1,
+      updatedAt: now,
+    };
+    const filePath = this.getSessionPath(id);
+    writeFileSync(filePath, JSON.stringify(updatedSession, null, 2));
   }
 
   /**

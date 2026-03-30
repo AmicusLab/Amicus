@@ -5,14 +5,14 @@
  */
 
 import { LitElement, html, css } from 'lit';
-import { customElement } from 'lit/decorators.js';
+import { customElement, state } from 'lit/decorators.js';
 import type { ChatSession } from '@amicus/types';
 
 @customElement('session-list')
 export class SessionList extends LitElement {
-  private sessions: ChatSession[] = [];
-  private selectedId: string | null = null;
-  private loading = false;
+  @state() private sessions: ChatSession[] = [];
+  @state() private selectedId: string | null = null;
+  @state() private loading = false;
 
   static styles = css`
     :host {
@@ -263,6 +263,8 @@ export class SessionList extends LitElement {
       const response = await fetch('/api/chat/sessions');
       if (response.ok) {
         this.sessions = await response.json();
+      } else {
+        console.error('Failed to load sessions:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Failed to load sessions:', error);
@@ -310,7 +312,15 @@ export class SessionList extends LitElement {
               (session) => html`
                 <div
                   class="session-item ${this.isSelected(session.id) ? 'selected' : ''}"
+                  role="button"
+                  tabindex="0"
                   @click=${() => this.handleSelect(session)}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      this.handleSelect(session);
+                    }
+                  }}
                 >
                   <div class="session-info">
                     <div class="session-title">${session.title}</div>
@@ -326,6 +336,7 @@ export class SessionList extends LitElement {
                       this.handleDelete(session);
                     }}
                     title="Delete session"
+                    aria-label="Delete session"
                   >
                     🗑️
                   </button>
