@@ -25,7 +25,7 @@ interface ErrorResponse {
 /**
  * Map SessionServiceError to HTTP status codes
  */
-function mapErrorToStatus(error: SessionServiceError): number {
+function mapErrorToStatus(error: SessionServiceError): 400 | 403 | 404 | 500 {
   switch (error.code) {
     case 'INVALID_SESSION_ID':
       return 400;
@@ -72,7 +72,7 @@ export function sessionRoutes(service: SessionService): Hono {
       console.error('[Sessions] List error:', error);
       return c.json(
         { error: 'Failed to list sessions', code: 'INTERNAL_ERROR' } as ErrorResponse,
-        500
+        500 as const
       );
     }
   });
@@ -93,14 +93,14 @@ export function sessionRoutes(service: SessionService): Hono {
           console.error('[Sessions] Create parse error:', parseError);
           return c.json(
             { error: 'Invalid JSON in request body', code: 'INVALID_JSON' } as ErrorResponse,
-            400
+            400 as const
           );
         }
       }
 
-      const session = await service.create({
-        title: body.title,
-      });
+      const session = await service.create(
+        body.title !== undefined ? { title: body.title } : {}
+      );
 
       return c.json(session satisfies ChatSession, 201);
     } catch (error) {
@@ -110,7 +110,7 @@ export function sessionRoutes(service: SessionService): Hono {
       console.error('[Sessions] Create error:', error);
       return c.json(
         { error: 'Failed to create session', code: 'INTERNAL_ERROR' } as ErrorResponse,
-        500
+        500 as const
       );
     }
   });
@@ -127,7 +127,7 @@ export function sessionRoutes(service: SessionService): Hono {
       if (!session) {
         return c.json(
           { error: 'Session not found', code: 'SESSION_NOT_FOUND' } as ErrorResponse,
-          404
+          404 as const
         );
       }
 
@@ -139,7 +139,7 @@ export function sessionRoutes(service: SessionService): Hono {
       console.error('[Sessions] Get error:', error);
       return c.json(
         { error: 'Failed to get session', code: 'INTERNAL_ERROR' } as ErrorResponse,
-        500
+        500 as const
       );
     }
   });
@@ -161,7 +161,7 @@ export function sessionRoutes(service: SessionService): Hono {
       console.error('[Sessions] Delete error:', error);
       return c.json(
         { error: 'Failed to delete session', code: 'INTERNAL_ERROR' } as ErrorResponse,
-        500
+        500 as const
       );
     }
   });
@@ -183,7 +183,7 @@ export function sessionRoutes(service: SessionService): Hono {
       console.error('[Sessions] Restore error:', error);
       return c.json(
         { error: 'Failed to restore session', code: 'INTERNAL_ERROR' } as ErrorResponse,
-        500
+        500 as const
       );
     }
   });

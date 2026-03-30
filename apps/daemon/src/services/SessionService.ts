@@ -390,7 +390,7 @@ export class SessionService {
    * Get total count of active sessions
    */
   private getCount(): number {
-    const row = this.db.query<{ count: number }>(`
+    const row = this.db.query<{ count: number }, []>(`
       SELECT COUNT(*) as count FROM sessions WHERE isDeleted = 0
     `).get();
     
