@@ -1,0 +1,9 @@
+# Amicus Safety - Auto-generated
+node_modules/
+.env
+.env.*
+*.log
+*.key
+*.pem
+credentials.json
+secrets.json
