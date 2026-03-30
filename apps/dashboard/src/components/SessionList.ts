@@ -14,6 +14,11 @@ export class SessionList extends LitElement {
   @state() private selectedId: string | null = null;
   @state() private loading = false;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    this.loadSessions();
+  }
+
   static styles = css`
     :host {
       display: flex;
