@@ -31,7 +31,8 @@ describe('maskSensitiveInfo', () => {
     });
 
     it('Anthropic API 키를 감지하고 마스킹해야 함', () => {
-      const text = 'Anthropic 키: sk-test-FAKE-ANTHROPIC-KEY-NOT-REAL';
+      // Anthropic API 키 형식: sk-ant-api... (최소 80자 이상)
+      const text = 'Anthropic 키: sk-ant-api03-FAKE-ANTHROPIC-KEY-NOT-REAL-1234567890123456789012345678901234567890123456789012345678901234567890123456789012345';
       const result = maskSensitiveInfo(text);
       
       expect(result.masked).toContain('***REDACTED***');
@@ -235,16 +236,21 @@ describe('maskSensitiveInfoInObject', () => {
 
 describe('StreamingMasker', () => {
   it('청크 단위로 스트리밍 마스킹을 수행해야 함', () => {
-    const masker = new StreamingMasker(20); // 작은 버퍼 크기로 테스트
+    // 버퍼 크기를 충분히 크게 설정하여 두 청크가 합쳐진 후 처리되도록 함
+    const masker = new StreamingMasker(100);
     
+    // 첫 번째 청크는 버퍼에 저장만 됨
     const chunk1 = masker.processChunk('API 키: sk-test-FAKE-');
-    // 버퍼가 아직 충분히 차지 않았을 수 있음
-    const chunk2 = masker.processChunk('abc123def456T3BlbkFJxyz789 입니다.');
-    // 버퍼가 차면 처리됨
-    const final = masker.flush();
+    expect(chunk1).toBeNull(); // 아직 처리 안 됨
     
-    const result = chunk2 || final;
-    expect(result).toContain('***REDACTED***');
+    // 두 번째 청크 추가 후 flush로 전체 처리
+    const chunk2 = masker.processChunk('KEY-NOT-REAL-12345 입니다.');
+    expect(chunk2).toBeNull(); // 여전히 버퍼가 100 미만
+    
+    // flush로 최종 처리
+    const final = masker.flush();
+    expect(final).toContain('***REDACTED***');
+    expect(final).not.toContain('sk-test-FAKE-KEY-NOT-REAL-12345');
   });
 
   it('flush()로 남은 버퍼를 처리해야 함', () => {
