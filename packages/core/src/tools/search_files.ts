@@ -15,8 +15,6 @@ const SearchFilesSchema = z.object({
 
 type SearchFilesArgs = z.infer<typeof SearchFilesSchema>;
 
-const DEFAULT_MAX_FILES = 10000;
-
 interface SearchResult {
   file: string;
   line: number;
@@ -78,9 +76,8 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
       }
 
       // Collect all files to search (limit upfront for early exit)
-      const maxFilesToScan = max_files ?? DEFAULT_MAX_FILES;
       const filesToSearch: string[] = [];
-      await collectFiles(realPath, patternRegexes, filesToSearch, maxFilesToScan);
+      await collectFiles(realPath, patternRegexes, filesToSearch, max_files);
 
       // Search files
       const results: SearchResult[] = [];
@@ -185,53 +182,61 @@ async function searchInFile(
   contextLines: number
 ): Promise<SearchResult[]> {
   let content: string;
-  try {
-    content = await fs.readFile(filePath, 'utf-8');
-  } catch {
-    return [];
-  }
+    try {
+      content = await fs.readFile(filePath, 'utf-8');
+    } catch {
+      return [];
+    }
 
   // Skip binary files (check for null bytes in first 8000 bytes)
-  const sample = content.slice(0, 8000);
-  if (sample.includes('\0')) {
-    return [];
-  }
+    const sample = content.slice(0, 8000);
+    if (sample.includes('\0')) {
+      return [];
+    }
 
   // Split with CRLF handling for cross-platform compatibility
-  const lines = content.split(/\r?\n/);
-  const results: SearchResult[] = [];
+    const lines = content.split(/\r?\n/);
+    const results: SearchResult[] = [];
 
-  // Single-pass search for matches
-  for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    const line = lines[lineNum]!;
-    regex.lastIndex = 0;
+    // Find all matches on each line using matchAll()
+    for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+      const line = lines[lineNum]!;
 
-    const match = regex.exec(line);
-    if (match) {
-      const relativePath = path.relative(projectRoot, filePath);
-      const column = match.index + 1;
+      // Use matchAll to find all matches on this line
+      const matches = [...line.matchAll(regex)];
 
-      const result: SearchResult = {
-        file: relativePath,
-        line: lineNum + 1,
-        column,
-        text: line,
-      };
-
-      // Add context lines if requested
-      if (contextLines > 0) {
-        result.context = [];
+      // Pre-compute context once for all matches on this line
+      let context: string[] | undefined;
+      if (matches.length > 0 && contextLines > 0) {
+        context = [];
         const start = Math.max(0, lineNum - contextLines);
         const end = Math.min(lines.length - 1, lineNum + contextLines);
 
         for (let i = start; i <= end; i++) {
           const prefix = i === lineNum ? '>' : ' ';
           const contextLine = lines[i]!;
-          result.context.push(`${prefix} ${i + 1}: ${contextLine}`);
+          context.push(`${prefix} ${i + 1}: ${contextLine}`);
         }
       }
 
-      results.push(result);
+      // Create a result for each match on this line
+      for (const match of matches) {
+        const relativePath = path.relative(projectRoot, filePath);
+        const column = (match.index ?? 0) + 1;
+
+        const result: SearchResult = {
+          file: relativePath,
+          line: lineNum + 1,
+          column,
+          text: line,
+        };
+
+        if (context) {
+          result.context = context;
+        }
+
+        results.push(result);
+      }
     }
   }
 
@@ -239,41 +244,41 @@ async function searchInFile(
 }
 
 function formatResults(results: SearchResult[], truncated: boolean, maxResults: number): string {
-  const lines: string[] = [];
-  let currentFile = '';
-  let matchCount = 0;
-  let isFirstMatchInFile = true;
+    const lines: string[] = [];
+    let currentFile = '';
+    let matchCount = 0;
+    let isFirstMatchInFile = true;
 
-  for (const result of results) {
-    if (result.file !== currentFile) {
-      if (currentFile) {
-        lines.push('');
+    for (const result of results) {
+      if (result.file !== currentFile) {
+        if (currentFile) {
+          lines.push('');
+        }
+        currentFile = result.file;
+        lines.push(`File: ${result.file}`);
+        isFirstMatchInFile = true;
       }
-      currentFile = result.file;
-      lines.push(`File: ${result.file}`);
-      isFirstMatchInFile = true;
+
+      if (result.context && result.context.length > 0) {
+        // Add separator between matches within the same file
+        if (!isFirstMatchInFile) {
+          lines.push('');
+        }
+        lines.push(...result.context);
+        isFirstMatchInFile = false;
+      } else {
+        lines.push(`  ${result.line}:${result.column}: ${result.text}`);
+        isFirstMatchInFile = false;
+      }
+      matchCount++;
     }
 
-    if (result.context && result.context.length > 0) {
-      // Add separator between matches within the same file
-      if (!isFirstMatchInFile) {
-        lines.push('');
-      }
-      lines.push(...result.context);
-      isFirstMatchInFile = false;
-    } else {
-      lines.push(`  ${result.line}:${result.column}: ${result.text}`);
-      isFirstMatchInFile = false;
+    lines.push('');
+    lines.push(`Found ${matchCount} match${matchCount === 1 ? '' : 'es'}`);
+
+    if (truncated) {
+      lines.push(`(limited to ${maxResults} results)`);
     }
-    matchCount++;
-  }
 
-  lines.push('');
-  lines.push(`Found ${matchCount} match${matchCount === 1 ? '' : 'es'}`);
-
-  if (truncated) {
-    lines.push(`(limited to ${maxResults} results)`);
-  }
-
-  return lines.join('\n');
+    return lines.join('\n');
 }
