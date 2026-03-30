@@ -1,15 +1,18 @@
 import { generateText, streamText, jsonSchema } from 'ai';
-import type { Message, ChatConfig, ChatResult, StreamChunk } from '@amicus/types';
+import type { Message, ChatConfig, ChatResult, StreamChunk, MaskingStrategy } from '@amicus/types';
 import type { ProviderRegistry } from '../llm/ProviderRegistry.js';
 import type { ToolRegistry } from '../tools/types.js';
 import type { CoreMessage } from 'ai';
 import { SafetyExecutor } from '@amicus/safety';
+import { DefaultMaskingStrategy, StreamingMasker } from '../utils/sensitive-mask.js';
 
 const DEFAULT_SYSTEM_PROMPT = 'You are Amicus, a local-first AI assistant.';
 
 export interface ChatEngineOptions {
   providerRegistry: ProviderRegistry;
   toolRegistry?: ToolRegistry;
+  /** 커스텀 마스킹 전략 (DI) */
+  maskingStrategy?: MaskingStrategy;
 }
 
 interface ProviderAndModel {
@@ -22,6 +25,7 @@ export class ChatEngine {
   private toolRegistry?: ToolRegistry;
   private safety!: SafetyExecutor;
   private safetyReady: Promise<void>;
+  private maskingStrategy: MaskingStrategy;
 
   constructor(options: ChatEngineOptions) {
     this.providerRegistry = options.providerRegistry;
@@ -33,6 +37,8 @@ export class ChatEngine {
       console.error('[ChatEngine] Failed to init Git repo:', err);
       throw err;
     });
+    // 마스킹 전략 DI (기본값: DefaultMaskingStrategy)
+    this.maskingStrategy = options.maskingStrategy ?? new DefaultMaskingStrategy();
   }
 
   /**
@@ -176,10 +182,14 @@ export class ChatEngine {
         try {
           // #5: Validate tool arguments with Zod schema before execution
           const validatedArgs = tool.schema.parse(call.arguments);
-          const toolResult = await this.safety.executeSafe(
+          const rawResult = await this.safety.executeSafe(
             call.name,
             () => tool.execute(validatedArgs)
           );
+          // 툴 결과 마스킹 (서버 환경 변수로만 제어)
+          const toolResult = process.env.AMICUS_DISABLE_MASKING === 'true'
+            ? rawResult
+            : this.maskingStrategy.mask(rawResult).masked;
           workingMessages.push({
             role: 'tool',
             tool_call_id: call.id,
@@ -201,7 +211,10 @@ export class ChatEngine {
     return {
       response: {
         type: 'text',
-        content: result.text,
+        // 마스킹 적용 (서버 환경 변수로만 제어)
+        content: process.env.AMICUS_DISABLE_MASKING === 'true'
+          ? result.text
+          : this.maskingStrategy.mask(result.text).masked,
       },
       usage: {
         input: result.usage.promptTokens,
@@ -283,9 +296,26 @@ export class ChatEngine {
 
       const result = await streamText(streamConfig);
 
-      // Stream text deltas
+      // Stream text deltas with masking
+      const streamMasker = new StreamingMasker(256);
       for await (const textPart of result.textStream) {
-        yield { type: 'text_delta', content: textPart };
+        // 마스킹 적용 (서버 환경 변수로만 제어)
+        if (process.env.AMICUS_DISABLE_MASKING !== 'true') {
+          const masked = streamMasker.processChunk(textPart);
+          if (masked) {
+            yield { type: 'text_delta', content: masked };
+          }
+        } else {
+          yield { type: 'text_delta', content: textPart };
+        }
+      }
+
+      // Flush remaining buffer
+      if (process.env.AMICUS_DISABLE_MASKING !== 'true') {
+        const remaining = streamMasker.flush();
+        if (remaining) {
+          yield { type: 'text_delta', content: remaining };
+        }
       }
 
       // Wait for the full result to get tool calls and usage
@@ -333,10 +363,14 @@ export class ChatEngine {
 
           try {
             const validatedArgs = tool.schema.parse(call.arguments);
-            const toolResult = await this.safety.executeSafe(
+            const rawResult = await this.safety.executeSafe(
               call.name,
               () => tool.execute(validatedArgs)
             );
+            // 툴 결과 마스킹 (서버 환경 변수로만 제어)
+            const toolResult = process.env.AMICUS_DISABLE_MASKING === 'true'
+              ? rawResult
+              : this.maskingStrategy.mask(rawResult).masked;
             workingMessages.push({
               role: 'tool',
               tool_call_id: call.id,

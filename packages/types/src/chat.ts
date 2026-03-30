@@ -70,6 +70,11 @@ export interface ChatConfig {
   topP?: number;
   /** Available tools for function calling */
   tools?: ToolDefinition[];
+  /** 
+   * 민감 정보 마스킹 비활성화 (서버 환경 변수로만 제어 권장)
+   * @deprecated 클라이언트에서 설정하지 마세요. 백엔드에서만 제어해야 합니다.
+   */
+  disableMasking?: boolean;
 }
 
 /**

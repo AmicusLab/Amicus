@@ -12,3 +12,4 @@ export * from './chat';
 export * from './model';
 export * from './auth';
 export * from './session';
+export * from './security';

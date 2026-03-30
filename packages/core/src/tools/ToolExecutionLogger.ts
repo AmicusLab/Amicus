@@ -1,4 +1,5 @@
 import type { ExecutionSummary } from './types.js';
+import { maskSensitiveInfo } from '../utils/sensitive-mask.js';
 
 export type LogLevel = 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
 
@@ -14,47 +15,87 @@ export interface LogEntry {
   attempt?: number;
 }
 
+/**
+ * 키 이름 기반 민감 정보 키 목록
+ * maskSensitiveInfo의 패턴 기반 마스킹과 함께 사용
+ */
 const SENSITIVE_KEYS = [
   'password', 'token', 'apikey', 'secret', 'credential',
   'authorization', 'cookie', 'private_key', 'privatekey',
   'session', 'sessionid', 'refresh_token', 'access_token',
-  'passphrase', 'secretkey',
+  'passphrase', 'secretkey', 'api_key', 'access_key', 'secret_key',
+  'auth_token', 'id_token',
 ];
 
 const LEVELS: LogLevel[] = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
 
+/**
+ * 툴 실행 로깅 서비스
+ * 
+ * 민감 정보 자동 마스킹 기능을 포함:
+ * - 패턴 기반 마스킹 (API 키, 토큰 등)
+ * - 키 이름 기반 마스킹 (password, secret 등)
+ */
 export class ToolExecutionLogger {
   private entries: LogEntry[] = [];
   private readonly maxEntries: number;
   private readonly logLevel: LogLevel;
+  private readonly disableMasking: boolean;
 
-  constructor(config?: { maxEntries?: number; logLevel?: LogLevel }) {
+  constructor(config?: { 
+    maxEntries?: number; 
+    logLevel?: LogLevel;
+    /** 마스킹 비활성화 (서버 환경 변수로만 제어) */
+    disableMasking?: boolean;
+  }) {
     this.maxEntries = config?.maxEntries ?? 1000;
     this.logLevel = config?.logLevel ?? 'INFO';
+    // 마스킹 비활성화는 서버 환경 변수로만 제어
+    this.disableMasking = config?.disableMasking ?? process.env.AMICUS_DISABLE_MASKING === 'true';
   }
 
+  /**
+   * 문자열 마스킹
+   * 패턴 기반 + 키 기반 마스킹 조합
+   */
   private sanitizeString(str: string): string {
-    let result = str.replace(
-      /([?&](?:token|key|secret|password|api_key)=)[^&\s]+/gi,
-      '$1***REDACTED***'
-    );
-    result = result.replace(/Bearer\s+\S+/gi, 'Bearer ***REDACTED***');
-    return result;
+    if (this.disableMasking) return str;
+    
+    // Phase 1의 패턴 기반 마스킹 사용
+    const result = maskSensitiveInfo(str);
+    return result.masked;
   }
 
+  /**
+   * 객체/값 마스킹
+   * 중첩된 객체와 문자열 모두 처리
+   */
   private sanitize(data: unknown): unknown {
+    if (this.disableMasking) return data;
     if (data === null || data === undefined) return data;
 
-    if (typeof data === 'string') return this.sanitizeString(data);
+    // 문자열은 패턴 기반 마스킹
+    if (typeof data === 'string') {
+      return this.sanitizeString(data);
+    }
 
-    if (Array.isArray(data)) return data.map(item => this.sanitize(item));
+    // 배열은 재귀 처리
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitize(item));
+    }
 
+    // 객체는 키 기반 + 패턴 기반 마스킹 조합
     if (typeof data === 'object') {
       const sanitized: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        // 키 이름이 민감 정보 키를 포함하면 마스킹
         if (SENSITIVE_KEYS.some(sk => key.toLowerCase().includes(sk))) {
           sanitized[key] = '***REDACTED***';
+        } else if (typeof value === 'string') {
+          // 문자열 값은 패턴 기반 마스킹
+          sanitized[key] = this.sanitizeString(value);
         } else {
+          // 중첩 객체는 재귀 처리
           sanitized[key] = this.sanitize(value);
         }
       }
