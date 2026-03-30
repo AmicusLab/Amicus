@@ -1,0 +1,3 @@
+[test]
+# Lit이 experimental decorators를 사용하므로 Bun도 이를 사용하도록 설정
+experimentalDecorators = true

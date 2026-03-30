@@ -30,9 +30,11 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/server-github": "^2025.4.8",
+    "@types/jsdom": "^28.0.1",
     "@types/node": "^22.13.4",
     "bun-types": "^1.3.8",
     "concurrently": "^9.2.1",
+    "jsdom": "^29.0.1",
     "typescript": "^5.5.4"
   },
   "dependencies": {
