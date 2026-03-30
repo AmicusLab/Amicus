@@ -65,11 +65,14 @@ function maskSensitiveData(text: string): string {
 function maskAuditEvent(event: AuditEvent): AuditEvent {
   if (DISABLE_MASKING) return event;
   
-  return {
+  const masked: AuditEvent = {
     ...event,
     resource: maskSensitiveData(event.resource),
-    message: event.message ? maskSensitiveData(event.message) : event.message,
   };
+  if (event.message !== undefined) {
+    masked.message = maskSensitiveData(event.message);
+  }
+  return masked;
 }
 
 function auditDir(): string {
