@@ -8,6 +8,54 @@ export interface Tool<T = unknown> {
   execute: (args: T) => Promise<string>;
 }
 
+export enum ErrorCategory {
+  RETRYABLE = 'RETRYABLE',
+  TRANSIENT = 'TRANSIENT',
+  PERMANENT = 'PERMANENT',
+  UNKNOWN = 'UNKNOWN',
+}
+
+export enum RecoveryStrategy {
+  NONE = 'NONE',
+  IMMEDIATE_RETRY = 'IMMEDIATE_RETRY',
+  WAIT_AND_RETRY = 'WAIT_AND_RETRY',
+  EXPONENTIAL_BACKOFF = 'EXPONENTIAL_BACKOFF',
+  FALLBACK = 'FALLBACK',
+}
+
+export interface ClassificationResult {
+  category: ErrorCategory;
+  recoveryStrategy: RecoveryStrategy;
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs?: number;
+  maxTotalDelayMs?: number;
+}
+
+export interface RetryConfig {
+  strategy: RecoveryStrategy;
+  maxRetries: number;
+  baseDelayMs: number;
+  maxDelayMs?: number;
+  maxTotalDelayMs?: number;
+}
+
+export interface ExecutionResult<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: ClassificationResult & { message: string };
+  attempts: number;
+  partialFailure?: Array<{ item: unknown; error: string }>;
+  totalDurationMs: number;
+}
+
+export interface ExecutionSummary {
+  totalCalls: number;
+  successes: number;
+  failures: number;
+  retries: number;
+}
+
 export class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
 
