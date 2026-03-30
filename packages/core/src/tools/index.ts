@@ -7,3 +7,4 @@ export { readFileTool } from "./read_file.js";
 export { editFileTool } from "./edit_file.js";
 export { deleteFileTool } from "./delete_file.js";
 export { listDirectoryTool } from "./list_directory.js";
+export { searchFilesTool } from "./search_files.js";
