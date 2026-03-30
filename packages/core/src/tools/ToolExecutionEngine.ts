@@ -9,7 +9,6 @@ export interface EngineConfig {
   errorClassifier?: ErrorClassifier;
   logger?: ToolExecutionLogger;
   maxExecutionTimeMs?: number;
-  useNewEngine?: boolean;
 }
 
 export class ToolExecutionEngine {
@@ -80,24 +79,37 @@ export class ToolExecutionEngine {
         const validatedArgs = tool.schema.parse(safeArgs);
 
         // Execute tool (with or without safety executor)
-        let result: string;
+        let rawResult: string;
         if (safetyExecutor) {
-          result = await safetyExecutor.executeSafe(toolName, () => tool.execute(validatedArgs));
+          rawResult = await safetyExecutor.executeSafe(toolName, () => tool.execute(validatedArgs));
         } else {
-          result = await tool.execute(validatedArgs);
+          rawResult = await tool.execute(validatedArgs);
         }
 
         const duration = Date.now() - callStartTime;
-        this.logger.logResult(toolName, result, duration);
+        this.logger.logResult(toolName, rawResult, duration);
 
-        // Check for partial success
-        if (this.isPartialSuccess(result)) {
-          return this.handlePartialSuccess(result as unknown as Record<string, unknown>, attempt + 1, Date.now() - startTime);
+        // Attempt to interpret the raw string result as structured data for partial success handling
+        let structuredResult: unknown = rawResult;
+        try {
+          const parsed = JSON.parse(rawResult);
+          structuredResult = parsed;
+        } catch {
+          // If parsing fails, leave structuredResult as the original string
+        }
+
+        // Check for partial success based on the structured result (if any)
+        if (this.isPartialSuccess(structuredResult)) {
+          return this.handlePartialSuccess(
+            structuredResult as Record<string, unknown>,
+            attempt + 1,
+            Date.now() - startTime
+          );
         }
 
         return {
           success: true,
-          data: result,
+          data: rawResult,
           attempts: attempt + 1,
           totalDurationMs: Date.now() - startTime,
         };
@@ -117,21 +129,15 @@ export class ToolExecutionEngine {
           };
         }
 
-        // Create policy on first error, reuse afterwards
-        if (!policy) {
-          const retryConfig: RetryConfig = {
-            strategy: classification.recoveryStrategy,
-            maxRetries: classification.maxRetries,
-            baseDelayMs: classification.baseDelayMs,
-          };
-          if (classification.maxDelayMs !== undefined) {
-            retryConfig.maxDelayMs = classification.maxDelayMs;
-          }
-          if (classification.maxTotalDelayMs !== undefined) {
-            retryConfig.maxTotalDelayMs = classification.maxTotalDelayMs;
-          }
-          policy = new RetryPolicy(retryConfig);
-        }
+        // Build retry policy from the current classification so strategy/maxRetries stay in sync
+        const retryConfig: RetryConfig = {
+          strategy: classification.recoveryStrategy,
+          maxRetries: classification.maxRetries,
+          baseDelayMs: classification.baseDelayMs,
+          ...(classification.maxDelayMs !== undefined && { maxDelayMs: classification.maxDelayMs }),
+          ...(classification.maxTotalDelayMs !== undefined && { maxTotalDelayMs: classification.maxTotalDelayMs }),
+        };
+        policy = new RetryPolicy(retryConfig);
 
         const delay = policy.getDelay(attempt);
 

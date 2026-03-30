@@ -66,7 +66,7 @@ export class ToolExecutionLogger {
 
   private addEntry(entry: LogEntry): void {
     if (this.entries.length >= this.maxEntries) {
-      this.entries = this.entries.slice(-(this.maxEntries - 1));
+      this.entries.shift();
     }
     this.entries.push(entry);
   }
@@ -88,6 +88,8 @@ export class ToolExecutionLogger {
   }
 
   logResult(toolName: string, result: unknown, duration: number): void {
+    if (!this.shouldLog('INFO')) return;
+
     this.addEntry({
       timestamp: Date.now(),
       level: 'INFO',
@@ -99,24 +101,28 @@ export class ToolExecutionLogger {
   }
 
   logError(toolName: string, error: Error, duration: number): void {
+    if (!this.shouldLog('ERROR')) return;
+
     this.addEntry({
       timestamp: Date.now(),
       level: 'ERROR',
       type: 'error',
       toolName,
-      error: error.message,
+      error: this.sanitizeString(error.message),
       duration,
     });
   }
 
   logRetry(toolName: string, attempt: number, error: Error): void {
+    if (!this.shouldLog('WARN')) return;
+
     this.addEntry({
       timestamp: Date.now(),
       level: 'WARN',
       type: 'retry',
       toolName,
       attempt,
-      error: error.message,
+      error: this.sanitizeString(error.message),
     });
   }
 
