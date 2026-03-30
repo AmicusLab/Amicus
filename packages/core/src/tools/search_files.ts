@@ -8,11 +8,14 @@ const SearchFilesSchema = z.object({
   path: z.string().default('.').describe('Directory path to search in (defaults to project root)'),
   include: z.string().optional().describe('File patterns to include (comma-separated, e.g., "*.ts,*.js")'),
   case_sensitive: z.boolean().default(false).describe('Case-sensitive search'),
-  context_lines: z.number().min(0).max(5).default(0).describe('Number of context lines before/after match'),
+  context_lines: z.number().min(0).max(10).default(0).describe('Number of context lines before/after match (max 10)'),
   max_results: z.number().min(1).max(1000).default(100).describe('Maximum number of results to return'),
+  max_files: z.number().min(1).max(50000).default(10000).describe('Maximum number of files to scan (default 10000, max 50000)'),
 });
 
 type SearchFilesArgs = z.infer<typeof SearchFilesSchema>;
+
+const DEFAULT_MAX_FILES = 10000;
 
 interface SearchResult {
   file: string;
@@ -27,7 +30,7 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
   description: 'Search for text patterns in files using regex. Recursively searches all files in the specified directory, excluding hidden files and node_modules by default. Returns matching lines with line numbers and optional context.',
   schema: SearchFilesSchema,
 
-  execute: async ({ query, path: searchPath, include, case_sensitive, context_lines, max_results }) => {
+  execute: async ({ query, path: searchPath, include, case_sensitive, context_lines, max_results, max_files }) => {
     try {
       // Resolve real paths to prevent symlink bypass attacks
       const projectRoot = await fs.realpath(process.cwd());
@@ -75,7 +78,7 @@ export const searchFilesTool: Tool<SearchFilesArgs> = {
       }
 
       // Collect all files to search (limit upfront for early exit)
-      const maxFilesToScan = 10000;
+      const maxFilesToScan = max_files ?? DEFAULT_MAX_FILES;
       const filesToSearch: string[] = [];
       await collectFiles(realPath, patternRegexes, filesToSearch, maxFilesToScan);
 
@@ -239,6 +242,7 @@ function formatResults(results: SearchResult[], truncated: boolean, maxResults: 
   const lines: string[] = [];
   let currentFile = '';
   let matchCount = 0;
+  let isFirstMatchInFile = true;
 
   for (const result of results) {
     if (result.file !== currentFile) {
@@ -247,14 +251,19 @@ function formatResults(results: SearchResult[], truncated: boolean, maxResults: 
       }
       currentFile = result.file;
       lines.push(`File: ${result.file}`);
+      isFirstMatchInFile = true;
     }
 
     if (result.context && result.context.length > 0) {
-      lines.push('');
+      // Add separator between matches within the same file
+      if (!isFirstMatchInFile) {
+        lines.push('');
+      }
       lines.push(...result.context);
-      lines.push('');
+      isFirstMatchInFile = false;
     } else {
       lines.push(`  ${result.line}:${result.column}: ${result.text}`);
+      isFirstMatchInFile = false;
     }
     matchCount++;
   }
